@@ -27,8 +27,8 @@ export type ToolHandler<Input, Output> = (
 export interface ToolDefinition<
   Input = unknown,
   Output = unknown,
-  InputSchema extends z.ZodType<Input> = z.ZodType<Input>,
-  OutputSchema extends z.ZodType<Output> = z.ZodType<Output>,
+  InputSchema extends z.ZodTypeAny = z.ZodType<Input>,
+  OutputSchema extends z.ZodTypeAny = z.ZodType<Output>,
 > {
   name: string
   description: string
@@ -38,7 +38,16 @@ export interface ToolDefinition<
   [key: string]: unknown // Allow additional properties
 }
 
-export type ToolRegistry = Record<string, ToolDefinition<unknown, unknown>>
+export interface ToolRegistryEntry {
+  name: string
+  description: string
+  inputs: z.ZodTypeAny
+  handler: unknown
+  outputSchema?: z.ZodTypeAny
+  [key: string]: unknown
+}
+
+export type ToolRegistry = Record<string, ToolRegistryEntry>
 
 export type ToolName<T extends ToolRegistry> = Extract<keyof T, string>
 

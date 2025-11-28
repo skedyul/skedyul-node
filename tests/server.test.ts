@@ -1,7 +1,12 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { server } = require('../dist/index.js')
-const { z } = require('zod')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { server } from '../dist/index.js'
+import { z } from 'zod'
+import type {
+  DedicatedServerInstance,
+  ServerlessServerInstance,
+  ToolRegistry,
+} from '../dist/types'
 
 function createEchoRegistry() {
   const EchoInputSchema = z.object({
@@ -10,31 +15,31 @@ function createEchoRegistry() {
 
   const EchoOutputSchema = z.object({
     message: z.string(),
-    envSnapshot: z.record(z.string().optional()),
+    envSnapshot: z.record(z.string(), z.string().optional()),
   })
 
   return {
-    'echo': {
+    echo: {
       name: 'echo',
       description: 'Echo tool that returns the input value',
       inputs: EchoInputSchema,
       outputSchema: EchoOutputSchema,
-      handler: async ({ input, context }) => {
-      const value = String(input?.value ?? 'missing')
-      const credits = value.length
+      handler: async ({ input, context }: { input: { value?: string }; context: { env: Record<string, string | undefined>; mode?: 'execute' | 'estimate' } }) => {
+        const value = String(input?.value ?? 'missing')
+        const credits = value.length
 
-      return {
-        output: {
-          message:
-            context.mode === 'estimate'
-              ? `estimate:${value}`
-              : `echo:${value}`,
-          envSnapshot: { ...context.env },
-        },
-        billing: {
-          credits,
-        },
-      }
+        return {
+          output: {
+            message:
+              context.mode === 'estimate'
+                ? `estimate:${value}`
+                : `echo:${value}`,
+            envSnapshot: { ...context.env },
+          },
+          billing: {
+            credits,
+          },
+        }
       },
     },
   }
@@ -50,7 +55,7 @@ test('dedicated server exposes listen + health APIs', () => {
       },
     },
     createEchoRegistry(),
-  )
+  ) as DedicatedServerInstance
 
   assert.strictEqual(typeof instance.listen, 'function')
   assert.strictEqual(typeof instance.getHealthStatus, 'function')
@@ -72,12 +77,12 @@ test('serverless handler responds to MCP calls and health checks', async () => {
       },
     },
     createEchoRegistry(),
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
   const toolCall = {
-    jsonrpc: '2.0',
+    jsonrpc: '2.0' as const,
     id: 1,
     method: 'tools/call',
     params: {
@@ -135,7 +140,7 @@ test('serverless handler responds to MCP calls and health checks', async () => {
 
   assert.strictEqual(listResponse.statusCode, 200)
   const parsedList = JSON.parse(listResponse.body)
-  assert.ok(parsedList.result.tools.some((tool) => tool.name === 'echo'))
+  assert.ok(parsedList.result.tools.some((tool: { name: string }) => tool.name === 'echo'))
 })
 
 test('serverless estimate endpoint returns billing data', async () => {
@@ -148,7 +153,7 @@ test('serverless estimate endpoint returns billing data', async () => {
       },
     },
     createEchoRegistry(),
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -181,7 +186,7 @@ test('serverless handler returns parse error on invalid payload', async () => {
       },
     },
     createEchoRegistry(),
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -210,12 +215,12 @@ test('Zod schema validation accepts valid inputs', async () => {
   })
 
   const registry = {
-    'add': {
+    add: {
       name: 'add',
       description: 'Add two numbers',
       inputs: AddInputSchema,
       outputSchema: AddOutputSchema,
-      handler: async ({ input }) => {
+      handler: async ({ input }: { input: { a: number; b: number } }) => {
         return {
           output: {
             result: input.a + input.b,
@@ -235,7 +240,7 @@ test('Zod schema validation accepts valid inputs', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -275,11 +280,11 @@ test('Zod schema validation rejects invalid inputs', async () => {
   })
 
   const registry = {
-    'add': {
+    add: {
       name: 'add',
       description: 'Add two numbers',
       inputs: AddInputSchema,
-      handler: async ({ input }) => {
+      handler: async ({ input }: { input: { a: number; b: number } }) => {
         return {
           output: { result: input.a + input.b },
           billing: { credits: 1 },
@@ -297,7 +302,7 @@ test('Zod schema validation rejects invalid inputs', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -336,11 +341,11 @@ test('Zod schema with required and optional fields', async () => {
   })
 
   const registry = {
-    'createUser': {
+    createUser: {
       name: 'createUser',
       description: 'Create a user',
       inputs: UserInputSchema,
-      handler: async ({ input }) => {
+      handler: async ({ input }: { input: { name: string; age?: number; email?: string } }) => {
         return {
           output: {
             user: {
@@ -364,7 +369,7 @@ test('Zod schema with required and optional fields', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -408,11 +413,11 @@ test('Zod schema with nested objects and arrays', async () => {
   })
 
   const registry = {
-    'complex': {
+    complex: {
       name: 'complex',
       description: 'Complex tool with nested structures',
       inputs: ComplexInputSchema,
-      handler: async ({ input }) => {
+      handler: async ({ input }: { input: { user: { name: string; tags: string[] }; metadata?: Record<string, string> } }) => {
         return {
           output: {
             processed: true,
@@ -434,7 +439,7 @@ test('Zod schema with nested objects and arrays', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -476,26 +481,26 @@ test('Zod schema with nested objects and arrays', async () => {
 
 test('Multiple tools in registry work correctly', async () => {
   const registry = {
-    'add': {
+    add: {
       name: 'add',
       description: 'Add two numbers',
       inputs: z.object({
         a: z.number(),
         b: z.number(),
       }),
-      handler: async ({ input }) => ({
+      handler: async ({ input }: { input: { a: number; b: number } }) => ({
         output: { result: input.a + input.b },
         billing: { credits: 1 },
       }),
     },
-    'multiply': {
+    multiply: {
       name: 'multiply',
       description: 'Multiply two numbers',
       inputs: z.object({
         a: z.number(),
         b: z.number(),
       }),
-      handler: async ({ input }) => ({
+      handler: async ({ input }: { input: { a: number; b: number } }) => ({
         output: { result: input.a * input.b },
         billing: { credits: 1 },
       }),
@@ -511,7 +516,7 @@ test('Multiple tools in registry work correctly', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -578,7 +583,7 @@ test('Multiple tools in registry work correctly', async () => {
 
   assert.strictEqual(listResponse.statusCode, 200)
   const listParsed = JSON.parse(listResponse.body)
-  const toolNames = listParsed.result.tools.map((t) => t.name)
+  const toolNames = listParsed.result.tools.map((t: { name: string }) => t.name)
   assert.ok(toolNames.includes('add'))
   assert.ok(toolNames.includes('multiply'))
 })
@@ -591,7 +596,7 @@ test('Tool with custom name different from registry key', async () => {
       inputs: z.object({
         value: z.string(),
       }),
-      handler: async ({ input }) => ({
+      handler: async ({ input }: { input: { value: string } }) => ({
         output: { echo: input.value },
         billing: { credits: 1 },
       }),
@@ -607,7 +612,7 @@ test('Tool with custom name different from registry key', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -643,12 +648,12 @@ test('Estimate endpoint works with Zod schema validation', async () => {
     b: z.number(),
   })
 
-  const registry = {
-    'calculate': {
+  const registry : ToolRegistry = {
+    calculate: {
       name: 'calculate',
       description: 'Perform calculation',
       inputs: CalculateInputSchema,
-      handler: async ({ input, context }) => {
+      handler: async ({ input, context }: { input: { operation: 'add' | 'multiply'; a: number; b: number }; context: { mode?: 'execute' | 'estimate' } }) => {
         const result =
           input.operation === 'add'
             ? input.a + input.b
@@ -672,7 +677,7 @@ test('Estimate endpoint works with Zod schema validation', async () => {
       },
     },
     registry,
-  )
+  ) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -698,4 +703,83 @@ test('Estimate endpoint works with Zod schema validation', async () => {
   // In estimate mode, credits should be 0
   assert.strictEqual(parsed.billing.credits, 0)
 })
+
+test('server.create works with a petbooqz-style registry object', async () => {
+  const AppointmentInputSchema = z.object({
+    petName: z.string(),
+    ownerName: z.string(),
+  })
+
+  const AppointmentOutputSchema = z.object({
+    summary: z.string(),
+  })
+
+  const registry: ToolRegistry = {
+    'appointments.create': {
+      name: 'appointments.create',
+      description: 'Create an appointment (petbooqz-style)',
+      inputs: AppointmentInputSchema,
+      outputSchema: AppointmentOutputSchema,
+      handler: async ({
+        input,
+        context,
+      }: {
+        input: { petName: string; ownerName: string }
+        context: { mode?: 'execute' | 'estimate' }
+      }) => {
+        const summary = `${input.petName} with ${input.ownerName} (${context.mode ?? 'execute'})`
+        return {
+          output: { summary },
+          billing: { credits: summary.length },
+        }
+      },
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'petbooqz-style-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  ) as ServerlessServerInstance
+
+  const { handler } = serverless
+
+  const toolCall = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'appointments.create',
+      arguments: {
+        petName: 'Fido',
+        ownerName: 'Alice',
+      },
+    },
+  }
+
+  const response = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify(toolCall),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'petbooqz-style' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.ok(parsed.result)
+  const output = JSON.parse(parsed.result.content[0].text)
+  assert.strictEqual(
+    output.summary,
+    'Fido with Alice (execute)',
+  )
+  assert.strictEqual(parsed.result.billing.credits, output.summary.length)
+})
+
 
