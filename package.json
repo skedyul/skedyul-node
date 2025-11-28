@@ -1,0 +1,33 @@
+{
+  "name": "skedyul",
+  "version": "0.1.0",
+  "description": "The Skedyul SDK for Node.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "test": "npm run build && node --test tests/server.test.js"
+  },
+  "keywords": ["mcp", "skedyul", "serverless", "node", "typescript"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skedyul/skedyul-node"
+  },
+  "author": "Skedyul <support@skedyul.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.5.0"
+  }
+}
+
