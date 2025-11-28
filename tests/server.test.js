@@ -1,10 +1,25 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const { server } = require('../dist/index.js')
+const { z } = require('zod')
 
 function createEchoRegistry() {
+  const EchoInputSchema = z.object({
+    value: z.string().optional().default('missing'),
+  })
+
+  const EchoOutputSchema = z.object({
+    message: z.string(),
+    envSnapshot: z.record(z.string().optional()),
+  })
+
   return {
-    'echo': async ({ input, context }) => {
+    'echo': {
+      name: 'echo',
+      description: 'Echo tool that returns the input value',
+      inputs: EchoInputSchema,
+      outputSchema: EchoOutputSchema,
+      handler: async ({ input, context }) => {
       const value = String(input?.value ?? 'missing')
       const credits = value.length
 
@@ -20,6 +35,7 @@ function createEchoRegistry() {
           credits,
         },
       }
+      },
     },
   }
 }
@@ -67,7 +83,7 @@ test('serverless handler responds to MCP calls and health checks', async () => {
     params: {
       name: 'echo',
       arguments: {
-        inputs: { value: 'hi' },
+        value: 'hi',
       },
     },
   }
@@ -181,5 +197,505 @@ test('serverless handler returns parse error on invalid payload', async () => {
   assert.strictEqual(response.statusCode, 400)
   const parsed = JSON.parse(response.body)
   assert.strictEqual(parsed.error.code, -32700)
+})
+
+test('Zod schema validation accepts valid inputs', async () => {
+  const AddInputSchema = z.object({
+    a: z.number(),
+    b: z.number(),
+  })
+
+  const AddOutputSchema = z.object({
+    result: z.number(),
+  })
+
+  const registry = {
+    'add': {
+      name: 'add',
+      description: 'Add two numbers',
+      inputs: AddInputSchema,
+      outputSchema: AddOutputSchema,
+      handler: async ({ input }) => {
+        return {
+          output: {
+            result: input.a + input.b,
+          },
+          billing: { credits: 1 },
+        }
+      },
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'zod-validation-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  const toolCall = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'add',
+      arguments: {
+        a: 5,
+        b: 3,
+      },
+    },
+  }
+
+  const response = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify(toolCall),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'zod-valid' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.ok(parsed.result)
+  const output = JSON.parse(parsed.result.content[0].text)
+  assert.strictEqual(output.result, 8)
+})
+
+test('Zod schema validation rejects invalid inputs', async () => {
+  const AddInputSchema = z.object({
+    a: z.number(),
+    b: z.number(),
+  })
+
+  const registry = {
+    'add': {
+      name: 'add',
+      description: 'Add two numbers',
+      inputs: AddInputSchema,
+      handler: async ({ input }) => {
+        return {
+          output: { result: input.a + input.b },
+          billing: { credits: 1 },
+        }
+      },
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'zod-invalid-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  const toolCall = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'add',
+      arguments: {
+        a: 'not-a-number',
+        b: 3,
+      },
+    },
+  }
+
+  const response = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify(toolCall),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'zod-invalid' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.ok(parsed.error || parsed.result?.isError)
+})
+
+test('Zod schema with required and optional fields', async () => {
+  const UserInputSchema = z.object({
+    name: z.string(),
+    age: z.number().optional(),
+    email: z.string().email().optional(),
+  })
+
+  const registry = {
+    'createUser': {
+      name: 'createUser',
+      description: 'Create a user',
+      inputs: UserInputSchema,
+      handler: async ({ input }) => {
+        return {
+          output: {
+            user: {
+              name: input.name,
+              age: input.age ?? null,
+              email: input.email ?? null,
+            },
+          },
+          billing: { credits: 1 },
+        }
+      },
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'zod-optional-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  // Test with only required field
+  const toolCall = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'createUser',
+      arguments: {
+        name: 'John Doe',
+      },
+    },
+  }
+
+  const response = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify(toolCall),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'zod-optional' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.ok(parsed.result)
+  const output = JSON.parse(parsed.result.content[0].text)
+  assert.strictEqual(output.user.name, 'John Doe')
+  assert.strictEqual(output.user.age, null)
+})
+
+test('Zod schema with nested objects and arrays', async () => {
+  const ComplexInputSchema = z.object({
+    user: z.object({
+      name: z.string(),
+      tags: z.array(z.string()),
+    }),
+    metadata: z.record(z.string(), z.string()).optional(),
+  })
+
+  const registry = {
+    'complex': {
+      name: 'complex',
+      description: 'Complex tool with nested structures',
+      inputs: ComplexInputSchema,
+      handler: async ({ input }) => {
+        return {
+          output: {
+            processed: true,
+            user: input.user,
+            metadata: input.metadata ?? {},
+          },
+          billing: { credits: 1 },
+        }
+      },
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'zod-complex-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  const toolCall = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'complex',
+      arguments: {
+        user: {
+          name: 'Alice',
+          tags: ['admin', 'user'],
+        },
+        metadata: {
+          source: 'test',
+        },
+      },
+    },
+  }
+
+  const response = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify(toolCall),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'zod-complex' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.ok(parsed.result)
+  const output = JSON.parse(parsed.result.content[0].text)
+  assert.strictEqual(output.processed, true)
+  assert.strictEqual(output.user.name, 'Alice')
+  assert.deepStrictEqual(output.user.tags, ['admin', 'user'])
+})
+
+test('Multiple tools in registry work correctly', async () => {
+  const registry = {
+    'add': {
+      name: 'add',
+      description: 'Add two numbers',
+      inputs: z.object({
+        a: z.number(),
+        b: z.number(),
+      }),
+      handler: async ({ input }) => ({
+        output: { result: input.a + input.b },
+        billing: { credits: 1 },
+      }),
+    },
+    'multiply': {
+      name: 'multiply',
+      description: 'Multiply two numbers',
+      inputs: z.object({
+        a: z.number(),
+        b: z.number(),
+      }),
+      handler: async ({ input }) => ({
+        output: { result: input.a * input.b },
+        billing: { credits: 1 },
+      }),
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'multi-tool-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  // Test add
+  const addResponse = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'add',
+        arguments: { a: 5, b: 3 },
+      },
+    }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'add' },
+  })
+
+  assert.strictEqual(addResponse.statusCode, 200)
+  const addParsed = JSON.parse(addResponse.body)
+  const addOutput = JSON.parse(addParsed.result.content[0].text)
+  assert.strictEqual(addOutput.result, 8)
+
+  // Test multiply
+  const multiplyResponse = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'multiply',
+        arguments: { a: 4, b: 7 },
+      },
+    }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'multiply' },
+  })
+
+  assert.strictEqual(multiplyResponse.statusCode, 200)
+  const multiplyParsed = JSON.parse(multiplyResponse.body)
+  const multiplyOutput = JSON.parse(multiplyParsed.result.content[0].text)
+  assert.strictEqual(multiplyOutput.result, 28)
+
+  // Test tools/list includes both
+  const listResponse = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/list',
+      params: {},
+    }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'list' },
+  })
+
+  assert.strictEqual(listResponse.statusCode, 200)
+  const listParsed = JSON.parse(listResponse.body)
+  const toolNames = listParsed.result.tools.map((t) => t.name)
+  assert.ok(toolNames.includes('add'))
+  assert.ok(toolNames.includes('multiply'))
+})
+
+test('Tool with custom name different from registry key', async () => {
+  const registry = {
+    'custom-key': {
+      name: 'custom-tool-name',
+      description: 'Tool with custom name',
+      inputs: z.object({
+        value: z.string(),
+      }),
+      handler: async ({ input }) => ({
+        output: { echo: input.value },
+        billing: { credits: 1 },
+      }),
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'custom-name-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  // Use the custom name, not the registry key
+  const response = await handler({
+    path: '/mcp',
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'custom-tool-name',
+        arguments: { value: 'test' },
+      },
+    }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'custom-name' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.ok(parsed.result)
+  const output = JSON.parse(parsed.result.content[0].text)
+  assert.strictEqual(output.echo, 'test')
+})
+
+test('Estimate endpoint works with Zod schema validation', async () => {
+  const CalculateInputSchema = z.object({
+    operation: z.enum(['add', 'multiply']),
+    a: z.number(),
+    b: z.number(),
+  })
+
+  const registry = {
+    'calculate': {
+      name: 'calculate',
+      description: 'Perform calculation',
+      inputs: CalculateInputSchema,
+      handler: async ({ input, context }) => {
+        const result =
+          input.operation === 'add'
+            ? input.a + input.b
+            : input.a * input.b
+        const credits = context.mode === 'estimate' ? 0 : 1
+
+        return {
+          output: { result },
+          billing: { credits },
+        }
+      },
+    },
+  }
+
+  const serverless = server.create(
+    {
+      computeLayer: 'serverless',
+      metadata: {
+        name: 'estimate-zod-test',
+        version: '0.0.1',
+      },
+    },
+    registry,
+  )
+
+  const { handler } = serverless
+
+  const estimateResponse = await handler({
+    path: '/estimate',
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      name: 'calculate',
+      inputs: {
+        operation: 'add',
+        a: 10,
+        b: 5,
+      },
+    }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'estimate-zod' },
+  })
+
+  assert.strictEqual(estimateResponse.statusCode, 200)
+  const parsed = JSON.parse(estimateResponse.body)
+  assert.ok(parsed.billing)
+  // In estimate mode, credits should be 0
+  assert.strictEqual(parsed.billing.credits, 0)
 })
 

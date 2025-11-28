@@ -1,0 +1,108 @@
+name: Publish to NPM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if commit is from workflow
+        id: check_commit
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_AUTHOR=$(git log -1 --pretty=%an)
+          
+          if [[ "$COMMIT_MSG" =~ "chore: bump version" ]] || [[ "$COMMIT_AUTHOR" == "github-actions[bot]" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Skipping: Commit is from workflow (version bump or bot author)"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_commit.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Configure Git
+        if: steps.check_commit.outputs.skip != 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install pnpm
+        if: steps.check_commit.outputs.skip != 'true'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        if: steps.check_commit.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Determine version bump type
+        if: steps.check_commit.outputs.skip != 'true'
+        id: version
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if [[ "$COMMIT_MSG" =~ \[major\] ]]; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif [[ "$COMMIT_MSG" =~ \[minor\] ]]; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version
+        if: steps.check_commit.outputs.skip != 'true'
+        id: bump
+        run: |
+          TYPE="${{ steps.version.outputs.type }}"
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          npm version $TYPE --no-git-tag-version
+          
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Run tests
+        if: steps.check_commit.outputs.skip != 'true'
+        run: pnpm test
+
+      - name: Build package
+        if: steps.check_commit.outputs.skip != 'true'
+        run: pnpm build
+
+      - name: Publish to NPM
+        if: steps.check_commit.outputs.skip != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create git tag
+        if: steps.check_commit.outputs.skip != 'true'
+        run: |
+          git tag "v${{ steps.bump.outputs.new }}"
+          git push origin "v${{ steps.bump.outputs.new }}"
+
+      - name: Commit version bump
+        if: steps.check_commit.outputs.skip != 'true'
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new }} [skip ci]"
+          git push origin main
+

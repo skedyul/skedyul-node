@@ -1,4 +1,5 @@
 import type { CoreApiConfig } from './core/types'
+import type { z } from 'zod'
 
 export interface ToolContext {
   env: Record<string, string | undefined>
@@ -23,7 +24,21 @@ export type ToolHandler<Input, Output> = (
   params: ToolParams<Input, Output>,
 ) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
 
-export type ToolRegistry = Record<string, ToolHandler<unknown, unknown>>
+export interface ToolDefinition<
+  Input = unknown,
+  Output = unknown,
+  InputSchema extends z.ZodType<Input> = z.ZodType<Input>,
+  OutputSchema extends z.ZodType<Output> = z.ZodType<Output>,
+> {
+  name: string
+  description: string
+  inputs: InputSchema
+  handler: ToolHandler<Input, Output>
+  outputSchema?: OutputSchema
+  [key: string]: unknown // Allow additional properties
+}
+
+export type ToolRegistry = Record<string, ToolDefinition<unknown, unknown>>
 
 export type ToolName<T extends ToolRegistry> = Extract<keyof T, string>
 

@@ -1,10 +1,8 @@
 import http, { IncomingMessage, ServerResponse } from 'http'
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import * as z from 'zod'
 
 import type {
   APIGatewayProxyEvent,
@@ -236,9 +234,9 @@ async function handleCoreMethod(
 }
 
 function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
-  return Object.keys(registry).map((name) => ({
-    name,
-    description: `Function: ${name}`,
+  return Object.values(registry).map((tool) => ({
+    name: tool.name,
+    description: tool.description,
     inputSchema: {
       type: 'object',
       properties: {
@@ -295,15 +293,17 @@ function createCallToolHandler<T extends ToolRegistry>(
     argsRaw: unknown,
   ): Promise<ToolCallResponse> {
     const toolName = String(nameRaw) as ToolName<T>
-    const fn = registry[toolName]
+    const tool = registry[toolName]
 
-    if (!fn) {
+    if (!tool) {
       throw new Error(`Tool "${toolName}" not found in registry`)
     }
 
-    if (typeof fn !== 'function') {
-      throw new Error(`Registry entry "${toolName}" is not a function`)
+    if (!tool.handler || typeof tool.handler !== 'function') {
+      throw new Error(`Tool "${toolName}" handler is not a function`)
     }
+
+    const fn = tool.handler
 
     const args = (argsRaw ?? {}) as ToolCallArgs
     const estimateMode = args.estimate === true
@@ -433,7 +433,7 @@ export function createSkedyulServer(
   }
 
   const tools = buildToolMetadata(registry)
-  const toolNames = tools.map((tool) => tool.name)
+  const toolNames = Object.values(registry).map((tool) => tool.name)
   const runtimeLabel = config.computeLayer
   const maxRequests =
     config.maxRequests ??
@@ -451,17 +451,10 @@ export function createSkedyulServer(
     toolNames,
   )
 
-  const server = new Server(
-    {
+  const mcpServer = new McpServer({
       name: config.metadata.name,
       version: config.metadata.version,
-    },
-    {
-      capabilities: {
-        tools: {},
-      },
-    },
-  )
+  })
 
   const dedicatedShutdown = () => {
     // eslint-disable-next-line no-console
@@ -475,15 +468,33 @@ export function createSkedyulServer(
     config.computeLayer === 'dedicated' ? dedicatedShutdown : undefined,
   )
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools,
-  }))
+  // Register all tools from the registry
+  for (const [toolKey, tool] of Object.entries(registry)) {
+    // Use the tool's name or fall back to the registry key
+    const toolName = tool.name || toolKey
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) =>
-    (callTool(request.params.name, request.params.arguments) as unknown) as {
-      tools: ToolMetadata[]
+    mcpServer.registerTool(
+      toolName,
+      {
+        title: toolName,
+        description: tool.description,
+        inputSchema: tool.inputs,
+        outputSchema: tool.outputSchema,
+      },
+      async (args: any) => {
+        // Args will be the parsed Zod schema values directly
+        const result = await callTool(toolKey, {
+          inputs: args,
+        })
+        return {
+          content: result.content,
+          structuredContent: result.isError
+            ? undefined
+            : JSON.parse(result.content[0]?.text ?? '{}'),
+        }
     },
   )
+  }
 
   if (config.computeLayer === 'dedicated') {
     return createDedicatedServerInstance(
@@ -491,10 +502,11 @@ export function createSkedyulServer(
       tools,
       callTool,
       state,
+      mcpServer,
     )
   }
 
-  return createServerlessInstance(config, tools, callTool, state)
+  return createServerlessInstance(config, tools, callTool, state, mcpServer, registry)
 }
 
 function createDedicatedServerInstance(
@@ -502,6 +514,7 @@ function createDedicatedServerInstance(
   tools: ToolMetadata[],
   callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
+  mcpServer: McpServer,
 ): SkedyulServerInstance {
   const port = getListeningPort(config)
   const httpServer = http.createServer(
@@ -629,64 +642,23 @@ function createDedicatedServerInstance(
         }
 
       if (pathname === '/mcp' && req.method === 'POST') {
-        let body: any
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined,
+          enableJsonResponse: true,
+          })
+
+        res.on('close', () => {
+          transport.close()
+        })
 
         try {
-          body = (await parseJSONBody(req)) as any
-        } catch {
-          sendJSON(res, 400, {
-            jsonrpc: '2.0',
-            id: null,
-            error: {
-              code: -32700,
-              message: 'Parse error',
-            },
-          })
-          return
-        }
-
-        try {
-          const { jsonrpc, id, method, params } = body
-
-          if (jsonrpc !== '2.0') {
-            sendJSON(res, 400, {
-              jsonrpc: '2.0',
-              id,
-              error: {
-                code: -32600,
-                message: 'Invalid Request',
-              },
-            })
-            return
-          }
-
-          let result: unknown
-
-          if (method === 'tools/list') {
-            result = { tools }
-          } else if (method === 'tools/call') {
-            result = await callTool(params?.name, params?.arguments)
-          } else {
-            sendJSON(res, 200, {
-              jsonrpc: '2.0',
-              id,
-              error: {
-                code: -32601,
-                message: `Method not found: ${method}`,
-              },
-            })
-            return
-          }
-
-          sendJSON(res, 200, {
-            jsonrpc: '2.0',
-            id,
-            result,
-          })
+          const body = await parseJSONBody(req)
+          await mcpServer.connect(transport)
+          await transport.handleRequest(req, res, body)
         } catch (err) {
           sendJSON(res, 500, {
             jsonrpc: '2.0',
-            id: body?.id ?? null,
+            id: null,
             error: {
               code: -32603,
               message: err instanceof Error ? err.message : String(err ?? ''),
@@ -745,6 +717,8 @@ function createServerlessInstance(
   tools: ToolMetadata[],
   callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
+  mcpServer: McpServer,
+  registry: ToolRegistry,
 ): SkedyulServerInstance {
   const headers = getDefaultHeaders(config.cors)
 
@@ -844,8 +818,38 @@ function createServerlessInstance(
           }
 
           try {
-            const estimateResponse = await callTool(estimateBody.name, {
-              inputs: estimateBody.inputs,
+            const toolName = estimateBody.name as string
+            const toolArgs = estimateBody.inputs ?? {}
+
+            // Find tool by name
+            let toolKey: string | null = null
+            let tool = null
+
+            for (const [key, t] of Object.entries(registry)) {
+              if (t.name === toolName || key === toolName) {
+                toolKey = key
+                tool = t
+                break
+              }
+            }
+
+            if (!tool || !toolKey) {
+              return createResponse(
+                400,
+                {
+                  error: {
+                    code: -32602,
+                    message: `Tool "${toolName}" not found`,
+                  },
+                },
+                headers,
+              )
+            }
+
+            // Validate arguments against Zod schema
+            const validatedArgs = tool.inputs.parse(toolArgs)
+            const estimateResponse = await callTool(toolKey, {
+              inputs: validatedArgs,
               estimate: true,
             })
 
@@ -917,7 +921,59 @@ function createServerlessInstance(
             if (rpcMethod === 'tools/list') {
               result = { tools }
             } else if (rpcMethod === 'tools/call') {
-              result = await callTool(params?.name, params?.arguments)
+              const toolName = params?.name as string
+              const toolArgs = params?.arguments ?? {}
+
+              // Find tool by name (check both registry key and tool.name)
+              let toolKey: string | null = null
+              let tool = null
+
+              for (const [key, t] of Object.entries(registry)) {
+                if (t.name === toolName || key === toolName) {
+                  toolKey = key
+                  tool = t
+                  break
+                }
+              }
+
+              if (!tool || !toolKey) {
+                return createResponse(
+                  200,
+                  {
+                    jsonrpc: '2.0',
+                    id,
+                    error: {
+                      code: -32602,
+                      message: `Tool "${toolName}" not found`,
+                    },
+                  },
+                  headers,
+                )
+              }
+
+              // Validate arguments against Zod schema
+              try {
+                const validatedArgs = tool.inputs.parse(toolArgs)
+                result = await callTool(toolKey, {
+                  inputs: validatedArgs,
+                })
+              } catch (validationError) {
+                return createResponse(
+                  200,
+                  {
+                    jsonrpc: '2.0',
+                    id,
+                    error: {
+                      code: -32602,
+                      message:
+                        validationError instanceof Error
+                          ? validationError.message
+                          : 'Invalid arguments',
+                    },
+                  },
+                  headers,
+                )
+              }
             } else {
               return createResponse(
                 200,
