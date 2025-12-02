@@ -704,7 +704,7 @@ test('Estimate endpoint works with Zod schema validation', async () => {
   assert.strictEqual(parsed.billing.credits, 0)
 })
 
-test('server.create works with a petbooqz-style registry object', async () => {
+test('server.create works with a namespaced registry object', async () => {
   const AppointmentInputSchema = z.object({
     petName: z.string(),
     ownerName: z.string(),
@@ -717,7 +717,7 @@ test('server.create works with a petbooqz-style registry object', async () => {
   const registry: ToolRegistry = {
     'appointments.create': {
       name: 'appointments.create',
-      description: 'Create an appointment (petbooqz-style)',
+      description: 'Create an appointment (namespaced style)',
       inputs: AppointmentInputSchema,
       outputSchema: AppointmentOutputSchema,
       handler: async ({
@@ -740,7 +740,7 @@ test('server.create works with a petbooqz-style registry object', async () => {
     {
       computeLayer: 'serverless',
       metadata: {
-        name: 'petbooqz-style-test',
+        name: 'namespaced-registry-test',
         version: '0.0.1',
       },
     },

@@ -45,19 +45,40 @@ function normalizeBilling(billing?: BillingInfo): BillingInfo {
 // library. At runtime the schemas are compatible.
 const zodToJsonSchemaLoose: (
   schema: unknown,
-  options?: unknown,
+  nameOrOptions?: unknown,
 ) => unknown = zodToJsonSchemaRaw as unknown as (
   schema: unknown,
-  options?: unknown,
+  nameOrOptions?: unknown,
 ) => unknown
+
+let schemaIdCounter = 0
 
 function toJsonSchema(schema: unknown): Record<string, unknown> | undefined {
   if (!schema) return undefined
   try {
-    return zodToJsonSchemaLoose(schema, {
-      target: 'jsonSchema7',
-      $refStrategy: 'none',
-    }) as Record<string, unknown>
+    const schemaName = `ToolSchema${schemaIdCounter++}`
+    const json = zodToJsonSchemaLoose(schema, schemaName) as Record<
+      string,
+      unknown
+    >
+
+    if (
+      typeof json === 'object' &&
+      json !== null &&
+      '$ref' in json &&
+      typeof json.$ref === 'string' &&
+      json.$ref.startsWith('#/definitions/')
+    ) {
+      const defName = json.$ref.split('/').pop()
+      const definitions = json.definitions as
+        | Record<string, Record<string, unknown>>
+        | undefined
+      if (defName && definitions && definitions[defName]) {
+        return definitions[defName]
+      }
+    }
+
+    return json as Record<string, unknown>
   } catch {
     return undefined
   }
