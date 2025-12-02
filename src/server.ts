@@ -3,8 +3,7 @@ import http, { IncomingMessage, ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import * as z from 'zod'
-import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
-import type { AnyObjectSchema } from '@modelcontextprotocol/sdk/server/zod-compat.js'
+import { zodToJsonSchema as zodToJsonSchemaRaw } from 'zod-to-json-schema'
 
 import type {
   APIGatewayProxyEvent,
@@ -36,6 +35,33 @@ interface RequestState {
   getHealthStatus(): HealthStatus
 }
 
+type JsonSchemaCompatFn = (
+  schema: unknown,
+  options?: {
+    target?: 'jsonSchema7' | 'draft-7' | 'jsonSchema2019-09' | 'draft-2020-12'
+    pipeStrategy?: 'input' | 'output'
+  },
+) => Record<string, unknown>
+
+const zodToJsonSchemaLoose: (
+  schema: unknown,
+  options?: unknown,
+) => unknown = zodToJsonSchemaRaw as unknown as (
+  schema: unknown,
+  options?: unknown,
+) => unknown
+
+let toJsonSchemaCompatFn: JsonSchemaCompatFn | null = null
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  const compat = require('@modelcontextprotocol/sdk/server/zod-json-schema-compat.js')
+  if (compat?.toJsonSchemaCompat) {
+    toJsonSchemaCompatFn = compat.toJsonSchemaCompat as JsonSchemaCompatFn
+  }
+} catch {
+  toJsonSchemaCompatFn = null
+}
+
 function normalizeBilling(billing?: BillingInfo): BillingInfo {
   if (!billing || typeof billing.credits !== 'number') {
     return { credits: 0 }
@@ -46,9 +72,15 @@ function normalizeBilling(billing?: BillingInfo): BillingInfo {
 function toJsonSchema(schema?: z.ZodTypeAny): Record<string, unknown> | undefined {
   if (!schema) return undefined
   try {
-    return toJsonSchemaCompat(schema as unknown as AnyObjectSchema, {
+    if (toJsonSchemaCompatFn) {
+      return toJsonSchemaCompatFn(schema, {
+        target: 'jsonSchema7',
+        pipeStrategy: 'input',
+      })
+    }
+    return zodToJsonSchemaLoose(schema, {
       target: 'jsonSchema7',
-      pipeStrategy: 'input',
+      $refStrategy: 'none',
     }) as Record<string, unknown>
   } catch {
     return undefined
