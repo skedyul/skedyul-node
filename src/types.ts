@@ -20,6 +20,17 @@ export interface ToolExecutionResult<Output = unknown> {
   billing: BillingInfo
 }
 
+export interface ToolSchemaWithJson<
+  Schema extends z.ZodTypeAny = z.ZodTypeAny,
+> {
+  zod: Schema
+  jsonSchema?: Record<string, unknown>
+}
+
+export type ToolSchema<Schema extends z.ZodTypeAny = z.ZodTypeAny> =
+  | Schema
+  | ToolSchemaWithJson<Schema>
+
 export type ToolHandler<Input, Output> = (
   params: ToolParams<Input, Output>,
 ) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
@@ -32,18 +43,18 @@ export interface ToolDefinition<
 > {
   name: string
   description: string
-  inputs: InputSchema
+  inputs: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
-  outputSchema?: OutputSchema
+  outputSchema?: ToolSchema<OutputSchema>
   [key: string]: unknown // Allow additional properties
 }
 
 export interface ToolRegistryEntry {
   name: string
   description: string
-  inputs: z.ZodTypeAny
+  inputs: ToolSchema
   handler: unknown
-  outputSchema?: z.ZodTypeAny
+  outputSchema?: ToolSchema
   [key: string]: unknown
 }
 

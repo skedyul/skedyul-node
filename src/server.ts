@@ -3,7 +3,8 @@ import http, { IncomingMessage, ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import * as z from 'zod'
-import { zodToJsonSchema as zodToJsonSchemaRaw } from 'zod-to-json-schema'
+import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
+import type { AnyObjectSchema } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 
 import type {
   APIGatewayProxyEvent,
@@ -17,6 +18,8 @@ import type {
   ToolMetadata,
   ToolName,
   ToolRegistry,
+  ToolSchema,
+  ToolSchemaWithJson,
 } from './types'
 import { coreApiService } from './core/service'
 import type { CommunicationChannel, Message, WebhookRequest } from './core/types'
@@ -40,48 +43,51 @@ function normalizeBilling(billing?: BillingInfo): BillingInfo {
   return billing
 }
 
-// Loosely-typed wrapper around zod-to-json-schema to avoid version/type
-// mismatches between the zod dependency used here and the one used by the
-// library. At runtime the schemas are compatible.
-const zodToJsonSchemaLoose: (
-  schema: unknown,
-  nameOrOptions?: unknown,
-) => unknown = zodToJsonSchemaRaw as unknown as (
-  schema: unknown,
-  nameOrOptions?: unknown,
-) => unknown
-
-let schemaIdCounter = 0
-
-function toJsonSchema(schema: unknown): Record<string, unknown> | undefined {
+function toJsonSchema(schema?: z.ZodTypeAny): Record<string, unknown> | undefined {
   if (!schema) return undefined
   try {
-    const schemaName = `ToolSchema${schemaIdCounter++}`
-    const json = zodToJsonSchemaLoose(schema, schemaName) as Record<
-      string,
-      unknown
-    >
-
-    if (
-      typeof json === 'object' &&
-      json !== null &&
-      '$ref' in json &&
-      typeof json.$ref === 'string' &&
-      json.$ref.startsWith('#/definitions/')
-    ) {
-      const defName = json.$ref.split('/').pop()
-      const definitions = json.definitions as
-        | Record<string, Record<string, unknown>>
-        | undefined
-      if (defName && definitions && definitions[defName]) {
-        return definitions[defName]
-      }
-    }
-
-    return json as Record<string, unknown>
+    return toJsonSchemaCompat(schema as unknown as AnyObjectSchema, {
+      target: 'jsonSchema7',
+      pipeStrategy: 'input',
+    }) as Record<string, unknown>
   } catch {
     return undefined
   }
+}
+
+function isToolSchemaWithJson(
+  schema: ToolSchema | undefined,
+): schema is ToolSchemaWithJson {
+  return Boolean(
+    schema &&
+      typeof schema === 'object' &&
+      'zod' in schema &&
+      schema.zod instanceof z.ZodType,
+  )
+}
+
+function getZodSchema(schema?: ToolSchema): z.ZodTypeAny | undefined {
+  if (!schema) return undefined
+  if (schema instanceof z.ZodType) {
+    return schema
+  }
+  if (isToolSchemaWithJson(schema)) {
+    return schema.zod
+  }
+  return undefined
+}
+
+function getJsonSchemaFromToolSchema(
+  schema?: ToolSchema,
+): Record<string, unknown> | undefined {
+  if (!schema) return undefined
+
+  if (isToolSchemaWithJson(schema) && schema.jsonSchema) {
+    return schema.jsonSchema
+  }
+
+  const zodSchema = getZodSchema(schema)
+  return toJsonSchema(zodSchema)
 }
 
 function parseJsonRecord(value?: string): Record<string, string> {
@@ -282,8 +288,8 @@ function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
   return Object.values(registry).map((tool) => ({
     name: tool.name,
     description: tool.description,
-    inputSchema: toJsonSchema(tool.inputs),
-    outputSchema: toJsonSchema(tool.outputSchema),
+    inputSchema: getJsonSchemaFromToolSchema(tool.inputs),
+    outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
   }))
 }
 
@@ -509,21 +515,21 @@ export function createSkedyulServer(
   for (const [toolKey, tool] of Object.entries(registry)) {
     // Use the tool's name or fall back to the registry key
     const toolName = tool.name || toolKey
+    const inputZodSchema = getZodSchema(tool.inputs)
+    const outputZodSchema = getZodSchema(tool.outputSchema)
 
     mcpServer.registerTool(
       toolName,
       {
         title: toolName,
         description: tool.description,
-        // The MCP SDK expects Zod schemas here; it will handle JSON Schema
-        // conversion for tools/list responses.
-        inputSchema: tool.inputs,
-        outputSchema: tool.outputSchema,
+        inputSchema: inputZodSchema,
+        outputSchema: outputZodSchema,
       },
-      async (args: any) => {
-        // Args will be the parsed Zod schema values directly
+      async (args: unknown) => {
+        const validatedArgs = inputZodSchema ? inputZodSchema.parse(args) : args
         const result = await callTool(toolKey, {
-          inputs: args,
+          inputs: validatedArgs,
         })
         return {
           content: result.content,
@@ -885,8 +891,9 @@ function createServerlessInstance(
               )
             }
 
+            const inputSchema = getZodSchema(tool.inputs)
             // Validate arguments against Zod schema
-            const validatedArgs = tool.inputs.parse(toolArgs)
+            const validatedArgs = inputSchema ? inputSchema.parse(toolArgs) : toolArgs
             const estimateResponse = await callTool(toolKey, {
               inputs: validatedArgs,
               estimate: true,
@@ -990,9 +997,11 @@ function createServerlessInstance(
                 )
               }
 
-              // Validate arguments against Zod schema
               try {
-                const validatedArgs = tool.inputs.parse(toolArgs)
+                const inputSchema = getZodSchema(tool.inputs)
+                const validatedArgs = inputSchema
+                  ? inputSchema.parse(toolArgs)
+                  : toolArgs
                 result = await callTool(toolKey, {
                   inputs: validatedArgs,
                 })

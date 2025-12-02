@@ -505,6 +505,17 @@ test('Multiple tools in registry work correctly', async () => {
         billing: { credits: 1 },
       }),
     },
+    "say-hello-to-the dev": {
+      name: 'Say hello to the dev',
+      description: 'communicates with the dev',
+      inputs: z.object({
+        devName: z.string(),
+      }),
+      handler: async ({ input }: { input: { devName: string } }) => ({
+        output: { result: `Hello, ${input.devName}!` },
+        billing: { credits: 1 },
+      }),
+    },
   }
 
   const serverless = server.create(
@@ -580,6 +591,8 @@ test('Multiple tools in registry work correctly', async () => {
     queryStringParameters: null,
     requestContext: { requestId: 'list' },
   })
+
+  console.log(listResponse.body)
 
   assert.strictEqual(listResponse.statusCode, 200)
   const listParsed = JSON.parse(listResponse.body)
