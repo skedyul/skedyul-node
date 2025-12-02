@@ -3,6 +3,7 @@ import http, { IncomingMessage, ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import * as z from 'zod'
+import { zodToJsonSchema as zodToJsonSchemaRaw } from 'zod-to-json-schema'
 
 import type {
   APIGatewayProxyEvent,
@@ -37,6 +38,29 @@ function normalizeBilling(billing?: BillingInfo): BillingInfo {
     return { credits: 0 }
   }
   return billing
+}
+
+// Loosely-typed wrapper around zod-to-json-schema to avoid version/type
+// mismatches between the zod dependency used here and the one used by the
+// library. At runtime the schemas are compatible.
+const zodToJsonSchemaLoose: (
+  schema: unknown,
+  options?: unknown,
+) => unknown = zodToJsonSchemaRaw as unknown as (
+  schema: unknown,
+  options?: unknown,
+) => unknown
+
+function toJsonSchema(schema: unknown): Record<string, unknown> | undefined {
+  if (!schema) return undefined
+  try {
+    return zodToJsonSchemaLoose(schema, {
+      target: 'jsonSchema7',
+      $refStrategy: 'none',
+    }) as Record<string, unknown>
+  } catch {
+    return undefined
+  }
 }
 
 function parseJsonRecord(value?: string): Record<string, string> {
@@ -237,16 +261,8 @@ function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
   return Object.values(registry).map((tool) => ({
     name: tool.name,
     description: tool.description,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        inputs: {
-          type: 'object',
-          description: 'Input parameters for the function',
-        },
-      },
-      required: ['inputs'],
-    },
+    inputSchema: toJsonSchema(tool.inputs),
+    outputSchema: toJsonSchema(tool.outputSchema),
   }))
 }
 
@@ -478,6 +494,8 @@ export function createSkedyulServer(
       {
         title: toolName,
         description: tool.description,
+        // The MCP SDK expects Zod schemas here; it will handle JSON Schema
+        // conversion for tools/list responses.
         inputSchema: tool.inputs,
         outputSchema: tool.outputSchema,
       },

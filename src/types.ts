@@ -54,16 +54,15 @@ export type ToolName<T extends ToolRegistry> = Extract<keyof T, string>
 export interface ToolMetadata {
   name: string
   description: string
-  inputSchema: {
-    type: 'object'
-    properties: {
-      inputs: {
-        type: 'object'
-        description: string
-      }
-    }
-    required: ['inputs']
-  }
+  /**
+   * JSON Schema describing the tool's inputs, as returned by zod-to-json-schema.
+   * This is intentionally loose to support arbitrary JSON Schema shapes.
+   */
+  inputSchema?: Record<string, unknown>
+  /**
+   * Optional JSON Schema describing the tool's output, if provided.
+   */
+  outputSchema?: Record<string, unknown>
 }
 
 export interface HealthStatus {
