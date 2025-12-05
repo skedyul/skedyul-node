@@ -183,7 +183,6 @@ export async function invokeCommand(args: string[]): Promise<void> {
   if (estimateMode) {
     console.error('Mode: estimate (billing only)')
   }
-  console.error('')
 
   try {
     const handler = tool.handler as (params: { input: unknown; context: ToolContext }) => Promise<{ output: unknown; billing: { credits: number } }>

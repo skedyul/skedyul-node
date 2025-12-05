@@ -3,6 +3,8 @@
 import { invokeCommand } from './commands/invoke'
 import { toolsCommand } from './commands/tools'
 import { serveCommand } from './commands/serve'
+import { validateCommand } from './commands/validate'
+import { diffCommand } from './commands/diff'
 
 const args = process.argv.slice(2)
 
@@ -17,6 +19,8 @@ Commands:
   dev invoke <tool>   Invoke a tool from the registry
   dev tools           List all tools in the registry
   dev serve           Start a local MCP server
+  dev validate        Validate skedyul.config.ts
+  dev diff            Show what would change on deploy
 
 Run 'skedyul dev <command> --help' for more information on a command.
 `)
@@ -33,11 +37,15 @@ Commands:
   invoke <tool>   Invoke a tool from the registry
   tools           List all tools in the registry
   serve           Start a local MCP server
+  validate        Validate skedyul.config.ts
+  diff            Show what would change on deploy
 
 Examples:
   skedyul dev invoke my_tool --registry ./dist/registry.js --args '{"key": "value"}'
   skedyul dev tools --registry ./dist/registry.js
   skedyul dev serve --registry ./dist/registry.js --port 3001
+  skedyul dev validate
+  skedyul dev diff
 
 Options:
   --help, -h      Show help for a command
@@ -76,6 +84,12 @@ async function main(): Promise<void> {
       break
     case 'serve':
       await serveCommand(subArgs)
+      break
+    case 'validate':
+      await validateCommand(subArgs)
+      break
+    case 'diff':
+      await diffCommand(subArgs)
       break
     default:
       console.error(`Unknown dev command: ${subCommand}`)
