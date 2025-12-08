@@ -548,13 +548,17 @@ export function createSkedyulServer(
         outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
-        // args from MCP has shape { inputs: {...}, env: {...} }
-        const mcpArgs = args as { inputs?: unknown; env?: Record<string, string> }
-        const toolInputs = mcpArgs.inputs ?? {}
+        // Support both formats:
+        // 1. Skedyul format: { inputs: {...}, env: {...} }
+        // 2. Standard MCP format: { ...directArgs }
+        const rawArgs = args as Record<string, unknown>
+        const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs
+        const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
+        const toolEnv = hasSkedyulFormat ? (rawArgs.env as Record<string, string> | undefined) : undefined
         const validatedInputs = inputZodSchema ? inputZodSchema.parse(toolInputs) : toolInputs
         const result = await callTool(toolKey, {
           inputs: validatedInputs,
-          env: mcpArgs.env,
+          env: toolEnv,
         })
 
         // Handle error case
@@ -1006,9 +1010,13 @@ function createServerlessInstance(
               result = { tools }
             } else if (rpcMethod === 'tools/call') {
               const toolName = params?.name as string
-              // MCP args have shape { inputs: {...}, env: {...} }
-              const mcpArgs = (params?.arguments ?? {}) as { inputs?: unknown; env?: Record<string, string> }
-              const toolInputs = mcpArgs.inputs ?? {}
+              // Support both formats:
+              // 1. Skedyul format: { inputs: {...}, env: {...} }
+              // 2. Standard MCP format: { ...directArgs }
+              const rawArgs = (params?.arguments ?? {}) as Record<string, unknown>
+              const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs
+              const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
+              const toolEnv = hasSkedyulFormat ? (rawArgs.env as Record<string, string> | undefined) : undefined
 
               // Find tool by name (check both registry key and tool.name)
               let toolKey: string | null = null
@@ -1046,7 +1054,7 @@ function createServerlessInstance(
                   : toolInputs
                 const toolResult = await callTool(toolKey, {
                   inputs: validatedInputs,
-                  env: mcpArgs.env,
+                  env: toolEnv,
                 })
 
                 // Transform internal format to MCP protocol format
