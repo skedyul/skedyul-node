@@ -537,24 +537,27 @@ export function createSkedyulServer(
     const toolName = tool.name || toolKey
     const inputZodSchema = getZodSchema(tool.inputs)
     const outputZodSchema = getZodSchema(tool.outputSchema)
-    const hasOutputSchema = Boolean(outputZodSchema)
+
+    // Wrap the input schema to accept Skedyul format: { inputs: {...}, env: {...} }
+    // This allows the MCP SDK to pass through the wrapper without stripping fields
+    const wrappedInputSchema = z.object({
+      inputs: inputZodSchema ?? z.record(z.string(), z.unknown()).optional(),
+      env: z.record(z.string(), z.string()).optional(),
+    }).passthrough()
 
     mcpServer.registerTool(
       toolName,
       {
         title: toolName,
         description: tool.description,
-        inputSchema: inputZodSchema,
+        inputSchema: wrappedInputSchema,
         outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
-        // Support both formats:
-        // 1. Skedyul format: { inputs: {...}, env: {...} }
-        // 2. Standard MCP format: { ...directArgs }
+        // Args are in Skedyul format: { inputs: {...}, env: {...} }
         const rawArgs = args as Record<string, unknown>
-        const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs
-        const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
-        const toolEnv = hasSkedyulFormat ? (rawArgs.env as Record<string, string> | undefined) : undefined
+        const toolInputs = (rawArgs.inputs ?? {}) as Record<string, unknown>
+        const toolEnv = rawArgs.env as Record<string, string> | undefined
         const validatedInputs = inputZodSchema ? inputZodSchema.parse(toolInputs) : toolInputs
         const result = await callTool(toolKey, {
           inputs: validatedInputs,
