@@ -548,16 +548,23 @@ export function createSkedyulServer(
         outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
-        const validatedArgs = inputZodSchema ? inputZodSchema.parse(args) : args
+        // args from MCP has shape { inputs: {...}, env: {...} }
+        const mcpArgs = args as { inputs?: unknown; env?: Record<string, string> }
+        const toolInputs = mcpArgs.inputs ?? {}
+        const validatedInputs = inputZodSchema ? inputZodSchema.parse(toolInputs) : toolInputs
         const result = await callTool(toolKey, {
-          inputs: validatedArgs,
+          inputs: validatedInputs,
+          env: mcpArgs.env,
         })
 
         // Handle error case
         if (result.error) {
+          const errorOutput = { error: result.error }
           return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: result.error }) }],
+            content: [{ type: 'text' as const, text: JSON.stringify(errorOutput) }],
+            structuredContent: errorOutput,
             isError: true,
+            billing: result.billing,
           }
         }
 
@@ -565,7 +572,8 @@ export function createSkedyulServer(
         const outputData = result.output as Record<string, unknown> | null
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result.output) }],
-          structuredContent: hasOutputSchema && outputData ? outputData : undefined,
+          structuredContent: outputData ?? undefined,
+          billing: result.billing,
         }
       },
     )
@@ -998,7 +1006,9 @@ function createServerlessInstance(
               result = { tools }
             } else if (rpcMethod === 'tools/call') {
               const toolName = params?.name as string
-              const toolArgs = params?.arguments ?? {}
+              // MCP args have shape { inputs: {...}, env: {...} }
+              const mcpArgs = (params?.arguments ?? {}) as { inputs?: unknown; env?: Record<string, string> }
+              const toolInputs = mcpArgs.inputs ?? {}
 
               // Find tool by name (check both registry key and tool.name)
               let toolKey: string | null = null
@@ -1031,24 +1041,29 @@ function createServerlessInstance(
                 const inputSchema = getZodSchema(tool.inputs)
                 const outputSchema = getZodSchema(tool.outputSchema)
                 const hasOutputSchema = Boolean(outputSchema)
-                const validatedArgs = inputSchema
-                  ? inputSchema.parse(toolArgs)
-                  : toolArgs
+                const validatedInputs = inputSchema
+                  ? inputSchema.parse(toolInputs)
+                  : toolInputs
                 const toolResult = await callTool(toolKey, {
-                  inputs: validatedArgs,
+                  inputs: validatedInputs,
+                  env: mcpArgs.env,
                 })
 
                 // Transform internal format to MCP protocol format
                 if (toolResult.error) {
+                  const errorOutput = { error: toolResult.error }
                   result = {
-                    content: [{ type: 'text', text: JSON.stringify({ error: toolResult.error }) }],
+                    content: [{ type: 'text', text: JSON.stringify(errorOutput) }],
+                    structuredContent: errorOutput,
                     isError: true,
+                    billing: toolResult.billing,
                   }
                 } else {
                   const outputData = toolResult.output as Record<string, unknown> | null
                   result = {
                     content: [{ type: 'text', text: JSON.stringify(toolResult.output) }],
-                    structuredContent: hasOutputSchema ? outputData : undefined,
+                    structuredContent: outputData ?? undefined,
+                    billing: toolResult.billing,
                   }
                 }
               } catch (validationError) {

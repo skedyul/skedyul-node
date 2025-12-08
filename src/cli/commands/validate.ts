@@ -182,7 +182,6 @@ export async function validateCommand(args: string[]): Promise<void> {
       name: config.name,
       version: config.version,
       computeLayer: config.computeLayer,
-      runtime: config.runtime,
       tools: config.tools,
       workflows: config.workflows,
       globalEnvKeys: envKeys.global,
