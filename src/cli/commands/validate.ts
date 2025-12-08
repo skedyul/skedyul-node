@@ -208,7 +208,6 @@ export async function validateCommand(args: string[]): Promise<void> {
   if (verbose) {
     console.log('Configuration:')
     console.log(`  Compute Layer: ${config.computeLayer || 'dedicated (default)'}`)
-    console.log(`  Runtime:       ${config.runtime || 'node-22 (default)'}`)
     console.log(`  Tools:         ${config.tools || './src/registry.ts (default)'}`)
     console.log(`  Workflows:     ${config.workflows || './workflows (default)'}`)
     console.log('')

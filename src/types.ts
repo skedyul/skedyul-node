@@ -128,9 +128,9 @@ export interface APIGatewayProxyResult {
 }
 
 export interface ToolCallResponse {
-  content: { type: 'text'; text: string }[]
-  billing?: BillingInfo
-  isError?: boolean
+  output: unknown
+  billing: BillingInfo
+  error?: string
 }
 
 export interface DedicatedServerInstance {

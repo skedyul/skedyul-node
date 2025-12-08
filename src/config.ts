@@ -61,8 +61,6 @@ export interface InstallConfig {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ComputeLayerType = 'serverless' | 'dedicated'
-export type RuntimeType = 'node-22' | 'node-20' | 'node-18'
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,8 +83,6 @@ export interface SkedyulConfig {
 
   /** Compute layer: 'serverless' (Lambda) or 'dedicated' (ECS/Docker) */
   computeLayer?: ComputeLayerType
-  /** Runtime environment */
-  runtime?: RuntimeType
 
   // ─────────────────────────────────────────────────────────────────────────
   // Paths
@@ -272,11 +268,6 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
   // Validate computeLayer
   if (config.computeLayer && !['serverless', 'dedicated'].includes(config.computeLayer)) {
     errors.push(`Invalid computeLayer: ${config.computeLayer}. Must be 'serverless' or 'dedicated'`)
-  }
-
-  // Validate runtime
-  if (config.runtime && !['node-22', 'node-20', 'node-18'].includes(config.runtime)) {
-    errors.push(`Invalid runtime: ${config.runtime}. Must be 'node-22', 'node-20', or 'node-18'`)
   }
 
   // Validate env schema

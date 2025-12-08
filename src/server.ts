@@ -406,26 +406,14 @@ function createCallToolHandler<T extends ToolRegistry>(
       const billing = normalizeBilling(functionResult.billing)
 
       return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(functionResult.output),
-          },
-        ],
+        output: functionResult.output,
         billing,
       }
     } catch (error) {
       return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error ?? ''),
-            }),
-          },
-        ],
+        output: null,
         billing: { credits: 0 },
-        isError: true,
+        error: error instanceof Error ? error.message : String(error ?? ''),
       }
     } finally {
       process.env = originalEnv
@@ -549,6 +537,7 @@ export function createSkedyulServer(
     const toolName = tool.name || toolKey
     const inputZodSchema = getZodSchema(tool.inputs)
     const outputZodSchema = getZodSchema(tool.outputSchema)
+    const hasOutputSchema = Boolean(outputZodSchema)
 
     mcpServer.registerTool(
       toolName,
@@ -563,14 +552,23 @@ export function createSkedyulServer(
         const result = await callTool(toolKey, {
           inputs: validatedArgs,
         })
-        return {
-          content: result.content,
-          structuredContent: result.isError
-            ? undefined
-            : JSON.parse(result.content[0]?.text ?? '{}'),
+
+        // Handle error case
+        if (result.error) {
+          return {
+            content: [{ type: 'text' as const, text: JSON.stringify({ error: result.error }) }],
+            isError: true,
+          }
         }
-    },
-  )
+
+        // Transform internal format to MCP protocol format
+        const outputData = result.output as Record<string, unknown> | null
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result.output) }],
+          structuredContent: hasOutputSchema && outputData ? outputData : undefined,
+        }
+      },
+    )
   }
 
   if (config.computeLayer === 'dedicated') {
@@ -1031,12 +1029,28 @@ function createServerlessInstance(
 
               try {
                 const inputSchema = getZodSchema(tool.inputs)
+                const outputSchema = getZodSchema(tool.outputSchema)
+                const hasOutputSchema = Boolean(outputSchema)
                 const validatedArgs = inputSchema
                   ? inputSchema.parse(toolArgs)
                   : toolArgs
-                result = await callTool(toolKey, {
+                const toolResult = await callTool(toolKey, {
                   inputs: validatedArgs,
                 })
+
+                // Transform internal format to MCP protocol format
+                if (toolResult.error) {
+                  result = {
+                    content: [{ type: 'text', text: JSON.stringify({ error: toolResult.error }) }],
+                    isError: true,
+                  }
+                } else {
+                  const outputData = toolResult.output as Record<string, unknown> | null
+                  result = {
+                    content: [{ type: 'text', text: JSON.stringify(toolResult.output) }],
+                    structuredContent: hasOutputSchema ? outputData : undefined,
+                  }
+                }
               } catch (validationError) {
                 return createResponse(
                   200,

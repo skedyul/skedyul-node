@@ -17,6 +17,5 @@ export type {
   InstallConfig,
   AppModelDefinition,
   ComputeLayerType,
-  RuntimeType,
 } from './config'
 
