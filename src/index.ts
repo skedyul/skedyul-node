@@ -17,5 +17,16 @@ export type {
   InstallConfig,
   AppModelDefinition,
   ComputeLayerType,
+  // Communication Channel types
+  AppFieldVisibility,
+  AppFieldDefinition,
+  ChannelToolBindings,
+  ChannelIdentifierType,
+  ChannelIdentifierValue,
+  CommunicationChannelDefinition,
+  // Workflow types
+  WorkflowActionInput,
+  WorkflowAction,
+  WorkflowDefinition,
 } from './config'
 

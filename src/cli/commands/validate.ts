@@ -43,7 +43,7 @@ interface ValidationResult {
     computeLayer?: string
     runtime?: string
     tools?: string
-    workflows?: string
+    workflowsPath?: string
     globalEnvKeys: string[]
     installEnvKeys: string[]
     requiredInstallEnvKeys: string[]
@@ -166,7 +166,7 @@ export async function validateCommand(args: string[]): Promise<void> {
   }
 
   // Check if workflows directory exists
-  const workflowsPath = config.workflows || './workflows'
+  const workflowsPath = config.workflowsPath || './workflows'
   const absoluteWorkflowsPath = path.resolve(path.dirname(configPath), workflowsPath)
   if (!fs.existsSync(absoluteWorkflowsPath)) {
     warnings.push(`Workflows directory not found: ${workflowsPath}`)
@@ -183,7 +183,7 @@ export async function validateCommand(args: string[]): Promise<void> {
       version: config.version,
       computeLayer: config.computeLayer,
       tools: config.tools,
-      workflows: config.workflows,
+      workflowsPath: config.workflowsPath,
       globalEnvKeys: envKeys.global,
       installEnvKeys: envKeys.install,
       requiredInstallEnvKeys: requiredInstallKeys,

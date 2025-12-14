@@ -57,6 +57,122 @@ export interface InstallConfig {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// App Field Definition (for communication channels)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AppFieldVisibility {
+  /** Show in data/detail view */
+  data?: boolean
+  /** Show in list view */
+  list?: boolean
+  /** Show in filters */
+  filters?: boolean
+}
+
+export interface AppFieldDefinition {
+  /** Human-readable label */
+  label: string
+  /** Field handle/key */
+  fieldHandle: string
+  /** Entity this field belongs to (e.g., 'contact') */
+  entityHandle: string
+  /** Metafield definition handle */
+  definitionHandle: string
+  /** Whether this field is required */
+  required?: boolean
+  /** Whether this is a system field */
+  system?: boolean
+  /** Whether values must be unique */
+  unique?: boolean
+  /** Default value */
+  defaultValue?: { value: unknown }
+  /** Visibility settings */
+  visibility?: AppFieldVisibility
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel Tool Bindings
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ChannelToolBindings {
+  /** Tool name for sending messages on this channel */
+  send_message: string
+  // Future: additional tool bindings can be added here
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Communication Channel Definition
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ChannelIdentifierType = 'DEDICATED_PHONE' | 'TEXT' | 'EMAIL'
+
+export interface ChannelIdentifierValue {
+  /** Type of identifier */
+  type: ChannelIdentifierType
+  /** Metafield definition handle for the identifier */
+  definitionHandle: string
+}
+
+export interface CommunicationChannelDefinition {
+  /** Unique handle for this channel type (e.g., 'sms', 'email') */
+  handle: string
+  /** Human-readable name */
+  name: string
+  /** Icon for UI (lucide icon name) */
+  icon?: string
+  /** Tool bindings for this channel */
+  tools: ChannelToolBindings
+  /** How the channel identifier is configured */
+  identifierValue: ChannelIdentifierValue
+  /** Fields to add to contacts when using this channel */
+  appFields?: AppFieldDefinition[]
+  /** Additional settings UI */
+  settings?: unknown[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Workflow Definition
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface WorkflowActionInput {
+  /** Input key */
+  key: string
+  /** Human-readable label */
+  label: string
+  /** Reference to a field */
+  fieldRef?: {
+    fieldHandle: string
+    entityHandle: string
+  }
+  /** Template string for the input */
+  template?: string
+}
+
+export interface WorkflowAction {
+  /** Human-readable label */
+  label: string
+  /** Action handle/key */
+  handle: string
+  /** Whether this action supports batch execution */
+  batch?: boolean
+  /** Entity this action operates on */
+  entityHandle?: string
+  /** Input definitions for this action */
+  inputs?: WorkflowActionInput[]
+}
+
+export interface WorkflowDefinition {
+  /** Human-readable label */
+  label: string
+  /** Workflow handle/key */
+  handle: string
+  /** Which channel handle this workflow is associated with (optional) */
+  channelHandle?: string
+  /** Actions in this workflow */
+  actions: WorkflowAction[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Compute Layer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -91,7 +207,7 @@ export interface SkedyulConfig {
   /** Path to the tool registry file (default: './src/registry.ts') */
   tools?: string
   /** Path to the workflows directory (default: './workflows') */
-  workflows?: string
+  workflowsPath?: string
 
   // ─────────────────────────────────────────────────────────────────────────
   // Global Environment Variables
@@ -113,6 +229,26 @@ export interface SkedyulConfig {
    * Defines what users need to configure when installing the app.
    */
   install?: InstallConfig
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Communication Channels
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Communication channels this app provides.
+   * Defines how the app can send/receive messages.
+   */
+  communicationChannels?: CommunicationChannelDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Workflows
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Workflows this app provides.
+   * Can reference channels via channelHandle.
+   */
+  workflows?: WorkflowDefinition[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -303,6 +439,44 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
       }
       if (!model.label) {
         errors.push(`install.appModels[${i}]: Missing required field 'label'`)
+      }
+    }
+  }
+
+  // Validate communicationChannels
+  if (config.communicationChannels) {
+    for (let i = 0; i < config.communicationChannels.length; i++) {
+      const channel = config.communicationChannels[i]
+      if (!channel.handle) {
+        errors.push(`communicationChannels[${i}]: Missing required field 'handle'`)
+      }
+      if (!channel.name) {
+        errors.push(`communicationChannels[${i}]: Missing required field 'name'`)
+      }
+      if (!channel.tools?.send_message) {
+        errors.push(`communicationChannels[${i}]: Missing required field 'tools.send_message'`)
+      }
+      if (!channel.identifierValue?.type) {
+        errors.push(`communicationChannels[${i}]: Missing required field 'identifierValue.type'`)
+      }
+      if (!channel.identifierValue?.definitionHandle) {
+        errors.push(`communicationChannels[${i}]: Missing required field 'identifierValue.definitionHandle'`)
+      }
+    }
+  }
+
+  // Validate workflows
+  if (config.workflows) {
+    for (let i = 0; i < config.workflows.length; i++) {
+      const workflow = config.workflows[i]
+      if (!workflow.handle) {
+        errors.push(`workflows[${i}]: Missing required field 'handle'`)
+      }
+      if (!workflow.label) {
+        errors.push(`workflows[${i}]: Missing required field 'label'`)
+      }
+      if (!workflow.actions || workflow.actions.length === 0) {
+        errors.push(`workflows[${i}]: Must have at least one action`)
       }
     }
   }
