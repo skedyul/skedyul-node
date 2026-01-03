@@ -163,7 +163,7 @@ export interface WorkflowAction {
 
 export interface WorkflowDefinition {
   /** Path to external YAML workflow file (relative to config) */
-  path?: string
+  path: string
   /** Human-readable label (optional when path is provided, inferred from YAML) */
   label?: string
   /** Workflow handle/key (optional when path is provided, inferred from YAML) */
