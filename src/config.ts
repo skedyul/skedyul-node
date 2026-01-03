@@ -162,12 +162,12 @@ export interface WorkflowAction {
 }
 
 export interface WorkflowDefinition {
-  /** Human-readable label */
-  label: string
-  /** Workflow handle/key */
-  handle: string
-  /** Which channel handle this workflow is associated with (optional) */
-  channelHandle?: string
+  /** Path to external YAML workflow file (relative to config) */
+  path?: string
+  /** Human-readable label (optional when path is provided, inferred from YAML) */
+  label?: string
+  /** Workflow handle/key (optional when path is provided, inferred from YAML) */
+  handle?: string
   /** Actions in this workflow */
   actions: WorkflowAction[]
 }
@@ -469,11 +469,15 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
   if (config.workflows) {
     for (let i = 0; i < config.workflows.length; i++) {
       const workflow = config.workflows[i]
-      if (!workflow.handle) {
-        errors.push(`workflows[${i}]: Missing required field 'handle'`)
-      }
-      if (!workflow.label) {
-        errors.push(`workflows[${i}]: Missing required field 'label'`)
+      // When path is provided, handle and label are optional (inferred from YAML)
+      // When path is not provided, handle and label are required
+      if (!workflow.path) {
+        if (!workflow.handle) {
+          errors.push(`workflows[${i}]: Missing required field 'handle' (required when 'path' is not provided)`)
+        }
+        if (!workflow.label) {
+          errors.push(`workflows[${i}]: Missing required field 'label' (required when 'path' is not provided)`)
+        }
       }
       if (!workflow.actions || workflow.actions.length === 0) {
         errors.push(`workflows[${i}]: Must have at least one action`)
