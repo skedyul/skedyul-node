@@ -1,6 +1,6 @@
 export * from './types'
 export { server } from './server'
-export { workplace, communicationChannel } from './core/client'
+export { workplace, communicationChannel, configure, getConfig } from './core/client'
 export {
   defineConfig,
   loadConfig,

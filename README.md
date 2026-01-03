@@ -60,27 +60,76 @@ For integration-specific RPCs that belong to your platform rather than a tool, p
 
 The MCP server exposes `POST /core` (with `{ method, params }`) and `POST /core/webhook` for these operations. They never appear under `tools/list` unlesstaken explicit MCP tooling—they are separate transport-level handlers and do not count against tool request limits. Make sure your service returns the structured channel/message data defined in `src/core/types.ts` so the responses stay consistent, and guard `/core`/`/core/webhook` with your platform’s preferred authentication if you surface them externally.
 
-## Higher-level helpers
+## Core API Client
 
-While `server.create` hosts the MCP surface, `skedyul.workplace` and `skedyul.communicationChannel` expose dedicated helpers that talk to `/core` for the same workplace and channel metadata. Each helper returns the typed objects defined in `src/core/types.ts` so integrations can look up a channel/workplace pair before acting on an incoming webhook without manually composing the RPC payload or dealing with authentication.
+The SDK includes a client for the Skedyul Core API that enables lookups across workplaces. This is especially useful in webhook handlers where you need to identify which workspace a request belongs to.
 
-The helpers currently provide:
+### Configuration
 
-- `workplace.list(filter?: Record<string, unknown>)`
-- `workplace.get(id: string)`
-- `communicationChannel.list(filter?: Record<string, unknown>)`
-- `communicationChannel.get(id: string)`
+Configure the client using environment variables or programmatically:
 
-Example:
+**Environment Variables:**
+
+```bash
+# Base URL for the Skedyul Core API
+SKEDYUL_API_URL=https://app.skedyul.com/api
+
+# Your API token (App API or Workplace API)
+SKEDYUL_API_TOKEN=sk_app_xxxxx
+```
+
+**Programmatic Configuration:**
 
 ```ts
-import { communicationChannel, workplace } from 'skedyul'
+import { configure } from 'skedyul'
 
-const [channel] = await communicationChannel.list({
-  filter: { identifierValue: '+15551234567' },
+configure({
+  baseUrl: 'https://app.skedyul.com/api',
+  apiToken: 'sk_app_xxxxx',
+})
+```
+
+### Token Types
+
+- **App API Token (`sk_app_*`)**: Grants access to all workplaces where your app is installed. Use this for webhooks where you need to look up resources across workplaces.
+- **Workplace API Token (`sk_wkp_*`)**: Scoped to a single workplace. Use this when you know the target workspace (e.g., MCP tools).
+
+### Available Methods
+
+- `workplace.list({ filter?, limit? })` - List workplaces
+- `workplace.get(id)` - Get a single workplace
+- `communicationChannel.list({ filter?, limit? })` - List communication channels
+- `communicationChannel.get(id)` - Get a single channel
+
+### Example: Webhook Handler
+
+```ts
+import { communicationChannel, configure } from 'skedyul'
+
+// Configure once at startup (or use env vars)
+configure({
+  baseUrl: process.env.SKEDYUL_API_URL,
+  apiToken: process.env.SKEDYUL_API_TOKEN,
 })
 
-const owner = await workplace.get(channel.workplaceId)
+// In your webhook handler
+async function handleIncomingMessage(phoneNumber: string) {
+  // Find the channel across all workplaces where your app is installed
+  const channels = await communicationChannel.list({
+    filter: { identifierValue: phoneNumber },
+    limit: 1,
+  })
+
+  if (channels.length === 0) {
+    throw new Error('No channel found for this phone number')
+  }
+
+  const channel = channels[0]
+  console.log(`Found channel in workplace: ${channel.workplaceId}`)
+
+  // Now you can process the message in the correct workspace context
+  return channel
+}
 ```
 
 Use these helpers for internal wiring—like pulling the correct workplace for a webhook—without touching the MCP tooling surface directly.
