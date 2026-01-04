@@ -207,6 +207,9 @@ export interface SkedyulConfig {
   /** Path to the tool registry file (default: './src/registry.ts') */
   tools?: string
 
+  /** Path to the workflows directory (default: './workflows') */
+  workflowsPath?: string
+
   // ─────────────────────────────────────────────────────────────────────────
   // Global Environment Variables
   // ─────────────────────────────────────────────────────────────────────────

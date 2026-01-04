@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "0.1.15",
+  "version": "0.1.17",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,4 +35,3 @@
     "typescript": "^5.5.0"
   }
 }
-
