@@ -1,5 +1,4 @@
 import type { CommunicationChannel, Workplace } from './types'
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,13 +117,37 @@ export const workplace = {
   },
 }
 
+export interface CreateMessageAttachment {
+  fileId: string
+  name: string
+  mimeType: string
+  size: number
+}
+
+export interface CreateMessageType {
+  id?: string | null
+  remoteId?: string | null
+  message: string
+  title?: string | null
+  contentRaw?: string | null
+  newChat?: boolean
+  attachments?: CreateMessageAttachment[]
+}
+
+export interface ReceiveMessageContact {
+  id?: string
+  identifierValue?: string
+}
+
 export interface ReceiveMessageInput {
   /** Communication channel ID */
   communicationChannelId: string
   /** Sender's identifier (e.g., phone number, email) */
   from: string
-  /** Message content */
-  message: string
+  /** Message payload */
+  message: CreateMessageType
+  /** Optional contact metadata to associate the message */
+  contact?: ReceiveMessageContact
   /** Optional remote/external message ID (e.g., Twilio MessageSid) */
   remoteId?: string
 }
@@ -186,6 +209,7 @@ export const communicationChannel = {
       communicationChannelId: input.communicationChannelId,
       from: input.from,
       message: input.message,
+      contact: input.contact,
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
     })) as ReceiveMessageResponse
     return payload
