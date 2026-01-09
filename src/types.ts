@@ -35,6 +35,13 @@ export type ToolHandler<Input, Output> = (
   params: ToolParams<Input, Output>,
 ) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
 
+/**
+ * How a tool is triggered.
+ * - 'tool': Agent-callable tool (default)
+ * - 'webhook': HTTP webhook endpoint
+ */
+export type ToolTrigger = 'tool' | 'webhook'
+
 export interface ToolDefinition<
   Input = unknown,
   Output = unknown,
@@ -46,6 +53,8 @@ export interface ToolDefinition<
   inputs: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
+  /** How this tool is triggered. Defaults to 'tool' (agent-callable) */
+  trigger?: ToolTrigger
   [key: string]: unknown // Allow additional properties
 }
 
@@ -55,6 +64,8 @@ export interface ToolRegistryEntry {
   inputs: ToolSchema
   handler: unknown
   outputSchema?: ToolSchema
+  /** How this tool is triggered. Defaults to 'tool' (agent-callable) */
+  trigger?: ToolTrigger
   [key: string]: unknown
 }
 
@@ -74,6 +85,10 @@ export interface ToolMetadata {
    * Optional JSON Schema describing the tool's output, if provided.
    */
   outputSchema?: Record<string, unknown>
+  /**
+   * How this tool is triggered. Defaults to 'tool' (agent-callable).
+   */
+  trigger?: ToolTrigger
 }
 
 export interface HealthStatus {

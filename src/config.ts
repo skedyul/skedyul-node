@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import type { ToolRegistry } from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Env Variable Definition
@@ -204,8 +205,19 @@ export interface SkedyulConfig {
   // Paths
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Path to the tool registry file (default: './src/registry.ts') */
-  tools?: string
+  /**
+   * Tool registry - can be:
+   * - A path string to the registry file (e.g., './src/registry.ts')
+   * - A dynamic import promise (e.g., import('./src/registry'))
+   *
+   * @example
+   * // Path string (legacy)
+   * tools: './src/registry.ts'
+   *
+   * // Dynamic import (recommended)
+   * tools: import('./src/registry')
+   */
+  tools?: string | Promise<{ registry: ToolRegistry }>
 
   /** Path to the workflows directory (default: './workflows') */
   workflowsPath?: string
@@ -267,7 +279,8 @@ export interface SkedyulConfig {
  * export default defineConfig({
  *   name: 'My App',
  *   computeLayer: 'dedicated',
- *   tools: './src/registry.ts',
+ *   // Use dynamic import for the tool registry (recommended)
+ *   tools: import('./src/registry'),
  *   env: {
  *     LOG_LEVEL: { label: 'Log Level', default: 'info' },
  *   },
