@@ -421,7 +421,7 @@ function createCallToolHandler<T extends ToolRegistry>(
   }
 }
 
-function parseJSONBody(req: IncomingMessage): Promise<unknown> {
+function readRawRequestBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = ''
 
@@ -430,15 +430,20 @@ function parseJSONBody(req: IncomingMessage): Promise<unknown> {
     })
 
     req.on('end', () => {
-      try {
-        resolve(body ? JSON.parse(body) : {})
-      } catch (err) {
-        reject(err)
-      }
+      resolve(body)
     })
 
     req.on('error', reject)
   })
+}
+
+async function parseJSONBody(req: IncomingMessage): Promise<unknown> {
+  const rawBody = await readRawRequestBody(req)
+  try {
+    return rawBody ? JSON.parse(rawBody) : {}
+  } catch (err) {
+    throw err
+  }
 }
 
 function sendJSON(
@@ -699,25 +704,40 @@ function createDedicatedServerInstance(
         }
 
         if (pathname === '/core/webhook' && req.method === 'POST') {
-          let webhookBody: unknown = undefined
+          let rawWebhookBody: string
 
           try {
-            webhookBody = (await parseJSONBody(req))
+            rawWebhookBody = await readRawRequestBody(req)
           } catch {
             sendJSON(res, 400, { status: 'parse-error' })
             return
           }
 
+          let webhookBody: unknown
+          try {
+            webhookBody = rawWebhookBody ? JSON.parse(rawWebhookBody) : {}
+          } catch {
+            sendJSON(res, 400, { status: 'parse-error' })
+            return
+          }
+
+          const normalizedHeaders = Object.fromEntries(
+            Object.entries(req.headers).map(([key, value]) => [
+              key,
+              typeof value === 'string' ? value : value?.[0] ?? '',
+            ]),
+          )
+
           const webhookRequest: WebhookRequest = {
             method: req.method,
-            headers: Object.fromEntries(
-              Object.entries(req.headers).map(([key, value]) => [
-                key,
-                typeof value === 'string' ? value : value?.[0] ?? '',
-              ]),
-            ),
+            headers: normalizedHeaders,
             body: webhookBody,
             query: Object.fromEntries(url.searchParams.entries()),
+            url: url.toString(),
+            path: url.pathname,
+            rawBody: rawWebhookBody
+              ? Buffer.from(rawWebhookBody, 'utf-8')
+              : undefined,
           }
 
           const webhookResponse = await coreApiService.dispatchWebhook(
@@ -859,10 +879,11 @@ function createServerlessInstance(
         }
 
         if (path === '/core/webhook' && method === 'POST') {
-          let webhookBody: unknown = undefined
+          const rawWebhookBody = event.body ?? ''
 
+          let webhookBody: unknown
           try {
-            webhookBody = event.body ? JSON.parse(event.body) : {}
+            webhookBody = rawWebhookBody ? JSON.parse(rawWebhookBody) : {}
           } catch {
             return createResponse(
               400,
@@ -871,11 +892,23 @@ function createServerlessInstance(
             )
           }
 
+          const forwardedProto =
+            event.headers?.['x-forwarded-proto'] ??
+            event.headers?.['X-Forwarded-Proto']
+          const protocol = forwardedProto ?? 'https'
+          const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
+          const webhookUrl = `${protocol}://${host}${event.path}`
+
           const webhookRequest: WebhookRequest = {
             method,
             headers: event.headers ?? {},
             body: webhookBody,
             query: event.queryStringParameters ?? {},
+            url: webhookUrl,
+            path: event.path,
+            rawBody: rawWebhookBody
+              ? Buffer.from(rawWebhookBody, 'utf-8')
+              : undefined,
           }
 
           const webhookResponse = await coreApiService.dispatchWebhook(

@@ -170,8 +170,14 @@ export interface WebhookResponse {
   body?: unknown
 }
 
+export interface WebhookContext {
+  /** Environment variables available during webhook handling */
+  env: Record<string, string | undefined>
+}
+
 export type WebhookHandler = (
   request: WebhookRequest,
+  context: WebhookContext,
 ) => Promise<WebhookResponse> | WebhookResponse
 
 export interface WebhookDefinition {

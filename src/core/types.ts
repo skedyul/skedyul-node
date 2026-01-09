@@ -23,9 +23,12 @@ export interface Message {
 
 export interface WebhookRequest {
   method: string
+  url?: string
+  path?: string
   headers: Record<string, string>
-  body?: unknown
   query?: Record<string, string | undefined>
+  body?: unknown
+  rawBody?: Buffer
 }
 
 export interface WebhookResponse {
