@@ -42,7 +42,8 @@ interface ValidationResult {
     version?: string
     computeLayer?: string
     runtime?: string
-    tools?: string
+    /** Tools path (string) or 'dynamic-import' if using import() */
+    tools?: string | 'dynamic-import'
     workflowsPath?: string
     globalEnvKeys: string[]
     installEnvKeys: string[]
@@ -147,21 +148,26 @@ export async function validateCommand(args: string[]): Promise<void> {
   }
 
   if (!config.tools) {
-    warnings.push('No tools path specified. Will default to "./src/registry.ts".')
+    warnings.push('No tools specified. Will default to "./src/registry.ts".')
   }
 
   if (!config.workflows) {
     warnings.push('No workflows path specified. Will default to "./workflows".')
   }
 
-  // Check if tools file exists
-  const toolsPath = config.tools || './src/registry.ts'
-  const absoluteToolsPath = path.resolve(path.dirname(configPath), toolsPath)
-  if (!fs.existsSync(absoluteToolsPath)) {
-    // Check for .js variant
-    const jsToolsPath = absoluteToolsPath.replace(/\.ts$/, '.js')
-    if (!fs.existsSync(jsToolsPath)) {
-      warnings.push(`Tools file not found: ${toolsPath}`)
+  // Check if tools file exists (only for string paths, not dynamic imports)
+  const toolsConfig = config.tools
+  const isToolsDynamicImport = toolsConfig !== undefined && typeof toolsConfig !== 'string'
+  
+  if (!isToolsDynamicImport) {
+    const toolsPath = (toolsConfig as string | undefined) || './src/registry.ts'
+    const absoluteToolsPath = path.resolve(path.dirname(configPath), toolsPath)
+    if (!fs.existsSync(absoluteToolsPath)) {
+      // Check for .js variant
+      const jsToolsPath = absoluteToolsPath.replace(/\.ts$/, '.js')
+      if (!fs.existsSync(jsToolsPath)) {
+        warnings.push(`Tools file not found: ${toolsPath}`)
+      }
     }
   }
 
@@ -182,7 +188,7 @@ export async function validateCommand(args: string[]): Promise<void> {
       name: config.name,
       version: config.version,
       computeLayer: config.computeLayer,
-      tools: config.tools,
+      tools: isToolsDynamicImport ? 'dynamic-import' : (toolsConfig as string | undefined),
       workflowsPath: config.workflowsPath,
       globalEnvKeys: envKeys.global,
       installEnvKeys: envKeys.install,
@@ -205,9 +211,13 @@ export async function validateCommand(args: string[]): Promise<void> {
   console.log('')
 
   if (verbose) {
+    const toolsDisplay = isToolsDynamicImport 
+      ? 'dynamic import (import())' 
+      : (toolsConfig || './src/registry.ts (default)')
+    
     console.log('Configuration:')
     console.log(`  Compute Layer: ${config.computeLayer || 'dedicated (default)'}`)
-    console.log(`  Tools:         ${config.tools || './src/registry.ts (default)'}`)
+    console.log(`  Tools:         ${toolsDisplay}`)
     console.log(`  Workflows:     ${config.workflows || './workflows (default)'}`)
     console.log('')
 
