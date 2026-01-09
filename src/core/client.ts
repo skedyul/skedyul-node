@@ -118,6 +118,22 @@ export const workplace = {
   },
 }
 
+export interface ReceiveMessageInput {
+  /** Communication channel ID */
+  communicationChannelId: string
+  /** Sender's identifier (e.g., phone number, email) */
+  from: string
+  /** Message content */
+  message: string
+  /** Optional remote/external message ID (e.g., Twilio MessageSid) */
+  remoteId?: string
+}
+
+export interface ReceiveMessageResponse {
+  success: boolean
+  messageId?: string
+}
+
 export const communicationChannel = {
   /**
    * List communication channels with optional filters.
@@ -144,5 +160,34 @@ export const communicationChannel = {
       channel: CommunicationChannel | null
     }
     return payload.channel
+  },
+
+  /**
+   * Receive an inbound message on a communication channel.
+   *
+   * This is typically called from webhook handlers to process incoming messages
+   * (e.g., SMS from Twilio, emails, WhatsApp messages).
+   *
+   * @example
+   * ```ts
+   * // In a webhook handler
+   * const result = await communicationChannel.receiveMessage({
+   *   communicationChannelId: channel.id,
+   *   from: '+1234567890',
+   *   message: 'Hello!',
+   *   remoteId: 'twilio-message-sid-123',
+   * });
+   * ```
+   */
+  async receiveMessage(
+    input: ReceiveMessageInput,
+  ): Promise<ReceiveMessageResponse> {
+    const payload = (await callCore('communicationChannel.receiveMessage', {
+      communicationChannelId: input.communicationChannelId,
+      from: input.from,
+      message: input.message,
+      ...(input.remoteId ? { remoteId: input.remoteId } : {}),
+    })) as ReceiveMessageResponse
+    return payload
   },
 }
