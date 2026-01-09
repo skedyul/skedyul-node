@@ -19,7 +19,10 @@ import type {
   ToolRegistry,
   ToolSchema,
   ToolSchemaWithJson,
+  WebhookRegistry,
+  WebhookContext,
 } from './types'
+import type { WebhookResponse } from './types'
 import { coreApiService } from './core/service'
 import type { CommunicationChannel, Message, WebhookRequest } from './core/types'
 
@@ -490,6 +493,7 @@ function getListeningPort(config: SkedyulServerConfig): number {
 export function createSkedyulServer(
   config: SkedyulServerConfig,
   registry: ToolRegistry,
+  webhookRegistry?: WebhookRegistry,
 ): SkedyulServerInstance {
   mergeRuntimeEnv()
 
@@ -598,10 +602,11 @@ export function createSkedyulServer(
       callTool,
       state,
       mcpServer,
+      webhookRegistry,
     )
   }
 
-  return createServerlessInstance(config, tools, callTool, state, mcpServer, registry)
+  return createServerlessInstance(config, tools, callTool, state, mcpServer, registry, webhookRegistry)
 }
 
 function createDedicatedServerInstance(
@@ -610,6 +615,7 @@ function createDedicatedServerInstance(
   callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
   mcpServer: McpServer,
+  webhookRegistry?: WebhookRegistry,
 ): SkedyulServerInstance {
   const port = getListeningPort(config)
   const httpServer = http.createServer(
@@ -627,6 +633,96 @@ function createDedicatedServerInstance(
 
       if (pathname === '/health' && req.method === 'GET') {
         sendJSON(res, 200, state.getHealthStatus())
+        return
+      }
+
+      // Handle webhook requests: /webhooks/{handle}
+      if (pathname.startsWith('/webhooks/') && webhookRegistry) {
+        const handle = pathname.slice('/webhooks/'.length)
+        const webhookDef = webhookRegistry[handle]
+
+        if (!webhookDef) {
+          sendJSON(res, 404, { error: `Webhook handler '${handle}' not found` })
+          return
+        }
+
+        // Check if HTTP method is allowed
+        const allowedMethods = webhookDef.methods ?? ['POST']
+        if (!allowedMethods.includes(req.method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')) {
+          sendJSON(res, 405, { error: `Method ${req.method} not allowed` })
+          return
+        }
+
+        // Read raw request body
+        let rawBody: string
+        try {
+          rawBody = await readRawRequestBody(req)
+        } catch {
+          sendJSON(res, 400, { error: 'Failed to read request body' })
+          return
+        }
+
+        // Parse body based on content type
+        let parsedBody: unknown
+        const contentType = req.headers['content-type'] ?? ''
+        if (contentType.includes('application/json')) {
+          try {
+            parsedBody = rawBody ? JSON.parse(rawBody) : {}
+          } catch {
+            parsedBody = rawBody
+          }
+        } else {
+          parsedBody = rawBody
+        }
+
+        // Build WebhookRequest
+        const webhookRequest = {
+          method: req.method ?? 'POST',
+          url: url.toString(),
+          path: pathname,
+          headers: req.headers as Record<string, string | string[] | undefined>,
+          query: Object.fromEntries(url.searchParams.entries()),
+          body: parsedBody,
+          rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
+        }
+
+        // Build WebhookContext
+        const webhookContext: WebhookContext = {
+          env: process.env as Record<string, string | undefined>,
+        }
+
+        // Invoke the handler
+        let webhookResponse: WebhookResponse
+        try {
+          webhookResponse = await webhookDef.handler(webhookRequest, webhookContext)
+        } catch (err) {
+          console.error(`Webhook handler '${handle}' error:`, err)
+          sendJSON(res, 500, { error: 'Webhook handler error' })
+          return
+        }
+
+        // Send response
+        const status = webhookResponse.status ?? 200
+        const responseHeaders: Record<string, string> = {
+          ...webhookResponse.headers,
+        }
+
+        // Default to JSON content type if not specified
+        if (!responseHeaders['Content-Type'] && !responseHeaders['content-type']) {
+          responseHeaders['Content-Type'] = 'application/json'
+        }
+
+        res.writeHead(status, responseHeaders)
+
+        if (webhookResponse.body !== undefined) {
+          if (typeof webhookResponse.body === 'string') {
+            res.end(webhookResponse.body)
+          } else {
+            res.end(JSON.stringify(webhookResponse.body))
+          }
+        } else {
+          res.end()
+        }
         return
       }
 
@@ -829,6 +925,7 @@ function createServerlessInstance(
   state: RequestState,
   mcpServer: McpServer,
   registry: ToolRegistry,
+  webhookRegistry?: WebhookRegistry,
 ): SkedyulServerInstance {
   const headers = getDefaultHeaders(config.cors)
 
@@ -840,6 +937,91 @@ function createServerlessInstance(
 
         if (method === 'OPTIONS') {
           return createResponse(200, { message: 'OK' }, headers)
+        }
+
+        // Handle webhook requests: /webhooks/{handle}
+        if (path.startsWith('/webhooks/') && webhookRegistry) {
+          const handle = path.slice('/webhooks/'.length)
+          const webhookDef = webhookRegistry[handle]
+
+          if (!webhookDef) {
+            return createResponse(404, { error: `Webhook handler '${handle}' not found` }, headers)
+          }
+
+          // Check if HTTP method is allowed
+          const allowedMethods = webhookDef.methods ?? ['POST']
+          if (!allowedMethods.includes(method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')) {
+            return createResponse(405, { error: `Method ${method} not allowed` }, headers)
+          }
+
+          // Get raw body
+          const rawBody = event.body ?? ''
+
+          // Parse body based on content type
+          let parsedBody: unknown
+          const contentType = event.headers?.['content-type'] ?? event.headers?.['Content-Type'] ?? ''
+          if (contentType.includes('application/json')) {
+            try {
+              parsedBody = rawBody ? JSON.parse(rawBody) : {}
+            } catch {
+              parsedBody = rawBody
+            }
+          } else {
+            parsedBody = rawBody
+          }
+
+          // Build URL
+          const forwardedProto =
+            event.headers?.['x-forwarded-proto'] ??
+            event.headers?.['X-Forwarded-Proto']
+          const protocol = forwardedProto ?? 'https'
+          const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
+          const queryString = event.queryStringParameters
+            ? '?' + new URLSearchParams(event.queryStringParameters as Record<string, string>).toString()
+            : ''
+          const webhookUrl = `${protocol}://${host}${path}${queryString}`
+
+          // Build WebhookRequest
+          const webhookRequest = {
+            method,
+            url: webhookUrl,
+            path,
+            headers: event.headers as Record<string, string | string[] | undefined>,
+            query: event.queryStringParameters ?? {},
+            body: parsedBody,
+            rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
+          }
+
+          // Build WebhookContext
+          const webhookContext: WebhookContext = {
+            env: process.env as Record<string, string | undefined>,
+          }
+
+          // Invoke the handler
+          let webhookResponse: WebhookResponse
+          try {
+            webhookResponse = await webhookDef.handler(webhookRequest, webhookContext)
+          } catch (err) {
+            console.error(`Webhook handler '${handle}' error:`, err)
+            return createResponse(500, { error: 'Webhook handler error' }, headers)
+          }
+
+          // Build response headers
+          const responseHeaders: Record<string, string> = {
+            ...headers,
+            ...webhookResponse.headers,
+          }
+
+          const status = webhookResponse.status ?? 200
+          const body = webhookResponse.body
+
+          return {
+            statusCode: status,
+            headers: responseHeaders,
+            body: body !== undefined
+              ? (typeof body === 'string' ? body : JSON.stringify(body))
+              : '',
+          }
         }
 
         if (path === '/core' && method === 'POST') {
