@@ -35,13 +35,6 @@ export type ToolHandler<Input, Output> = (
   params: ToolParams<Input, Output>,
 ) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
 
-/**
- * How a tool is triggered.
- * - 'tool': Agent-callable tool (default)
- * - 'webhook': HTTP webhook endpoint
- */
-export type ToolTrigger = 'tool' | 'webhook'
-
 export interface ToolDefinition<
   Input = unknown,
   Output = unknown,
@@ -53,8 +46,6 @@ export interface ToolDefinition<
   inputs: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
-  /** How this tool is triggered. Defaults to 'tool' (agent-callable) */
-  trigger?: ToolTrigger
   [key: string]: unknown // Allow additional properties
 }
 
@@ -64,8 +55,6 @@ export interface ToolRegistryEntry {
   inputs: ToolSchema
   handler: unknown
   outputSchema?: ToolSchema
-  /** How this tool is triggered. Defaults to 'tool' (agent-callable) */
-  trigger?: ToolTrigger
   [key: string]: unknown
 }
 
@@ -85,10 +74,6 @@ export interface ToolMetadata {
    * Optional JSON Schema describing the tool's output, if provided.
    */
   outputSchema?: Record<string, unknown>
-  /**
-   * How this tool is triggered. Defaults to 'tool' (agent-callable).
-   */
-  trigger?: ToolTrigger
 }
 
 export interface HealthStatus {
@@ -161,4 +146,49 @@ export interface ServerlessServerInstance {
 export type SkedyulServerInstance =
   | DedicatedServerInstance
   | ServerlessServerInstance
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhook Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Raw HTTP request received by webhooks */
+export interface WebhookRequest {
+  method: string
+  url: string
+  path: string
+  headers: Record<string, string | string[] | undefined>
+  query: Record<string, string>
+  /** Raw body - could be Buffer, string, or parsed object depending on content type */
+  body: Buffer | string | unknown
+  /** Original raw body as Buffer if available */
+  rawBody?: Buffer
+}
+
+export interface WebhookResponse {
+  status?: number
+  headers?: Record<string, string>
+  body?: unknown
+}
+
+export type WebhookHandler = (
+  request: WebhookRequest,
+) => Promise<WebhookResponse> | WebhookResponse
+
+export interface WebhookDefinition {
+  name: string
+  description: string
+  /** HTTP methods this webhook accepts. Defaults to ['POST'] */
+  methods?: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')[]
+  handler: WebhookHandler
+}
+
+export type WebhookRegistry = Record<string, WebhookDefinition>
+
+export type WebhookName<T extends WebhookRegistry> = Extract<keyof T, string>
+
+export interface WebhookMetadata {
+  name: string
+  description: string
+  methods: string[]
+}
 

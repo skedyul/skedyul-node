@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import type { ToolRegistry } from './types'
+import type { ToolRegistry, WebhookRegistry } from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Env Variable Definition
@@ -218,6 +218,17 @@ export interface SkedyulConfig {
    * tools: import('./src/registry')
    */
   tools?: string | Promise<{ registry: ToolRegistry }>
+
+  /**
+   * Webhook registry - can be:
+   * - A path string to the webhook registry file
+   * - A dynamic import promise (e.g., import('./src/webhooks'))
+   *
+   * @example
+   * // Dynamic import (recommended)
+   * webhooks: import('./src/webhooks')
+   */
+  webhooks?: string | Promise<{ registry: WebhookRegistry }>
 
   /** Path to the workflows directory (default: './workflows') */
   workflowsPath?: string

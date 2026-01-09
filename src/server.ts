@@ -19,7 +19,6 @@ import type {
   ToolRegistry,
   ToolSchema,
   ToolSchemaWithJson,
-  ToolTrigger,
 } from './types'
 import { coreApiService } from './core/service'
 import type { CommunicationChannel, Message, WebhookRequest } from './core/types'
@@ -323,7 +322,6 @@ function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
     description: tool.description,
     inputSchema: getJsonSchemaFromToolSchema(tool.inputs),
     outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
-    trigger: tool.trigger ?? 'tool', // Default to 'tool' (agent-callable)
   }))
 }
 
