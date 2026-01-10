@@ -10,7 +10,9 @@ import type {
   APIGatewayProxyResult,
   BillingInfo,
   CorsOptions,
+  DedicatedServerInstance,
   HealthStatus,
+  ServerlessServerInstance,
   SkedyulServerConfig,
   SkedyulServerInstance,
   ToolCallResponse,
@@ -490,6 +492,22 @@ function getListeningPort(config: SkedyulServerConfig): number {
   return config.defaultPort ?? 3000
 }
 
+// Overload signatures for proper type inference based on computeLayer
+export function createSkedyulServer(
+  config: SkedyulServerConfig & { computeLayer: 'dedicated' },
+  registry: ToolRegistry,
+  webhookRegistry?: WebhookRegistry,
+): DedicatedServerInstance
+export function createSkedyulServer(
+  config: SkedyulServerConfig & { computeLayer: 'serverless' },
+  registry: ToolRegistry,
+  webhookRegistry?: WebhookRegistry,
+): ServerlessServerInstance
+export function createSkedyulServer(
+  config: SkedyulServerConfig,
+  registry: ToolRegistry,
+  webhookRegistry?: WebhookRegistry,
+): SkedyulServerInstance
 export function createSkedyulServer(
   config: SkedyulServerConfig,
   registry: ToolRegistry,
