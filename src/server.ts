@@ -492,6 +492,124 @@ function getListeningPort(config: SkedyulServerConfig): number {
   return config.defaultPort ?? 3000
 }
 
+/**
+ * Prints a styled startup log showing server configuration
+ */
+function printStartupLog(
+  config: SkedyulServerConfig,
+  tools: ToolMetadata[],
+  webhookRegistry?: WebhookRegistry,
+  port?: number,
+): void {
+  const webhookCount = webhookRegistry ? Object.keys(webhookRegistry).length : 0
+  const webhookNames = webhookRegistry ? Object.keys(webhookRegistry) : []
+  const maxRequests =
+    config.maxRequests ??
+    parseNumberEnv(process.env.MCP_MAX_REQUESTS) ??
+    null
+  const ttlExtendSeconds =
+    config.ttlExtendSeconds ??
+    parseNumberEnv(process.env.MCP_TTL_EXTEND) ??
+    3600
+  const executableId = process.env.SKEDYUL_EXECUTABLE_ID || 'local'
+
+  const divider = '═'.repeat(70)
+  const thinDivider = '─'.repeat(70)
+
+  // eslint-disable-next-line no-console
+  console.log('')
+  // eslint-disable-next-line no-console
+  console.log(`╔${divider}╗`)
+  // eslint-disable-next-line no-console
+  console.log(`║  🚀 Skedyul MCP Server Starting                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`╠${divider}╣`)
+  // eslint-disable-next-line no-console
+  console.log(`║                                                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`║  📦 Server:       ${padEnd(config.metadata.name, 49)}║`)
+  // eslint-disable-next-line no-console
+  console.log(`║  🏷️  Version:      ${padEnd(config.metadata.version, 49)}║`)
+  // eslint-disable-next-line no-console
+  console.log(`║  ⚡ Compute:      ${padEnd(config.computeLayer, 49)}║`)
+  if (port) {
+    // eslint-disable-next-line no-console
+    console.log(`║  🌐 Port:         ${padEnd(String(port), 49)}║`)
+  }
+  // eslint-disable-next-line no-console
+  console.log(`║  🔑 Executable:   ${padEnd(executableId, 49)}║`)
+  // eslint-disable-next-line no-console
+  console.log(`║                                                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`╟${thinDivider}╢`)
+  // eslint-disable-next-line no-console
+  console.log(`║                                                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`║  🔧 Tools (${tools.length}):                                                       ║`)
+
+  // List tools (max 10, then show "and X more...")
+  const maxToolsToShow = 10
+  const toolsToShow = tools.slice(0, maxToolsToShow)
+  for (const tool of toolsToShow) {
+    // eslint-disable-next-line no-console
+    console.log(`║     • ${padEnd(tool.name, 61)}║`)
+  }
+  if (tools.length > maxToolsToShow) {
+    // eslint-disable-next-line no-console
+    console.log(`║     ... and ${tools.length - maxToolsToShow} more                                              ║`)
+  }
+
+  if (webhookCount > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`║                                                                      ║`)
+    // eslint-disable-next-line no-console
+    console.log(`║  🪝 Webhooks (${webhookCount}):                                                     ║`)
+    const maxWebhooksToShow = 5
+    const webhooksToShow = webhookNames.slice(0, maxWebhooksToShow)
+    for (const name of webhooksToShow) {
+      // eslint-disable-next-line no-console
+      console.log(`║     • /webhooks/${padEnd(name, 51)}║`)
+    }
+    if (webhookCount > maxWebhooksToShow) {
+      // eslint-disable-next-line no-console
+      console.log(`║     ... and ${webhookCount - maxWebhooksToShow} more                                              ║`)
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`║                                                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`╟${thinDivider}╢`)
+  // eslint-disable-next-line no-console
+  console.log(`║                                                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`║  ⚙️  Configuration:                                                   ║`)
+  // eslint-disable-next-line no-console
+  console.log(`║     Max Requests:    ${padEnd(maxRequests !== null ? String(maxRequests) : 'unlimited', 46)}║`)
+  // eslint-disable-next-line no-console
+  console.log(`║     TTL Extend:      ${padEnd(`${ttlExtendSeconds}s`, 46)}║`)
+  // eslint-disable-next-line no-console
+  console.log(`║                                                                      ║`)
+  // eslint-disable-next-line no-console
+  console.log(`╟${thinDivider}╢`)
+  // eslint-disable-next-line no-console
+  console.log(`║  ✅ Ready at ${padEnd(new Date().toISOString(), 55)}║`)
+  // eslint-disable-next-line no-console
+  console.log(`╚${divider}╝`)
+  // eslint-disable-next-line no-console
+  console.log('')
+}
+
+/**
+ * Pad a string to the right with spaces
+ */
+function padEnd(str: string, length: number): string {
+  if (str.length >= length) {
+    return str.slice(0, length)
+  }
+  return str + ' '.repeat(length - str.length)
+}
+
 // Overload signatures for proper type inference based on computeLayer
 export function createSkedyulServer(
   config: SkedyulServerConfig & { computeLayer: 'dedicated' },
@@ -918,14 +1036,7 @@ function createDedicatedServerInstance(
       const finalPort = listenPort ?? port
       return new Promise<void>((resolve, reject) => {
         httpServer.listen(finalPort, () => {
-          // eslint-disable-next-line no-console
-          console.log(`MCP Server running on port ${finalPort}`)
-          // eslint-disable-next-line no-console
-          console.log(
-            `Registry loaded with ${tools.length} tools: ${tools
-              .map((tool) => tool.name)
-              .join(', ')}`,
-          )
+          printStartupLog(config, tools, webhookRegistry, finalPort)
           resolve()
         })
 
@@ -947,8 +1058,16 @@ function createServerlessInstance(
 ): SkedyulServerInstance {
   const headers = getDefaultHeaders(config.cors)
 
+  // Print startup log once on cold start
+  let hasLoggedStartup = false
+
   return {
     async handler(event: APIGatewayProxyEvent) {
+      // Log startup info on first invocation (cold start)
+      if (!hasLoggedStartup) {
+        printStartupLog(config, tools, webhookRegistry)
+        hasLoggedStartup = true
+      }
       try {
         const path = event.path
         const method = event.httpMethod
