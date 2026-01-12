@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import type { ToolRegistry, WebhookRegistry } from './types'
+import type { ToolRegistry, WebhookRegistry, ToolMetadata, WebhookMetadata } from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Env Variable Definition
@@ -272,6 +272,82 @@ export interface SkedyulConfig {
    * Workflows this app provides.
    * Can reference channels via channelHandle.
    */
+  workflows?: WorkflowDefinition[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Serializable Config (for database storage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Serializable snapshot of SkedyulConfig for database storage.
+ * 
+ * This type mirrors SkedyulConfig but replaces non-serializable fields
+ * (dynamic imports, handlers) with their serializable metadata equivalents.
+ * 
+ * Use this type when storing executable configuration in the database.
+ */
+export interface SerializableSkedyulConfig {
+  // ─────────────────────────────────────────────────────────────────────────
+  // App Metadata
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** App name */
+  name: string
+  /** App version (semver) */
+  version?: string
+  /** App description */
+  description?: string
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Runtime Configuration
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Compute layer: 'serverless' (Lambda) or 'dedicated' (ECS/Docker) */
+  computeLayer?: ComputeLayerType
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Serialized Registries (metadata only, no handlers)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Tool metadata array (serialized from ToolRegistry) */
+  tools?: ToolMetadata[]
+  /** Webhook metadata array (serialized from WebhookRegistry) */
+  webhooks?: WebhookMetadata[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Paths (for reference)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Path to the workflows directory */
+  workflowsPath?: string
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Environment Configuration
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Global/version-level environment variable schema */
+  env?: EnvSchema
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Install Configuration
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Install-time configuration */
+  install?: InstallConfig
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Communication Channels
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Communication channels this app provides */
+  communicationChannels?: CommunicationChannelDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Workflows
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Workflows this app provides */
   workflows?: WorkflowDefinition[]
 }
 
