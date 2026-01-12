@@ -13,12 +13,21 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc --build tsconfig.json && tsc --project tsconfig.tests.json",
+    "build": "tsc --build tsconfig.json && tsc --project tsconfig.tests.json && node -e \"require('fs').mkdirSync('dist',{recursive:true}); require('fs').writeFileSync('dist/.build-stamp', String(Date.now()))\"",
+    "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
     "test": "npm run build && node --test dist-tests/server.test.js"
   },
-  "keywords": ["mcp", "skedyul", "serverless", "node", "typescript"],
+  "keywords": [
+    "mcp",
+    "skedyul",
+    "serverless",
+    "node",
+    "typescript"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/skedyul/skedyul-node"
