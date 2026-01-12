@@ -174,6 +174,75 @@ export interface WorkflowDefinition {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Internal Model Definition (App-owned models)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Supported data types for internal model fields.
+ * Matches the DataType enum in the database.
+ */
+export type InternalFieldDataType =
+  | 'TEXT'
+  | 'LONG_TEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'DATE'
+  | 'DATETIME'
+  | 'EMAIL'
+  | 'URL'
+  | 'PHONE'
+  | 'SELECT'
+  | 'MULTI_SELECT'
+  | 'JSON'
+
+/**
+ * Definition of a field within an internal model.
+ * This is a normalized format that can be reused for standard models.
+ */
+export interface InternalFieldDefinition {
+  /** Unique handle for the field (e.g., 'phone', 'forwarding_phone_number') */
+  handle: string
+  /** Human-readable label */
+  label: string
+  /** Data type of the field */
+  type: InternalFieldDataType
+  /** Optional metafield definition handle for validation/normalization */
+  definitionHandle?: string
+  /** Whether this field is required */
+  required?: boolean
+  /** Whether values must be unique across instances */
+  unique?: boolean
+  /** Whether this is a system field (managed by app logic) */
+  system?: boolean
+  /** Whether this field is a list (array of values) */
+  isList?: boolean
+  /** Default value for the field */
+  defaultValue?: { value: unknown }
+  /** Description/help text */
+  description?: string
+}
+
+/**
+ * Definition of an internal model owned by an app.
+ * Internal models are created and managed by the app, not by users.
+ * Data is stored in the standard Model/Field/Instance tables.
+ */
+export interface InternalModelDefinition {
+  /** Unique handle for the model (e.g., 'dedicated_phone_number') */
+  handle: string
+  /** Human-readable singular name */
+  name: string
+  /** Human-readable plural name */
+  namePlural: string
+  /** Template for generating instance labels (e.g., '{{phone}}') */
+  labelTemplate: string
+  /** Description of the model */
+  description?: string
+  /** Fields in this model */
+  fields: InternalFieldDefinition[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Compute Layer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -273,6 +342,33 @@ export interface SkedyulConfig {
    * Can reference channels via channelHandle.
    */
   workflows?: WorkflowDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Internal Models
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Internal models owned by this app.
+   * These models are created and managed by the app, not by users.
+   * Data is stored in the standard Model/Field/Instance tables but
+   * linked to the AppVersion for ownership tracking.
+   *
+   * @example
+   * ```typescript
+   * internalModels: [
+   *   {
+   *     handle: 'dedicated_phone_number',
+   *     name: 'Dedicated Phone Number',
+   *     namePlural: 'Dedicated Phone Numbers',
+   *     labelTemplate: '{{phone}}',
+   *     fields: [
+   *       { handle: 'phone', label: 'Phone Number', type: 'TEXT', required: true, unique: true },
+   *     ],
+   *   },
+   * ]
+   * ```
+   */
+  internalModels?: InternalModelDefinition[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -349,6 +445,13 @@ export interface SerializableSkedyulConfig {
 
   /** Workflows this app provides */
   workflows?: WorkflowDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Internal Models
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Internal models owned by this app */
+  internalModels?: InternalModelDefinition[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -582,6 +685,47 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
       }
       if (!workflow.actions || workflow.actions.length === 0) {
         errors.push(`workflows[${i}]: Must have at least one action`)
+      }
+    }
+  }
+
+  // Validate internalModels
+  if (config.internalModels) {
+    const validDataTypes = [
+      'TEXT', 'LONG_TEXT', 'NUMBER', 'BOOLEAN', 'DATE', 'DATETIME',
+      'EMAIL', 'URL', 'PHONE', 'SELECT', 'MULTI_SELECT', 'JSON',
+    ]
+    for (let i = 0; i < config.internalModels.length; i++) {
+      const model = config.internalModels[i]
+      if (!model.handle) {
+        errors.push(`internalModels[${i}]: Missing required field 'handle'`)
+      }
+      if (!model.name) {
+        errors.push(`internalModels[${i}]: Missing required field 'name'`)
+      }
+      if (!model.namePlural) {
+        errors.push(`internalModels[${i}]: Missing required field 'namePlural'`)
+      }
+      if (!model.labelTemplate) {
+        errors.push(`internalModels[${i}]: Missing required field 'labelTemplate'`)
+      }
+      if (!model.fields || model.fields.length === 0) {
+        errors.push(`internalModels[${i}]: Must have at least one field`)
+      } else {
+        for (let j = 0; j < model.fields.length; j++) {
+          const field = model.fields[j]
+          if (!field.handle) {
+            errors.push(`internalModels[${i}].fields[${j}]: Missing required field 'handle'`)
+          }
+          if (!field.label) {
+            errors.push(`internalModels[${i}].fields[${j}]: Missing required field 'label'`)
+          }
+          if (!field.type) {
+            errors.push(`internalModels[${i}].fields[${j}]: Missing required field 'type'`)
+          } else if (!validDataTypes.includes(field.type)) {
+            errors.push(`internalModels[${i}].fields[${j}]: Invalid type '${field.type}'`)
+          }
+        }
       }
     }
   }

@@ -153,6 +153,56 @@ export const WorkflowDefinitionSchema = z.object({
  */
 export const ComputeLayerTypeSchema = z.enum(['serverless', 'dedicated'])
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Model Schemas (App-owned models)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Schema for internal field data types.
+ */
+export const InternalFieldDataTypeSchema = z.enum([
+  'TEXT',
+  'LONG_TEXT',
+  'NUMBER',
+  'BOOLEAN',
+  'DATE',
+  'DATETIME',
+  'EMAIL',
+  'URL',
+  'PHONE',
+  'SELECT',
+  'MULTI_SELECT',
+  'JSON',
+])
+
+/**
+ * Schema for a field within an internal model.
+ */
+export const InternalFieldDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  type: InternalFieldDataTypeSchema,
+  definitionHandle: z.string().optional(),
+  required: z.boolean().optional(),
+  unique: z.boolean().optional(),
+  system: z.boolean().optional(),
+  isList: z.boolean().optional(),
+  defaultValue: z.object({ value: z.unknown() }).optional(),
+  description: z.string().optional(),
+})
+
+/**
+ * Schema for an internal model definition.
+ */
+export const InternalModelDefinitionSchema = z.object({
+  handle: z.string(),
+  name: z.string(),
+  namePlural: z.string(),
+  labelTemplate: z.string(),
+  description: z.string().optional(),
+  fields: z.array(InternalFieldDefinitionSchema),
+})
+
 /**
  * Schema for the full skedyul.config.ts stored on an Executable.
  * This is the single source of truth for all app configuration.
@@ -174,6 +224,7 @@ export const SkedyulConfigSchema = z.object({
   install: InstallConfigSchema.optional(),
   communicationChannels: z.array(CommunicationChannelDefinitionSchema).optional(),
   workflows: z.array(WorkflowDefinitionSchema).optional(),
+  internalModels: z.array(InternalModelDefinitionSchema).optional(),
 })
 
 /**
