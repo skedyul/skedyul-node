@@ -1,4 +1,5 @@
 export * from './types'
+export * from './schemas'
 export { server } from './server'
 export { workplace, communicationChannel, configure, getConfig } from './core/client'
 export {
