@@ -182,18 +182,17 @@ export interface WorkflowDefinition {
  * Matches the DataType enum in the database.
  */
 export type InternalFieldDataType =
-  | 'TEXT'
-  | 'LONG_TEXT'
+  | 'LONG_STRING'
+  | 'STRING'
   | 'NUMBER'
   | 'BOOLEAN'
   | 'DATE'
-  | 'DATETIME'
-  | 'EMAIL'
-  | 'URL'
-  | 'PHONE'
-  | 'SELECT'
-  | 'MULTI_SELECT'
-  | 'JSON'
+  | 'DATE_TIME'
+  | 'TIME'
+  | 'FILE'
+  | 'IMAGE'
+  | 'RELATION'
+  | 'OBJECT'
 
 /**
  * Definition of a field within an internal model.
@@ -692,8 +691,8 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
   // Validate internalModels
   if (config.internalModels) {
     const validDataTypes = [
-      'TEXT', 'LONG_TEXT', 'NUMBER', 'BOOLEAN', 'DATE', 'DATETIME',
-      'EMAIL', 'URL', 'PHONE', 'SELECT', 'MULTI_SELECT', 'JSON',
+      'LONG_STRING', 'STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'DATE_TIME',
+      'TIME', 'FILE', 'IMAGE', 'RELATION', 'OBJECT',
     ]
     for (let i = 0; i < config.internalModels.length; i++) {
       const model = config.internalModels[i]

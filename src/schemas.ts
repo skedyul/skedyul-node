@@ -159,20 +159,20 @@ export const ComputeLayerTypeSchema = z.enum(['serverless', 'dedicated'])
 
 /**
  * Schema for internal field data types.
+ * Matches the DataType enum in the database.
  */
 export const InternalFieldDataTypeSchema = z.enum([
-  'TEXT',
-  'LONG_TEXT',
+  'LONG_STRING',
+  'STRING',
   'NUMBER',
   'BOOLEAN',
   'DATE',
-  'DATETIME',
-  'EMAIL',
-  'URL',
-  'PHONE',
-  'SELECT',
-  'MULTI_SELECT',
-  'JSON',
+  'DATE_TIME',
+  'TIME',
+  'FILE',
+  'IMAGE',
+  'RELATION',
+  'OBJECT',
 ])
 
 /**
