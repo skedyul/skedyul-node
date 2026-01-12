@@ -218,7 +218,11 @@ export interface WebhookLifecycleResult {
  */
 export type WebhookLifecycleHook<TContext = WebhookLifecycleContext> = (
   context: TContext,
-) => Promise<WebhookLifecycleResult | null> | WebhookLifecycleResult | null
+) =>
+  | Promise<WebhookLifecycleResult | null | undefined>
+  | WebhookLifecycleResult
+  | null
+  | undefined
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook Definition
