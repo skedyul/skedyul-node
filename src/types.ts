@@ -180,12 +180,76 @@ export type WebhookHandler = (
   context: WebhookContext,
 ) => Promise<WebhookResponse> | WebhookResponse
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhook Lifecycle Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface WebhookLifecycleContext {
+  /** The Skedyul-generated webhook URL for this webhook */
+  webhookUrl: string
+  /** Environment variables available during lifecycle operation */
+  env: Record<string, string | undefined>
+}
+
+export interface CommunicationChannelLifecycleContext extends WebhookLifecycleContext {
+  /** The communication channel being configured */
+  communicationChannel: {
+    id: string
+    /** The identifier value (e.g., phone number like "+15551234567") */
+    identifierValue: string
+    /** The channel handle (e.g., "sms") */
+    handle: string
+  }
+}
+
+export interface WebhookLifecycleResult {
+  /** External ID from the provider (e.g., Twilio phone number SID) */
+  externalId: string
+  /** Optional message describing what was configured */
+  message?: string
+  /** Optional metadata from the provider */
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Lifecycle hook for webhook operations.
+ * Return null if the API doesn't support programmatic management
+ * (user must configure manually).
+ */
+export type WebhookLifecycleHook<TContext = WebhookLifecycleContext> = (
+  context: TContext,
+) => Promise<WebhookLifecycleResult | null> | WebhookLifecycleResult | null
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhook Definition
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface WebhookDefinition {
   name: string
   description: string
   /** HTTP methods this webhook accepts. Defaults to ['POST'] */
   methods?: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')[]
   handler: WebhookHandler
+
+  // App lifecycle
+  /** Called when the app is installed to a workplace. Return null if manual setup required. */
+  onAppInstalled?: WebhookLifecycleHook
+  /** Called when the app is uninstalled from a workplace. Return null if manual cleanup required. */
+  onAppUninstalled?: WebhookLifecycleHook
+
+  // Version lifecycle (webhook URL changes)
+  /** Called when a new app version is provisioned. Return null if manual setup required. */
+  onAppVersionProvisioned?: WebhookLifecycleHook
+  /** Called when an app version is deprovisioned. Return null if manual cleanup required. */
+  onAppVersionDeprovisioned?: WebhookLifecycleHook
+
+  // Communication channel lifecycle (knows which phone number/email/etc)
+  /** Called when a communication channel is created. Return null if manual setup required. */
+  onCommunicationChannelCreated?: WebhookLifecycleHook<CommunicationChannelLifecycleContext>
+  /** Called when a communication channel is updated. Return null if manual update required. */
+  onCommunicationChannelUpdated?: WebhookLifecycleHook<CommunicationChannelLifecycleContext>
+  /** Called when a communication channel is deleted. Return null if manual cleanup required. */
+  onCommunicationChannelDeleted?: WebhookLifecycleHook<CommunicationChannelLifecycleContext>
 }
 
 export type WebhookRegistry = Record<string, WebhookDefinition>

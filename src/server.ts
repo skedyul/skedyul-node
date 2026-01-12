@@ -984,17 +984,36 @@ function createDedicatedServerInstance(
         }
 
       if (pathname === '/mcp' && req.method === 'POST') {
-        const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: undefined,
-          enableJsonResponse: true,
+        try {
+          const body = await parseJSONBody(req) as { jsonrpc?: string; id?: unknown; method?: string }
+
+          // Handle webhooks/list before passing to MCP SDK transport
+          if (body?.method === 'webhooks/list') {
+            const webhooks = webhookRegistry
+              ? Object.values(webhookRegistry).map((w) => ({
+                  name: w.name,
+                  description: w.description,
+                  methods: w.methods ?? ['POST'],
+                }))
+              : []
+            sendJSON(res, 200, {
+              jsonrpc: '2.0',
+              id: body.id ?? null,
+              result: { webhooks },
+            })
+            return
+          }
+
+          // Pass to MCP SDK transport for standard MCP methods
+          const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+            enableJsonResponse: true,
           })
 
-        res.on('close', () => {
-          transport.close()
-        })
+          res.on('close', () => {
+            transport.close()
+          })
 
-        try {
-          const body = await parseJSONBody(req)
           await mcpServer.connect(transport)
           await transport.handleRequest(req, res, body)
         } catch (err) {
@@ -1446,6 +1465,16 @@ function createServerlessInstance(
                   headers,
                 )
               }
+            } else if (rpcMethod === 'webhooks/list') {
+              // Return registered webhooks with their metadata
+              const webhooks = webhookRegistry
+                ? Object.values(webhookRegistry).map((w) => ({
+                    name: w.name,
+                    description: w.description,
+                    methods: w.methods ?? ['POST'],
+                  }))
+                : []
+              result = { webhooks }
             } else {
               return createResponse(
                 200,
