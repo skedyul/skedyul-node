@@ -19,6 +19,12 @@ export type {
   InstallConfig,
   AppModelDefinition,
   ComputeLayerType,
+  // Install handler types
+  InstallHandlerContext,
+  InstallHandlerResult,
+  InstallHandler,
+  PreInstallConfig,
+  PostInstallConfig,
   // Communication Channel types
   AppFieldVisibility,
   AppFieldDefinition,

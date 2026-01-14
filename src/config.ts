@@ -40,6 +40,38 @@ export interface AppModelDefinition {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Install Handler Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Context passed to the install handler when a user installs the app.
+ */
+export interface InstallHandlerContext {
+  /** Environment variables from preInstall.env filled by the user */
+  env: Record<string, string>
+  /** Workplace information */
+  workplace: {
+    id: string
+    subdomain: string
+  }
+}
+
+/**
+ * Result returned by the install handler.
+ */
+export interface InstallHandlerResult {
+  /** Additional environment variables to add to the installation */
+  env?: Record<string, string>
+  /** Optional OAuth redirect URL - if provided, user is redirected before install completes */
+  redirect?: string
+}
+
+/**
+ * Install handler function type.
+ */
+export type InstallHandler = (ctx: InstallHandlerContext) => Promise<InstallHandlerResult>
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Install Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -48,6 +80,7 @@ export interface InstallConfig {
    * Per-install environment variables.
    * These are configured by the user when installing the app.
    * Values are stored per-installation and can differ between installs.
+   * @deprecated Use preInstall.env and postInstall.env instead
    */
   env?: EnvSchema
   /**
@@ -55,6 +88,35 @@ export interface InstallConfig {
    * Users will map these to their CRM models during installation.
    */
   appModels?: AppModelDefinition[]
+  /**
+   * Install handler - called when user clicks install.
+   * Use dynamic import: handler: import('./src/install')
+   */
+  handler?: Promise<{ default: InstallHandler }>
+}
+
+/**
+ * Pre-install configuration.
+ * Variables collected BEFORE the app is installed (e.g., API keys, credentials).
+ */
+export interface PreInstallConfig {
+  /**
+   * Environment variables required before installation.
+   * User must provide these values during the install flow.
+   */
+  env?: EnvSchema
+}
+
+/**
+ * Post-install configuration.
+ * Variables that can be configured AFTER the app is installed.
+ */
+export interface PostInstallConfig {
+  /**
+   * Environment variables configurable after installation.
+   * These appear in the Settings page of the installed app.
+   */
+  env?: EnvSchema
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,8 +381,23 @@ export interface SkedyulConfig {
   /**
    * Install-time configuration.
    * Defines what users need to configure when installing the app.
+   * @deprecated Use preInstall and postInstall instead
    */
   install?: InstallConfig
+
+  /**
+   * Pre-install configuration.
+   * Environment variables collected BEFORE the app is installed.
+   * User must provide these values (e.g., API keys) during the install flow.
+   */
+  preInstall?: PreInstallConfig
+
+  /**
+   * Post-install configuration.
+   * Environment variables that can be configured AFTER the app is installed.
+   * These appear in the Settings page of the installed app.
+   */
+  postInstall?: PostInstallConfig
 
   // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels
@@ -428,8 +505,14 @@ export interface SerializableSkedyulConfig {
   // Install Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Install-time configuration */
+  /** Install-time configuration @deprecated Use preInstall and postInstall */
   install?: InstallConfig
+
+  /** Pre-install configuration (env vars required before install) */
+  preInstall?: PreInstallConfig
+
+  /** Post-install configuration (env vars configurable after install) */
+  postInstall?: PostInstallConfig
 
   // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels
@@ -621,7 +704,7 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
     }
   }
 
-  // Validate install.env schema
+  // Validate install.env schema (deprecated)
   if (config.install?.env) {
     for (const [key, def] of Object.entries(config.install.env)) {
       if (!def.label) {
@@ -629,6 +712,30 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
       }
       if (def.visibility && !['visible', 'encrypted'].includes(def.visibility)) {
         errors.push(`install.env.${key}: Invalid visibility '${def.visibility}'`)
+      }
+    }
+  }
+
+  // Validate preInstall.env schema
+  if (config.preInstall?.env) {
+    for (const [key, def] of Object.entries(config.preInstall.env)) {
+      if (!def.label) {
+        errors.push(`preInstall.env.${key}: Missing required field 'label'`)
+      }
+      if (def.visibility && !['visible', 'encrypted'].includes(def.visibility)) {
+        errors.push(`preInstall.env.${key}: Invalid visibility '${def.visibility}'`)
+      }
+    }
+  }
+
+  // Validate postInstall.env schema
+  if (config.postInstall?.env) {
+    for (const [key, def] of Object.entries(config.postInstall.env)) {
+      if (!def.label) {
+        errors.push(`postInstall.env.${key}: Missing required field 'label'`)
+      }
+      if (def.visibility && !['visible', 'encrypted'].includes(def.visibility)) {
+        errors.push(`postInstall.env.${key}: Invalid visibility '${def.visibility}'`)
       }
     }
   }
@@ -734,6 +841,7 @@ export function validateConfig(config: SkedyulConfig): { valid: boolean; errors:
 
 /**
  * Get all required install env keys from a config
+ * @deprecated Use getRequiredPreInstallEnvKeys instead
  */
 export function getRequiredInstallEnvKeys(config: SkedyulConfig): string[] {
   if (!config.install?.env) return []
@@ -744,12 +852,30 @@ export function getRequiredInstallEnvKeys(config: SkedyulConfig): string[] {
 }
 
 /**
+ * Get all required pre-install env keys from a config
+ */
+export function getRequiredPreInstallEnvKeys(config: SkedyulConfig): string[] {
+  if (!config.preInstall?.env) return []
+
+  return Object.entries(config.preInstall.env)
+    .filter(([, def]) => def.required)
+    .map(([key]) => key)
+}
+
+/**
  * Get all env keys (both global and install) from a config
  */
-export function getAllEnvKeys(config: SkedyulConfig): { global: string[]; install: string[] } {
+export function getAllEnvKeys(config: SkedyulConfig): { 
+  global: string[]
+  install: string[]
+  preInstall: string[]
+  postInstall: string[]
+} {
   return {
     global: config.env ? Object.keys(config.env) : [],
     install: config.install?.env ? Object.keys(config.install.env) : [],
+    preInstall: config.preInstall?.env ? Object.keys(config.preInstall.env) : [],
+    postInstall: config.postInstall?.env ? Object.keys(config.postInstall.env) : [],
   }
 }
 
