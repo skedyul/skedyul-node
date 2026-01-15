@@ -164,6 +164,84 @@ export interface ChannelToolBindings {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Resource Scope and Dependencies
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Scope of a model: INTERNAL (app-owned) or SHARED (user-mapped) */
+export type ResourceScope = 'INTERNAL' | 'SHARED'
+
+/** Model dependency reference */
+export interface ModelDependency {
+  /** Handle of the model being depended upon */
+  model: string
+  /** Specific fields required (undefined = all fields) */
+  fields?: string[]
+}
+
+/** Channel dependency reference */
+export interface ChannelDependency {
+  /** Handle of the channel being depended upon */
+  channel: string
+}
+
+/** Workflow dependency reference */
+export interface WorkflowDependency {
+  /** Handle of the workflow being depended upon */
+  workflow: string
+}
+
+/** Union of all resource dependency types */
+export type ResourceDependency = ModelDependency | ChannelDependency | WorkflowDependency
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unified Model Definition
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Field definition for unified models (works for INTERNAL and SHARED) */
+export interface ModelFieldDefinition {
+  /** Field handle (unique within model) */
+  handle: string
+  /** Display label */
+  label: string
+  /** Data type (required for INTERNAL, optional for SHARED) */
+  type?: InternalFieldDataType
+  /** Field definition handle for SHARED fields */
+  definitionHandle?: string
+  /** Whether field is required */
+  required?: boolean
+  /** Whether field must be unique */
+  unique?: boolean
+  /** Whether this is a system field */
+  system?: boolean
+  /** Whether field holds a list of values */
+  isList?: boolean
+  /** Default value */
+  defaultValue?: { value: unknown }
+  /** Field description */
+  description?: string
+  /** Visibility settings (for SHARED fields) */
+  visibility?: AppFieldVisibility
+}
+
+/** Unified model definition (supports both INTERNAL and SHARED) */
+export interface ModelDefinition {
+  /** Model handle (unique within app) */
+  handle: string
+  /** Display name */
+  name: string
+  /** Plural display name */
+  namePlural?: string
+  /** Resource scope: INTERNAL (app creates) or SHARED (user maps) */
+  scope: ResourceScope
+  /** Label template for display (required for INTERNAL) */
+  labelTemplate?: string
+  /** Model description */
+  description?: string
+  /** Field definitions */
+  fields: ModelFieldDefinition[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Communication Channel Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -186,12 +264,17 @@ export interface CommunicationChannelDefinition {
   /** Tool bindings for this channel */
   tools: ChannelToolBindings
   /** How the channel identifier is configured */
-  identifierValue: ChannelIdentifierValue
+  identifierValue?: ChannelIdentifierValue
   /** Fields to add to contacts when using this channel */
   appFields?: AppFieldDefinition[]
   /** Additional settings UI */
   settings?: unknown[]
+  /** Typed dependencies - models, fields this channel requires */
+  requires?: ResourceDependency[]
 }
+
+/** Alias for channel definition (new naming) */
+export type ChannelDefinition = CommunicationChannelDefinition
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workflow Definition
@@ -231,6 +314,8 @@ export interface WorkflowDefinition {
   label?: string
   /** Workflow handle/key (optional when path is provided, inferred from YAML) */
   handle?: string
+  /** Typed dependencies - channels, models this workflow requires */
+  requires?: ResourceDependency[]
   /** Actions in this workflow */
   actions: WorkflowAction[]
 }
@@ -400,12 +485,52 @@ export interface SkedyulConfig {
   postInstall?: PostInstallConfig
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Models (Unified INTERNAL + SHARED)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Unified model definitions (INTERNAL + SHARED).
+   * INTERNAL models are created and managed by the app.
+   * SHARED models map to user's existing models.
+   *
+   * @example
+   * ```typescript
+   * models: [
+   *   {
+   *     handle: 'phone_number',
+   *     name: 'Phone Number',
+   *     scope: 'INTERNAL',
+   *     labelTemplate: '{{phone}}',
+   *     fields: [
+   *       { handle: 'phone', label: 'Phone Number', type: 'STRING', required: true },
+   *     ],
+   *   },
+   *   {
+   *     handle: 'contact',
+   *     name: 'Contact',
+   *     scope: 'SHARED',
+   *     fields: [
+   *       { handle: 'phone', label: 'Phone', definitionHandle: 'phone', required: true },
+   *     ],
+   *   },
+   * ]
+   * ```
+   */
+  models?: ModelDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Communication channels this app provides.
-   * Defines how the app can send/receive messages.
+   * Communication channels this app provides (new syntax).
+   * Uses typed `requires` for dependencies.
+   */
+  channels?: ChannelDefinition[]
+
+  /**
+   * Communication channels this app provides (legacy syntax).
+   * @deprecated Use `channels` instead
    */
   communicationChannels?: CommunicationChannelDefinition[]
 
@@ -415,34 +540,17 @@ export interface SkedyulConfig {
 
   /**
    * Workflows this app provides.
-   * Can reference channels via channelHandle.
+   * Can reference channels via `requires: [{ channel: 'sms' }]`.
    */
   workflows?: WorkflowDefinition[]
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Internal Models
+  // Internal Models (Legacy)
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
    * Internal models owned by this app.
-   * These models are created and managed by the app, not by users.
-   * Data is stored in the standard Model/Field/Instance tables but
-   * linked to the AppVersion for ownership tracking.
-   *
-   * @example
-   * ```typescript
-   * internalModels: [
-   *   {
-   *     handle: 'dedicated_phone_number',
-   *     name: 'Dedicated Phone Number',
-   *     namePlural: 'Dedicated Phone Numbers',
-   *     labelTemplate: '{{phone}}',
-   *     fields: [
-   *       { handle: 'phone', label: 'Phone Number', type: 'TEXT', required: true, unique: true },
-   *     ],
-   *   },
-   * ]
-   * ```
+   * @deprecated Use `models` with `scope: 'INTERNAL'` instead
    */
   internalModels?: InternalModelDefinition[]
 }
@@ -515,10 +623,20 @@ export interface SerializableSkedyulConfig {
   postInstall?: PostInstallConfig
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Models
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Unified model definitions (INTERNAL + SHARED) */
+  models?: ModelDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Communication channels this app provides */
+  /** Communication channels (new syntax) */
+  channels?: ChannelDefinition[]
+
+  /** Communication channels (legacy) @deprecated */
   communicationChannels?: CommunicationChannelDefinition[]
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -529,10 +647,10 @@ export interface SerializableSkedyulConfig {
   workflows?: WorkflowDefinition[]
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Internal Models
+  // Internal Models (Legacy)
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Internal models owned by this app */
+  /** Internal models @deprecated Use models with scope: INTERNAL */
   internalModels?: InternalModelDefinition[]
 }
 
