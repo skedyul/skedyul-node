@@ -107,6 +107,26 @@ export const ChannelIdentifierValueSchema = z.object({
 export const ResourceScopeSchema = z.enum(['INTERNAL', 'SHARED'])
 
 /**
+ * Schema for field-level data ownership.
+ * Describes who owns/controls the data in a field.
+ * APP: App exclusively controls this data (e.g., status field set by webhook)
+ * WORKPLACE: User/organization provides this data (e.g., file upload)
+ * BOTH: Collaborative - either can update
+ */
+export const FieldOwnerSchema = z.enum(['APP', 'WORKPLACE', 'BOTH'])
+
+/**
+ * Schema for StructuredFilter conditions.
+ * Used for conditional dependencies (e.g., require model where status = APPROVED)
+ * Format: { fieldHandle: { operator: value } }
+ */
+const PrimitiveSchema = z.union([z.string(), z.number(), z.boolean()])
+export const StructuredFilterSchema = z.record(
+  z.string(),
+  z.record(z.string(), z.union([PrimitiveSchema, z.array(PrimitiveSchema)])),
+)
+
+/**
  * Schema for a model dependency reference.
  * Used in `requires` arrays to specify model dependencies.
  */
@@ -115,6 +135,8 @@ export const ModelDependencySchema = z.object({
   model: z.string(),
   /** Specific fields required (undefined = all fields) */
   fields: z.array(z.string()).optional(),
+  /** Conditions the dependency instance must satisfy (StructuredFilter format) */
+  where: StructuredFilterSchema.optional(),
 })
 
 /**
@@ -237,6 +259,41 @@ export const FieldDataTypeSchema = z.enum([
 ])
 
 /**
+ * Schema for an option in a choice/enum field.
+ */
+export const FieldOptionSchema = z.object({
+  /** Display label */
+  label: z.string(),
+  /** Value stored in database */
+  value: z.string(),
+  /** Optional color for UI display */
+  color: z.string().optional(),
+})
+
+/**
+ * Schema for inline field definition (constraints, options, etc.)
+ * This allows defining field behavior without referencing a metafield definition.
+ */
+export const InlineFieldDefinitionSchema = z.object({
+  /** For choice fields: number of selections allowed (1 = single select, >1 = multi) */
+  limitChoices: z.number().optional(),
+  /** For choice fields: available options */
+  options: z.array(FieldOptionSchema).optional(),
+  /** For string fields: min length */
+  minLength: z.number().optional(),
+  /** For string fields: max length */
+  maxLength: z.number().optional(),
+  /** For number fields: min value */
+  min: z.number().optional(),
+  /** For number fields: max value */
+  max: z.number().optional(),
+  /** For relation fields: target model handle */
+  relatedModel: z.string().optional(),
+  /** Validation regex pattern */
+  pattern: z.string().optional(),
+})
+
+/**
  * Schema for a field within a model.
  * Works for both INTERNAL and SHARED models.
  */
@@ -247,8 +304,10 @@ export const ModelFieldDefinitionSchema = z.object({
   label: z.string(),
   /** Data type (required for INTERNAL, optional for SHARED) */
   type: FieldDataTypeSchema.optional(),
-  /** Field definition handle for SHARED fields */
+  /** Field definition handle for SHARED fields (references a metafield definition) */
   definitionHandle: z.string().optional(),
+  /** Inline field definition (alternative to definitionHandle for INTERNAL fields) */
+  definition: InlineFieldDefinitionSchema.optional(),
   /** Whether field is required */
   required: z.boolean().optional(),
   /** Whether field must be unique */
@@ -263,6 +322,8 @@ export const ModelFieldDefinitionSchema = z.object({
   description: z.string().optional(),
   /** Visibility settings for SHARED fields */
   visibility: AppFieldVisibilitySchema.optional(),
+  /** Data ownership: APP (app controls), WORKPLACE (user provides), BOTH (collaborative) */
+  owner: FieldOwnerSchema.optional(),
 })
 
 /**
@@ -284,6 +345,8 @@ export const ModelDefinitionSchema = z.object({
   description: z.string().optional(),
   /** Field definitions */
   fields: z.array(ModelFieldDefinitionSchema),
+  /** Model-level dependencies - other models this model requires to be provisioned */
+  requires: z.array(ResourceDependencySchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -387,6 +450,18 @@ export function safeParseConfig(data: unknown): ParsedSkedyulConfig | null {
 
 /** Resource scope type */
 export type ResourceScope = z.infer<typeof ResourceScopeSchema>
+
+/** Field owner type (data ownership) */
+export type FieldOwner = z.infer<typeof FieldOwnerSchema>
+
+/** StructuredFilter type for conditional dependencies */
+export type StructuredFilter = z.infer<typeof StructuredFilterSchema>
+
+/** Field option for choice/enum fields */
+export type FieldOption = z.infer<typeof FieldOptionSchema>
+
+/** Inline field definition (constraints, options, etc.) */
+export type InlineFieldDefinition = z.infer<typeof InlineFieldDefinitionSchema>
 
 /** Model dependency reference */
 export type ModelDependency = z.infer<typeof ModelDependencySchema>

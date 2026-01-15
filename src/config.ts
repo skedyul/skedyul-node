@@ -170,12 +170,29 @@ export interface ChannelToolBindings {
 /** Scope of a model: INTERNAL (app-owned) or SHARED (user-mapped) */
 export type ResourceScope = 'INTERNAL' | 'SHARED'
 
+/**
+ * Field-level data ownership.
+ * APP: App exclusively controls this data (e.g., status field set by webhook)
+ * WORKPLACE: User/organization provides this data (e.g., file upload)
+ * BOTH: Collaborative - either can update
+ */
+export type FieldOwner = 'APP' | 'WORKPLACE' | 'BOTH'
+
+/**
+ * StructuredFilter for conditional dependencies.
+ * Format: { fieldHandle: { operator: value | value[] } }
+ * Operators: eq, neq, gt, gte, lt, lte, contains, etc.
+ */
+export type StructuredFilter = Record<string, Record<string, string | number | boolean | (string | number | boolean)[]>>
+
 /** Model dependency reference */
 export interface ModelDependency {
   /** Handle of the model being depended upon */
   model: string
   /** Specific fields required (undefined = all fields) */
   fields?: string[]
+  /** Conditions the dependency instance must satisfy (StructuredFilter format) */
+  where?: StructuredFilter
 }
 
 /** Channel dependency reference */
@@ -197,6 +214,39 @@ export type ResourceDependency = ModelDependency | ChannelDependency | WorkflowD
 // Unified Model Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Option for choice/enum fields */
+export interface FieldOption {
+  /** Display label */
+  label: string
+  /** Value stored in database */
+  value: string
+  /** Optional color for UI display */
+  color?: string
+}
+
+/**
+ * Inline field definition (constraints, options, etc.)
+ * Allows defining field behavior without referencing a metafield definition.
+ */
+export interface InlineFieldDefinition {
+  /** For choice fields: number of selections allowed (1 = single select, >1 = multi) */
+  limitChoices?: number
+  /** For choice fields: available options */
+  options?: FieldOption[]
+  /** For string fields: min length */
+  minLength?: number
+  /** For string fields: max length */
+  maxLength?: number
+  /** For number fields: min value */
+  min?: number
+  /** For number fields: max value */
+  max?: number
+  /** For relation fields: target model handle */
+  relatedModel?: string
+  /** Validation regex pattern */
+  pattern?: string
+}
+
 /** Field definition for unified models (works for INTERNAL and SHARED) */
 export interface ModelFieldDefinition {
   /** Field handle (unique within model) */
@@ -205,8 +255,10 @@ export interface ModelFieldDefinition {
   label: string
   /** Data type (required for INTERNAL, optional for SHARED) */
   type?: InternalFieldDataType
-  /** Field definition handle for SHARED fields */
+  /** Field definition handle for SHARED fields (references a metafield definition) */
   definitionHandle?: string
+  /** Inline field definition (alternative to definitionHandle for INTERNAL fields) */
+  definition?: InlineFieldDefinition
   /** Whether field is required */
   required?: boolean
   /** Whether field must be unique */
@@ -221,6 +273,8 @@ export interface ModelFieldDefinition {
   description?: string
   /** Visibility settings (for SHARED fields) */
   visibility?: AppFieldVisibility
+  /** Data ownership: APP (app controls), WORKPLACE (user provides), BOTH (collaborative) */
+  owner?: FieldOwner
 }
 
 /** Unified model definition (supports both INTERNAL and SHARED) */
@@ -239,6 +293,8 @@ export interface ModelDefinition {
   description?: string
   /** Field definitions */
   fields: ModelFieldDefinition[]
+  /** Model-level dependencies - other models this model requires to be provisioned */
+  requires?: ResourceDependency[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
