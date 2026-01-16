@@ -298,6 +298,42 @@ export interface ModelDefinition {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Relationship Definition
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Relationship cardinality */
+export type RelationshipCardinality =
+  | 'ONE_TO_ONE'
+  | 'ONE_TO_MANY'
+  | 'MANY_TO_ONE'
+  | 'MANY_TO_MANY'
+
+/** On-delete behavior for relationships */
+export type OnDeleteBehavior = 'NONE' | 'CASCADE' | 'RESTRICT'
+
+/** One side of a relationship */
+export interface RelationshipLink {
+  /** Model handle for this side */
+  model: string
+  /** Field handle on this model */
+  field: string
+  /** Field label for display */
+  label: string
+  /** Cardinality from this side */
+  cardinality: RelationshipCardinality
+  /** On-delete behavior */
+  onDelete?: OnDeleteBehavior
+}
+
+/** Bidirectional relationship definition between two models */
+export interface RelationshipDefinition {
+  /** Source side of the relationship */
+  source: RelationshipLink
+  /** Target side of the relationship */
+  target: RelationshipLink
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Communication Channel Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -573,6 +609,39 @@ export interface SkedyulConfig {
    * ```
    */
   models?: ModelDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Relationships
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Relationships between models.
+   * Defines bidirectional links between INTERNAL models.
+   * Creates relationship fields on both sides automatically.
+   *
+   * @example
+   * ```typescript
+   * relationships: [
+   *   {
+   *     source: {
+   *       model: 'phone_number',
+   *       field: 'compliance_record',
+   *       label: 'Compliance Record',
+   *       cardinality: 'MANY_TO_ONE',
+   *       onDelete: 'RESTRICT',
+   *     },
+   *     target: {
+   *       model: 'compliance_record',
+   *       field: 'phone_numbers',
+   *       label: 'Phone Numbers',
+   *       cardinality: 'ONE_TO_MANY',
+   *       onDelete: 'NONE',
+   *     },
+   *   },
+   * ]
+   * ```
+   */
+  relationships?: RelationshipDefinition[]
 
   // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels

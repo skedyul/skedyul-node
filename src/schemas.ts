@@ -271,6 +271,53 @@ export const FieldOptionSchema = z.object({
 })
 
 /**
+ * Schema for relationship cardinality.
+ * Defines how many records can be linked on each side.
+ */
+export const RelationshipCardinalitySchema = z.enum([
+  'ONE_TO_ONE',
+  'ONE_TO_MANY',
+  'MANY_TO_ONE',
+  'MANY_TO_MANY',
+])
+
+/**
+ * Schema for on-delete behavior in relationships.
+ */
+export const OnDeleteBehaviorSchema = z.enum([
+  'NONE', // No action
+  'CASCADE', // Delete related records
+  'RESTRICT', // Prevent deletion
+])
+
+/**
+ * Schema for a relationship link (one side of a relationship).
+ */
+export const RelationshipLinkSchema = z.object({
+  /** Model handle for this side of the relationship */
+  model: z.string(),
+  /** Field handle on this model */
+  field: z.string(),
+  /** Field label for display */
+  label: z.string(),
+  /** Cardinality from this side */
+  cardinality: RelationshipCardinalitySchema,
+  /** On-delete behavior */
+  onDelete: OnDeleteBehaviorSchema.default('NONE'),
+})
+
+/**
+ * Schema for a relationship definition.
+ * Relationships are bidirectional - they define links from both sides.
+ */
+export const RelationshipDefinitionSchema = z.object({
+  /** Source side of the relationship */
+  source: RelationshipLinkSchema,
+  /** Target side of the relationship */
+  target: RelationshipLinkSchema,
+})
+
+/**
  * Schema for inline field definition (constraints, options, etc.)
  * This allows defining field behavior without referencing a metafield definition.
  */
@@ -287,8 +334,6 @@ export const InlineFieldDefinitionSchema = z.object({
   min: z.number().optional(),
   /** For number fields: max value */
   max: z.number().optional(),
-  /** For relation fields: target model handle */
-  relatedModel: z.string().optional(),
   /** Validation regex pattern */
   pattern: z.string().optional(),
 })
@@ -419,6 +464,9 @@ export const SkedyulConfigSchema = z.object({
   // New unified model definitions (INTERNAL + SHARED)
   models: z.array(ModelDefinitionSchema).optional(),
 
+  // Relationships between models
+  relationships: z.array(RelationshipDefinitionSchema).optional(),
+
   // New channel syntax (alias for communicationChannels)
   channels: z.array(ChannelDefinitionSchema).optional(),
 
@@ -462,6 +510,18 @@ export type FieldOption = z.infer<typeof FieldOptionSchema>
 
 /** Inline field definition (constraints, options, etc.) */
 export type InlineFieldDefinition = z.infer<typeof InlineFieldDefinitionSchema>
+
+/** Relationship cardinality type */
+export type RelationshipCardinality = z.infer<typeof RelationshipCardinalitySchema>
+
+/** On-delete behavior type */
+export type OnDeleteBehavior = z.infer<typeof OnDeleteBehaviorSchema>
+
+/** Relationship link (one side of a relationship) */
+export type RelationshipLink = z.infer<typeof RelationshipLinkSchema>
+
+/** Relationship definition */
+export type RelationshipDefinition = z.infer<typeof RelationshipDefinitionSchema>
 
 /** Model dependency reference */
 export type ModelDependency = z.infer<typeof ModelDependencySchema>
