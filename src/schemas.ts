@@ -317,6 +317,63 @@ export const RelationshipDefinitionSchema = z.object({
   target: RelationshipLinkSchema,
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Page and Block Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Schema for page type.
+ * INSTANCE: Shows a single record (form-like)
+ * LIST: Shows multiple records (spreadsheet/table)
+ */
+export const PageTypeSchema = z.enum(['INSTANCE', 'LIST'])
+
+/**
+ * Schema for block type in a page.
+ * Matches existing block types in the system.
+ */
+export const PageBlockTypeSchema = z.enum([
+  'form',
+  'spreadsheet',
+  'kanban',
+  'calendar',
+  'link',
+])
+
+/**
+ * Schema for a block definition within a page.
+ * Blocks define the UI components that render model data.
+ */
+export const PageBlockDefinitionSchema = z.object({
+  /** Block type determines the UI component */
+  type: PageBlockTypeSchema,
+  /** Block title displayed in UI */
+  title: z.string().optional(),
+  /** Field handles to include in this block */
+  fields: z.array(z.string()).optional(),
+  /** Whether the block is read-only (no editing) */
+  readonly: z.boolean().optional(),
+})
+
+/**
+ * Schema for a page definition.
+ * Pages define how internal models are displayed in the post-install UI.
+ */
+export const PageDefinitionSchema = z.object({
+  /** Unique handle for the page */
+  handle: z.string(),
+  /** Model handle this page displays */
+  model: z.string(),
+  /** Page type: INSTANCE (single record) or LIST (multiple records) */
+  type: PageTypeSchema,
+  /** Page title displayed in UI */
+  title: z.string(),
+  /** Optional custom path for navigation */
+  path: z.string().optional(),
+  /** Blocks that compose this page */
+  blocks: z.array(PageBlockDefinitionSchema),
+})
+
 /**
  * Schema for inline field definition (constraints, options, etc.)
  * This allows defining field behavior without referencing a metafield definition.
@@ -467,6 +524,9 @@ export const SkedyulConfigSchema = z.object({
   // Relationships between models
   relationships: z.array(RelationshipDefinitionSchema).optional(),
 
+  // Pages for internal models (displayed in post-install UI)
+  pages: z.array(PageDefinitionSchema).optional(),
+
   // New channel syntax (alias for communicationChannels)
   channels: z.array(ChannelDefinitionSchema).optional(),
 
@@ -522,6 +582,18 @@ export type RelationshipLink = z.infer<typeof RelationshipLinkSchema>
 
 /** Relationship definition */
 export type RelationshipDefinition = z.infer<typeof RelationshipDefinitionSchema>
+
+/** Page type */
+export type PageType = z.infer<typeof PageTypeSchema>
+
+/** Page block type */
+export type PageBlockType = z.infer<typeof PageBlockTypeSchema>
+
+/** Page block definition */
+export type PageBlockDefinition = z.infer<typeof PageBlockDefinitionSchema>
+
+/** Page definition */
+export type PageDefinition = z.infer<typeof PageDefinitionSchema>
 
 /** Model dependency reference */
 export type ModelDependency = z.infer<typeof ModelDependencySchema>

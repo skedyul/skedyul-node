@@ -334,6 +334,44 @@ export interface RelationshipDefinition {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Page and Block Definitions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Page type: INSTANCE shows single record, LIST shows multiple records */
+export type PageType = 'INSTANCE' | 'LIST'
+
+/** Block types available for pages */
+export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link'
+
+/** Block definition within a page */
+export interface PageBlockDefinition {
+  /** Block type determines the UI component */
+  type: PageBlockType
+  /** Block title displayed in UI */
+  title?: string
+  /** Field handles to include in this block */
+  fields?: string[]
+  /** Whether the block is read-only (no editing) */
+  readonly?: boolean
+}
+
+/** Page definition for internal model display */
+export interface PageDefinition {
+  /** Unique handle for the page */
+  handle: string
+  /** Model handle this page displays */
+  model: string
+  /** Page type: INSTANCE (single record) or LIST (multiple records) */
+  type: PageType
+  /** Page title displayed in UI */
+  title: string
+  /** Optional custom path for navigation */
+  path?: string
+  /** Blocks that compose this page */
+  blocks: PageBlockDefinition[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Communication Channel Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -644,6 +682,41 @@ export interface SkedyulConfig {
   relationships?: RelationshipDefinition[]
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Pages
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Pages for internal models.
+   * Defines how internal models are displayed in the post-install UI.
+   * Each page references a model by handle and can have multiple pages per model.
+   *
+   * @example
+   * ```typescript
+   * pages: [
+   *   {
+   *     handle: 'compliance_submission',
+   *     model: 'compliance_record',
+   *     type: 'INSTANCE',
+   *     title: 'Submit Compliance Record',
+   *     blocks: [
+   *       { type: 'form', title: 'Business Registration', fields: ['file'] },
+   *     ],
+   *   },
+   *   {
+   *     handle: 'phone_numbers_list',
+   *     model: 'phone_number',
+   *     type: 'LIST',
+   *     title: 'Phone Numbers',
+   *     blocks: [
+   *       { type: 'spreadsheet', fields: ['phone', 'forwarding_phone_number'] },
+   *     ],
+   *   },
+   * ]
+   * ```
+   */
+  pages?: PageDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -753,6 +826,13 @@ export interface SerializableSkedyulConfig {
 
   /** Unified model definitions (INTERNAL + SHARED) */
   models?: ModelDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Pages
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Pages for internal model display */
+  pages?: PageDefinition[]
 
   // ─────────────────────────────────────────────────────────────────────────
   // Communication Channels
