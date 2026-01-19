@@ -1,6 +1,8 @@
 export * from './types'
 export * from './schemas'
 export { server } from './server'
+// Re-export zod so integrations use the same instance (avoids _zod errors)
+export { z } from 'zod'
 export { workplace, communicationChannel, configure, getConfig } from './core/client'
 export {
   defineConfig,
