@@ -5,7 +5,21 @@ export * from './schemas'
 export { server } from './server'
 // Re-export zod so integrations use the same instance
 export { z }
-export { workplace, communicationChannel, configure, getConfig } from './core/client'
+export {
+  workplace,
+  communicationChannel,
+  instance,
+  configure,
+  getConfig,
+} from './core/client'
+export type {
+  InstanceContext,
+  InstanceData,
+  InstanceMeta,
+  InstancePagination,
+  InstanceListResult,
+  InstanceListArgs,
+} from './core/client'
 
 // Default export for ESM compatibility when importing from CJS
 export default { z }

@@ -215,3 +215,164 @@ export const communicationChannel = {
     return payload
   },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Instance Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Context required for instance operations.
+ * This is typically extracted from the tool handler's context.
+ */
+export interface InstanceContext {
+  /** The app installation ID for scoping */
+  appInstallationId: string
+  /** Workplace info */
+  workplace: { id: string }
+}
+
+/**
+ * Metadata for an instance.
+ */
+export interface InstanceMeta {
+  modelId: string
+  label?: string
+}
+
+/**
+ * Instance data returned from the API.
+ * Contains field handles as keys with their values.
+ */
+export interface InstanceData {
+  id: string
+  _meta: InstanceMeta
+  [fieldHandle: string]: unknown
+}
+
+/**
+ * Pagination info for list results.
+ */
+export interface InstancePagination {
+  page: number
+  total: number
+  hasMore: boolean
+  limit: number
+}
+
+/**
+ * Result from instance.list().
+ */
+export interface InstanceListResult {
+  data: InstanceData[]
+  pagination: InstancePagination
+}
+
+/**
+ * Arguments for instance.list().
+ */
+export interface InstanceListArgs {
+  page?: number
+  limit?: number
+  filters?: Record<string, unknown>
+}
+
+export const instance = {
+  /**
+   * List instances of an internal model scoped by appInstallationId.
+   *
+   * @example
+   * ```ts
+   * const ctx = {
+   *   appInstallationId: fieldContext.appInstallationId,
+   *   workplace: fieldContext.workplace,
+   * }
+   *
+   * const { data: records, pagination } = await instance.list('compliance_record', ctx, {
+   *   page: 1,
+   *   limit: 10,
+   * })
+   * ```
+   */
+  async list(
+    modelHandle: string,
+    ctx: InstanceContext,
+    args?: InstanceListArgs,
+  ): Promise<InstanceListResult> {
+    const payload = (await callCore('instance.list', {
+      modelHandle,
+      appInstallationId: ctx.appInstallationId,
+      workplaceId: ctx.workplace.id,
+      ...(args?.page !== undefined ? { page: args.page } : {}),
+      ...(args?.limit !== undefined ? { limit: args.limit } : {}),
+      ...(args?.filters ? { filters: args.filters } : {}),
+    })) as InstanceListResult
+    return payload
+  },
+
+  /**
+   * Get a single instance by ID.
+   *
+   * @example
+   * ```ts
+   * const record = await instance.get('instance-id-123', ctx)
+   * ```
+   */
+  async get(id: string, ctx: InstanceContext): Promise<InstanceData | null> {
+    const payload = (await callCore('instance.get', {
+      id,
+      appInstallationId: ctx.appInstallationId,
+      workplaceId: ctx.workplace.id,
+    })) as { instance: InstanceData | null }
+    return payload.instance
+  },
+
+  /**
+   * Create a new instance of an internal model.
+   *
+   * @example
+   * ```ts
+   * const newRecord = await instance.create('compliance_record', {
+   *   status: 'pending',
+   *   document_url: 'https://...',
+   * }, ctx)
+   * ```
+   */
+  async create(
+    modelHandle: string,
+    data: Record<string, unknown>,
+    ctx: InstanceContext,
+  ): Promise<InstanceData> {
+    const payload = (await callCore('instance.create', {
+      modelHandle,
+      appInstallationId: ctx.appInstallationId,
+      workplaceId: ctx.workplace.id,
+      data,
+    })) as { instance: InstanceData }
+    return payload.instance
+  },
+
+  /**
+   * Update an existing instance.
+   *
+   * @example
+   * ```ts
+   * const updated = await instance.update('instance-id-123', {
+   *   status: 'approved',
+   *   bundle_sid: 'BU123456',
+   * }, ctx)
+   * ```
+   */
+  async update(
+    id: string,
+    data: Record<string, unknown>,
+    ctx: InstanceContext,
+  ): Promise<InstanceData> {
+    const payload = (await callCore('instance.update', {
+      id,
+      appInstallationId: ctx.appInstallationId,
+      workplaceId: ctx.workplace.id,
+      data,
+    })) as { instance: InstanceData }
+    return payload.instance
+  },
+}
