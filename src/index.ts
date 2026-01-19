@@ -1,9 +1,14 @@
+import { z } from 'zod'
+
 export * from './types'
 export * from './schemas'
 export { server } from './server'
-// Re-export zod so integrations use the same instance (avoids _zod errors)
-export { z } from 'zod'
+// Re-export zod so integrations use the same instance
+export { z }
 export { workplace, communicationChannel, configure, getConfig } from './core/client'
+
+// Default export for ESM compatibility when importing from CJS
+export default { z }
 export {
   defineConfig,
   loadConfig,
