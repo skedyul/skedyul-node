@@ -1,15 +1,5 @@
 import * as z from 'zod'
-import { zodToJsonSchema as zodToJsonSchemaRaw } from 'zod-to-json-schema'
 import { parseArgs, loadRegistry, formatJson } from '../utils'
-
-// Cast for Zod v4 compatibility
-const zodToJsonSchemaLoose: (
-  schema: unknown,
-  options?: unknown,
-) => unknown = zodToJsonSchemaRaw as unknown as (
-  schema: unknown,
-  options?: unknown,
-) => unknown
 
 function printHelp(): void {
   console.log(`
@@ -53,9 +43,9 @@ function getZodSchema(schema: unknown): z.ZodTypeAny | undefined {
 function toJsonSchema(schema?: z.ZodTypeAny): Record<string, unknown> | undefined {
   if (!schema) return undefined
   try {
-    return zodToJsonSchemaLoose(schema, {
-      target: 'jsonSchema7',
-      $refStrategy: 'none',
+    // Use Zod v4 native JSON Schema conversion
+    return z.toJSONSchema(schema, {
+      unrepresentable: 'any',
     }) as Record<string, unknown>
   } catch {
     return undefined

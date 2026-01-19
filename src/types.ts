@@ -113,7 +113,7 @@ export interface ToolMetadata {
   name: string
   description: string
   /**
-   * JSON Schema describing the tool's inputs, as returned by zod-to-json-schema.
+   * JSON Schema describing the tool's inputs, as returned by Zod v4's z.toJSONSchema().
    * This is intentionally loose to support arbitrary JSON Schema shapes.
    */
   inputSchema?: Record<string, unknown>

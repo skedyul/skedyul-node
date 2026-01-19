@@ -3,7 +3,6 @@ import http, { IncomingMessage, ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import * as z from 'zod'
-import { zodToJsonSchema as zodToJsonSchemaRaw } from 'zod-to-json-schema'
 
 import type {
   APIGatewayProxyEvent,
@@ -40,14 +39,6 @@ interface RequestState {
   getHealthStatus(): HealthStatus
 }
 
-const zodToJsonSchemaLoose: (
-  schema: unknown,
-  options?: unknown,
-) => unknown = zodToJsonSchemaRaw as unknown as (
-  schema: unknown,
-  options?: unknown,
-) => unknown
-
 function normalizeBilling(billing?: BillingInfo): BillingInfo {
   if (!billing || typeof billing.credits !== 'number') {
     return { credits: 0 }
@@ -59,18 +50,11 @@ function toJsonSchema(schema?: z.ZodTypeAny): Record<string, unknown> | undefine
   if (!schema) return undefined
   try {
     // Zod v4 has native JSON Schema support via z.toJSONSchema()
-    // This is preferred over external libraries for Zod v4 compatibility
-    if (typeof z.toJSONSchema === 'function') {
-      return z.toJSONSchema(schema, {
-        unrepresentable: 'any', // Handle z.date(), z.bigint() etc gracefully
-      }) as Record<string, unknown>
-    }
-    // Fallback to zod-to-json-schema for older Zod versions
-    return zodToJsonSchemaLoose(schema, {
-      target: 'jsonSchema7',
-      $refStrategy: 'none',
+    return z.toJSONSchema(schema, {
+      unrepresentable: 'any', // Handle z.date(), z.bigint() etc gracefully
     }) as Record<string, unknown>
-  } catch {
+  } catch (err) {
+    console.error('[toJsonSchema] Failed to convert schema:', err)
     return undefined
   }
 }

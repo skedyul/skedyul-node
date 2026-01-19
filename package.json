@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -36,8 +36,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.23.0",
-    "zod": "^4.0.0",
-    "zod-to-json-schema": "^3.23.0"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
