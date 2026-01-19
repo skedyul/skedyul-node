@@ -1,5 +1,6 @@
 import type { CoreApiConfig } from './core/types'
 import type { z } from 'zod'
+import type { PageFieldType } from './schemas'
 
 export interface ToolContext {
   env: Record<string, string | undefined>
@@ -9,9 +10,6 @@ export interface ToolContext {
 // ─────────────────────────────────────────────────────────────────────────────
 // Page Handler Context Types
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Supported field datatypes for page fields */
-export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT'
 
 /** Context passed to field change handlers */
 export interface FieldChangeContext extends ToolContext {
