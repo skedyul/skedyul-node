@@ -30,6 +30,7 @@ import type { CommunicationChannel, Message, WebhookRequest } from './core/types
 type ToolCallArgs = {
   env?: Record<string, string | undefined>
   inputs?: Record<string, unknown>
+  context?: Record<string, unknown>
   estimate?: boolean
 }
 
@@ -366,46 +367,38 @@ function createCallToolHandler<T extends ToolRegistry>(
     Object.assign(process.env, requestEnv)
 
     try {
-      const rawInputs = (args.inputs ?? {}) as Record<string, unknown>
+      // Get tool inputs (clean, no context)
+      const inputs = (args.inputs ?? {}) as Record<string, unknown>
 
-      // Extract context from inputs if present (for field_change/page_action triggers)
-      const inputContext = rawInputs.context as Record<string, unknown> | undefined
+      // Get context from args.context (separate from inputs)
+      const rawContext = (args.context ?? {}) as Record<string, unknown>
 
-      // Create clean inputs without the nested context
-      const cleanInputs = { ...rawInputs }
-      if (inputContext) {
-        delete cleanInputs.context
-      }
-
-      // Determine trigger type from input context
+      // Determine trigger type from context
       let trigger: ToolTrigger = 'agent'
-      if (inputContext?.fieldHandle) {
+      if (rawContext.field) {
         trigger = 'field_change'
-      } else if (inputContext?.fieldValues) {
+      } else if (rawContext.fieldValues) {
         trigger = 'page_action'
-      } else if (inputContext?.trigger) {
-        trigger = inputContext.trigger as ToolTrigger
+      } else if (rawContext.trigger) {
+        trigger = rawContext.trigger as ToolTrigger
       }
+
+      // Extract field info if present
+      const field = rawContext.field as { handle: string; type: string; pageHandle: string } | undefined
 
       // Build standardized execution context
       const executionContext: ToolExecutionContext = {
         trigger,
-        appInstallationId: inputContext?.appInstallationId as string | undefined,
-        workplace: inputContext?.workplace as { id: string; subdomain?: string } | undefined,
-        field: inputContext?.fieldHandle
-          ? {
-              handle: inputContext.fieldHandle as string,
-              type: inputContext.fieldType as string,
-              pageHandle: inputContext.pageHandle as string,
-            }
-          : undefined,
-        fieldValues: inputContext?.fieldValues as Record<string, unknown> | undefined,
+        appInstallationId: rawContext.appInstallationId as string | undefined,
+        workplace: rawContext.workplace as { id: string; subdomain?: string } | undefined,
+        field,
+        fieldValues: rawContext.fieldValues as Record<string, unknown> | undefined,
         env: process.env as Record<string, string | undefined>,
         mode: estimateMode ? 'estimate' : 'execute',
       }
 
       // Call handler with two arguments: (input, context)
-      const functionResult = await fn(cleanInputs as never, executionContext as never)
+      const functionResult = await fn(inputs as never, executionContext as never)
 
       const billing = normalizeBilling(functionResult.billing)
 
