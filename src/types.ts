@@ -6,6 +6,55 @@ export interface ToolContext {
   mode?: 'execute' | 'estimate'
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Page Handler Context Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Supported field datatypes for page fields */
+export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT'
+
+/** Context passed to field change handlers */
+export interface FieldChangeContext extends ToolContext {
+  /** Field handle from page definition */
+  fieldHandle: string
+  /** Field datatype */
+  fieldType: PageFieldType
+  /** Page handle */
+  pageHandle: string
+  /** App installation ID */
+  appInstallationId: string
+  /** Workplace info */
+  workplace: { id: string; subdomain: string }
+}
+
+/** Parameters for field change handlers */
+export interface FieldChangeParams<T = unknown> {
+  /** The new value */
+  value: T
+  /** Previous value if available */
+  previousValue?: T
+  /** Handler context */
+  context: FieldChangeContext
+}
+
+/** Context passed to page action handlers */
+export interface PageActionContext extends ToolContext {
+  /** Page handle */
+  pageHandle: string
+  /** App installation ID */
+  appInstallationId: string
+  /** Workplace info */
+  workplace: { id: string; subdomain: string }
+  /** All current field values on the page */
+  fieldValues: Record<string, unknown>
+}
+
+/** Parameters for page action handlers */
+export interface PageActionParams {
+  /** Handler context */
+  context: PageActionContext
+}
+
 export interface ToolParams<Input, Output> {
   input: Input
   context: ToolContext

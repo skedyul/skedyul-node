@@ -40,14 +40,6 @@ interface RequestState {
   getHealthStatus(): HealthStatus
 }
 
-type JsonSchemaCompatFn = (
-  schema: unknown,
-  options?: {
-    target?: 'jsonSchema7' | 'draft-7' | 'jsonSchema2019-09' | 'draft-2020-12'
-    pipeStrategy?: 'input' | 'output'
-  },
-) => Record<string, unknown>
-
 const zodToJsonSchemaLoose: (
   schema: unknown,
   options?: unknown,
@@ -55,17 +47,6 @@ const zodToJsonSchemaLoose: (
   schema: unknown,
   options?: unknown,
 ) => unknown
-
-let toJsonSchemaCompatFn: JsonSchemaCompatFn | null = null
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-  const compat = require('@modelcontextprotocol/sdk/server/zod-json-schema-compat.js')
-  if (compat?.toJsonSchemaCompat) {
-    toJsonSchemaCompatFn = compat.toJsonSchemaCompat as JsonSchemaCompatFn
-  }
-} catch {
-  toJsonSchemaCompatFn = null
-}
 
 function normalizeBilling(billing?: BillingInfo): BillingInfo {
   if (!billing || typeof billing.credits !== 'number') {
@@ -77,12 +58,14 @@ function normalizeBilling(billing?: BillingInfo): BillingInfo {
 function toJsonSchema(schema?: z.ZodTypeAny): Record<string, unknown> | undefined {
   if (!schema) return undefined
   try {
-    if (toJsonSchemaCompatFn) {
-      return toJsonSchemaCompatFn(schema, {
-        target: 'jsonSchema7',
-        pipeStrategy: 'input',
-      })
+    // Zod v4 has native JSON Schema support via z.toJSONSchema()
+    // This is preferred over external libraries for Zod v4 compatibility
+    if (typeof z.toJSONSchema === 'function') {
+      return z.toJSONSchema(schema, {
+        unrepresentable: 'any', // Handle z.date(), z.bigint() etc gracefully
+      }) as Record<string, unknown>
     }
+    // Fallback to zod-to-json-schema for older Zod versions
     return zodToJsonSchemaLoose(schema, {
       target: 'jsonSchema7',
       $refStrategy: 'none',

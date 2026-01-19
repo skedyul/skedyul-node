@@ -343,32 +343,91 @@ export type PageType = 'INSTANCE' | 'LIST'
 /** Block types available for pages */
 export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link'
 
+/** Supported field datatypes for page fields */
+export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT'
+
+/** Data source for prepopulating a page field from a model */
+export interface PageFieldSource {
+  /** Model handle to pull data from */
+  model: string
+  /** Field handle on that model */
+  field: string
+}
+
+/** Self-contained field definition for page blocks */
+export interface PageFieldDefinition {
+  /** Unique handle for this field */
+  handle: string
+  /** Field datatype - determines UI component */
+  type: PageFieldType
+  /** Display label */
+  label: string
+  /** Optional description/help text */
+  description?: string
+  /** Whether field is required */
+  required?: boolean
+  /** Tool name from registry to call on value change */
+  handler?: string
+  /** Data source for prepopulating field value */
+  source?: PageFieldSource
+  /** For SELECT type: available options */
+  options?: Array<{ value: string; label: string }>
+  /** For FILE type: accepted file extensions */
+  accept?: string
+}
+
+/** Action button definition for pages */
+export interface PageActionDefinition {
+  /** Unique handle for this action */
+  handle: string
+  /** Button label */
+  label: string
+  /** Tool name from registry to invoke */
+  handler: string
+  /** Optional icon (lucide icon name) */
+  icon?: string
+  /** Button variant */
+  variant?: 'primary' | 'secondary' | 'destructive'
+}
+
 /** Block definition within a page */
 export interface PageBlockDefinition {
   /** Block type determines the UI component */
   type: PageBlockType
   /** Block title displayed in UI */
   title?: string
-  /** Field handles to include in this block */
-  fields?: string[]
+  /** Self-contained field definitions */
+  fields?: PageFieldDefinition[]
   /** Whether the block is read-only (no editing) */
   readonly?: boolean
 }
 
-/** Page definition for internal model display */
+/** Filter for selecting which instance(s) to display on a page */
+export interface PageInstanceFilter {
+  /** Model to query instances from */
+  model: string
+  /** Filter criteria - supports variable substitution like $appInstallationId */
+  where?: Record<string, unknown>
+}
+
+/** Page definition for app UI */
 export interface PageDefinition {
   /** Unique handle for the page */
   handle: string
-  /** Model handle this page displays */
-  model: string
   /** Page type: INSTANCE (single record) or LIST (multiple records) */
   type: PageType
   /** Page title displayed in UI */
   title: string
   /** Optional custom path for navigation */
   path?: string
+  /** Whether to show this page in sidebar navigation (default: true) */
+  navigation?: boolean
   /** Blocks that compose this page */
   blocks: PageBlockDefinition[]
+  /** Page-level action buttons */
+  actions?: PageActionDefinition[]
+  /** Filter to select instance(s) for prepopulating field values */
+  filter?: PageInstanceFilter
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

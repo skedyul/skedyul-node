@@ -340,6 +340,60 @@ export const PageBlockTypeSchema = z.enum([
   'link',
 ])
 
+/** Supported field datatypes for page fields */
+export const PageFieldTypeSchema = z.enum([
+  'STRING',
+  'FILE',
+  'NUMBER',
+  'DATE',
+  'BOOLEAN',
+  'SELECT',
+])
+
+/** Data source for prepopulating a page field from a model */
+export const PageFieldSourceSchema = z.object({
+  /** Model handle to pull data from */
+  model: z.string(),
+  /** Field handle on that model */
+  field: z.string(),
+})
+
+/** Self-contained field definition for page blocks */
+export const PageFieldDefinitionSchema = z.object({
+  /** Unique handle for this field */
+  handle: z.string(),
+  /** Field datatype - determines UI component */
+  type: PageFieldTypeSchema,
+  /** Display label */
+  label: z.string(),
+  /** Optional description/help text */
+  description: z.string().optional(),
+  /** Whether field is required */
+  required: z.boolean().optional(),
+  /** Tool name from registry to call on value change */
+  handler: z.string().optional(),
+  /** Data source for prepopulating field value */
+  source: PageFieldSourceSchema.optional(),
+  /** For SELECT type: available options */
+  options: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+  /** For FILE type: accepted file extensions */
+  accept: z.string().optional(),
+})
+
+/** Action button definition for pages */
+export const PageActionDefinitionSchema = z.object({
+  /** Unique handle for this action */
+  handle: z.string(),
+  /** Button label */
+  label: z.string(),
+  /** Tool name from registry to invoke */
+  handler: z.string(),
+  /** Optional icon (lucide icon name) */
+  icon: z.string().optional(),
+  /** Button variant */
+  variant: z.enum(['primary', 'secondary', 'destructive']).optional(),
+})
+
 /**
  * Schema for a block definition within a page.
  * Blocks define the UI components that render model data.
@@ -349,10 +403,18 @@ export const PageBlockDefinitionSchema = z.object({
   type: PageBlockTypeSchema,
   /** Block title displayed in UI */
   title: z.string().optional(),
-  /** Field handles to include in this block */
-  fields: z.array(z.string()).optional(),
+  /** Self-contained field definitions */
+  fields: z.array(PageFieldDefinitionSchema).optional(),
   /** Whether the block is read-only (no editing) */
   readonly: z.boolean().optional(),
+})
+
+/** Filter for selecting which instance(s) to display on a page */
+export const PageInstanceFilterSchema = z.object({
+  /** Model to query instances from */
+  model: z.string(),
+  /** Filter criteria - supports variable substitution like $appInstallationId */
+  where: z.record(z.string(), z.unknown()).optional(),
 })
 
 /**
@@ -362,16 +424,20 @@ export const PageBlockDefinitionSchema = z.object({
 export const PageDefinitionSchema = z.object({
   /** Unique handle for the page */
   handle: z.string(),
-  /** Model handle this page displays */
-  model: z.string(),
   /** Page type: INSTANCE (single record) or LIST (multiple records) */
   type: PageTypeSchema,
   /** Page title displayed in UI */
   title: z.string(),
   /** Optional custom path for navigation */
   path: z.string().optional(),
+  /** Whether to show this page in sidebar navigation (default: true) */
+  navigation: z.boolean().optional().default(true),
   /** Blocks that compose this page */
   blocks: z.array(PageBlockDefinitionSchema),
+  /** Page-level action buttons */
+  actions: z.array(PageActionDefinitionSchema).optional(),
+  /** Filter to select instance(s) for prepopulating field values */
+  filter: PageInstanceFilterSchema.optional(),
 })
 
 /**
@@ -589,8 +655,23 @@ export type PageType = z.infer<typeof PageTypeSchema>
 /** Page block type */
 export type PageBlockType = z.infer<typeof PageBlockTypeSchema>
 
+/** Page field type */
+export type PageFieldType = z.infer<typeof PageFieldTypeSchema>
+
+/** Page field source for data binding */
+export type PageFieldSource = z.infer<typeof PageFieldSourceSchema>
+
+/** Page field definition */
+export type PageFieldDefinition = z.infer<typeof PageFieldDefinitionSchema>
+
+/** Page action definition */
+export type PageActionDefinition = z.infer<typeof PageActionDefinitionSchema>
+
 /** Page block definition */
 export type PageBlockDefinition = z.infer<typeof PageBlockDefinitionSchema>
+
+/** Page instance filter */
+export type PageInstanceFilter = z.infer<typeof PageInstanceFilterSchema>
 
 /** Page definition */
 export type PageDefinition = z.infer<typeof PageDefinitionSchema>
