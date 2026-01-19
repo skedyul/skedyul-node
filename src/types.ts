@@ -53,9 +53,50 @@ export interface PageActionParams {
   context: PageActionContext
 }
 
+/**
+ * @deprecated Use ToolExecutionContext instead. This will be removed in a future version.
+ */
 export interface ToolParams<Input, Output> {
   input: Input
   context: ToolContext
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool Execution Context (Standardized)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Trigger types for tool execution */
+export type ToolTrigger = 'field_change' | 'page_action' | 'agent' | 'workflow'
+
+/** Field info when tool is triggered by a field change */
+export interface ToolFieldContext {
+  /** Field handle from page definition */
+  handle: string
+  /** Field datatype */
+  type: string
+  /** Page handle where the field is defined */
+  pageHandle: string
+}
+
+/**
+ * Standardized execution context passed to all tool handlers.
+ * This is injected by the runtime and contains metadata about how the tool was invoked.
+ */
+export interface ToolExecutionContext {
+  /** How the tool was triggered */
+  trigger: ToolTrigger
+  /** App installation ID for scoping instance operations */
+  appInstallationId?: string
+  /** Workplace info */
+  workplace?: { id: string; subdomain?: string }
+  /** Field info (only present for field_change trigger) */
+  field?: ToolFieldContext
+  /** All current field values on the page (only for page_action trigger) */
+  fieldValues?: Record<string, unknown>
+  /** Environment variables */
+  env: Record<string, string | undefined>
+  /** Execution mode - 'estimate' returns billing info without side effects */
+  mode: 'execute' | 'estimate'
 }
 
 export interface BillingInfo {
@@ -78,8 +119,16 @@ export type ToolSchema<Schema extends z.ZodTypeAny = z.ZodTypeAny> =
   | Schema
   | ToolSchemaWithJson<Schema>
 
+/**
+ * Tool handler function signature.
+ * Receives tool-specific input as first argument and standardized context as second.
+ *
+ * @param input - Tool-specific input data (validated against inputs schema)
+ * @param context - Standardized execution context injected by runtime
+ */
 export type ToolHandler<Input, Output> = (
-  params: ToolParams<Input, Output>,
+  input: Input,
+  context: ToolExecutionContext,
 ) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
 
 export interface ToolDefinition<
