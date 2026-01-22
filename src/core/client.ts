@@ -2,6 +2,29 @@ import { AsyncLocalStorage } from 'async_hooks'
 import type { CommunicationChannel, Workplace } from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Normalized Response Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Error object in normalized API responses.
+ */
+export interface CoreApiError {
+  field: string | null
+  code: string
+  message: string
+}
+
+/**
+ * Pagination info for list results.
+ */
+export interface InstancePagination {
+  page: number
+  total: number
+  hasMore: boolean
+  limit: number
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -94,10 +117,23 @@ export function getConfig(): Readonly<ClientConfig> {
 // Core API Client
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function callCore(
+/**
+ * Result from callCore with normalized response envelope.
+ */
+interface CallCoreResult<T> {
+  data: T
+  errors: CoreApiError[]
+  pagination?: InstancePagination
+}
+
+/**
+ * Call the Core API with the normalized response envelope format.
+ * Throws if success is false, otherwise returns unwrapped data.
+ */
+async function callCore<T>(
   method: string,
   params?: Record<string, unknown>,
-): Promise<unknown> {
+): Promise<CallCoreResult<T>> {
   const effectiveConfig = getEffectiveConfig()
   const { baseUrl, apiToken } = effectiveConfig
 
@@ -135,17 +171,30 @@ async function callCore(
   }
 
   const payload = (await response.json()) as {
-    error?: { message?: string }
-    [key: string]: unknown
+    success: boolean
+    data: T
+    errors: CoreApiError[]
+    pagination?: InstancePagination
   }
 
+  // Handle failure responses
+  if (!payload.success) {
+    const message = payload.errors
+      ?.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message))
+      .join('; ') || 'Unknown error'
+    throw new Error(message)
+  }
+
+  // Also handle HTTP errors (fallback for non-envelope errors)
   if (!response.ok) {
-    throw new Error(
-      payload?.error?.message ?? `Core API error (${response.status})`,
-    )
+    throw new Error(`Core API error (${response.status})`)
   }
 
-  return payload
+  return {
+    data: payload.data,
+    errors: payload.errors ?? [],
+    pagination: payload.pagination,
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,18 +208,16 @@ type ListArgs = {
 
 export const workplace = {
   async list(args?: ListArgs): Promise<Workplace[]> {
-    const payload = (await callCore('workplace.list', {
+    const { data } = await callCore<Workplace[]>('workplace.list', {
       ...(args?.filter ? { filter: args.filter } : {}),
       ...(args?.limit ? { limit: args.limit } : {}),
-    })) as { workplaces: Workplace[] }
-    return payload.workplaces
+    })
+    return data
   },
 
   async get(id: string): Promise<Workplace> {
-    const payload = (await callCore('workplace.get', { id })) as {
-      workplace: Workplace
-    }
-    return payload.workplace
+    const { data } = await callCore<Workplace>('workplace.get', { id })
+    return data
   },
 }
 
@@ -209,11 +256,6 @@ export interface ReceiveMessageInput {
   remoteId?: string
 }
 
-export interface ReceiveMessageResponse {
-  success: boolean
-  messageId?: string
-}
-
 export const communicationChannel = {
   /**
    * List communication channels with optional filters.
@@ -228,18 +270,16 @@ export const communicationChannel = {
    * ```
    */
   async list(args?: ListArgs): Promise<CommunicationChannel[]> {
-    const payload = (await callCore('communicationChannel.list', {
+    const { data } = await callCore<CommunicationChannel[]>('communicationChannel.list', {
       ...(args?.filter ? { filter: args.filter } : {}),
       ...(args?.limit ? { limit: args.limit } : {}),
-    })) as { channels: CommunicationChannel[] }
-    return payload.channels
+    })
+    return data
   },
 
   async get(id: string): Promise<CommunicationChannel | null> {
-    const payload = (await callCore('communicationChannel.get', { id })) as {
-      channel: CommunicationChannel | null
-    }
-    return payload.channel
+    const { data } = await callCore<CommunicationChannel | null>('communicationChannel.get', { id })
+    return data
   },
 
   /**
@@ -261,15 +301,15 @@ export const communicationChannel = {
    */
   async receiveMessage(
     input: ReceiveMessageInput,
-  ): Promise<ReceiveMessageResponse> {
-    const payload = (await callCore('communicationChannel.receiveMessage', {
+  ): Promise<{ messageId: string }> {
+    const { data } = await callCore<{ messageId: string }>('communicationChannel.receiveMessage', {
       communicationChannelId: input.communicationChannelId,
       from: input.from,
       message: input.message,
       contact: input.contact,
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
-    })) as ReceiveMessageResponse
-    return payload
+    })
+    return data
   },
 }
 
@@ -304,16 +344,6 @@ export interface InstanceData {
   id: string
   _meta: InstanceMeta
   [fieldHandle: string]: unknown
-}
-
-/**
- * Pagination info for list results.
- */
-export interface InstancePagination {
-  page: number
-  total: number
-  hasMore: boolean
-  limit: number
 }
 
 /**
@@ -369,15 +399,18 @@ export const instance = {
     ctx?: InstanceContext,
     args?: InstanceListArgs,
   ): Promise<InstanceListResult> {
-    const payload = (await callCore('instance.list', {
+    const { data, pagination } = await callCore<InstanceData[]>('instance.list', {
       modelHandle,
       ...(ctx?.appInstallationId ? { appInstallationId: ctx.appInstallationId } : {}),
       ...(ctx?.workplace?.id ? { workplaceId: ctx.workplace.id } : {}),
       ...(args?.page !== undefined ? { page: args.page } : {}),
       ...(args?.limit !== undefined ? { limit: args.limit } : {}),
       ...(args?.filter ? { filter: args.filter } : {}),
-    })) as InstanceListResult
-    return payload
+    })
+    return {
+      data,
+      pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: args?.limit ?? 50 },
+    }
   },
 
   /**
@@ -389,12 +422,12 @@ export const instance = {
    * ```
    */
   async get(id: string, ctx: InstanceContext): Promise<InstanceData | null> {
-    const payload = (await callCore('instance.get', {
+    const { data } = await callCore<InstanceData | null>('instance.get', {
       id,
       appInstallationId: ctx.appInstallationId,
       workplaceId: ctx.workplace.id,
-    })) as { instance: InstanceData | null }
-    return payload.instance
+    })
+    return data
   },
 
   /**
@@ -413,13 +446,13 @@ export const instance = {
     data: Record<string, unknown>,
     ctx: InstanceContext,
   ): Promise<InstanceData> {
-    const payload = (await callCore('instance.create', {
+    const { data: instance } = await callCore<InstanceData>('instance.create', {
       modelHandle,
       appInstallationId: ctx.appInstallationId,
       workplaceId: ctx.workplace.id,
       data,
-    })) as { instance: InstanceData }
-    return payload.instance
+    })
+    return instance
   },
 
   /**
@@ -438,13 +471,13 @@ export const instance = {
     data: Record<string, unknown>,
     ctx: InstanceContext,
   ): Promise<InstanceData> {
-    const payload = (await callCore('instance.update', {
+    const { data: instance } = await callCore<InstanceData>('instance.update', {
       id,
       appInstallationId: ctx.appInstallationId,
       workplaceId: ctx.workplace.id,
       data,
-    })) as { instance: InstanceData }
-    return payload.instance
+    })
+    return instance
   },
 }
 
@@ -474,10 +507,10 @@ export const token = {
    * ```
    */
   async exchange(appInstallationId: string): Promise<{ token: string }> {
-    const payload = (await callCore('token.exchange', {
+    const { data } = await callCore<{ token: string }>('token.exchange', {
       appInstallationId,
-    })) as { token: string }
-    return payload
+    })
+    return data
   },
 }
 
@@ -512,10 +545,10 @@ export const file = {
    * ```
    */
   async getUrl(fileId: string): Promise<FileUrlResponse> {
-    const payload = (await callCore('file.getUrl', {
+    const { data } = await callCore<FileUrlResponse>('file.getUrl', {
       fileId,
-    })) as FileUrlResponse
-    return payload
+    })
+    return data
   },
 }
 
@@ -601,12 +634,12 @@ export const webhook = {
     context?: Record<string, unknown>,
     options?: { expiresIn?: number },
   ): Promise<WebhookCreateResult> {
-    const payload = (await callCore('webhook.create', {
+    const { data } = await callCore<WebhookCreateResult>('webhook.create', {
       name,
       ...(context ? { context } : {}),
       ...(options?.expiresIn ? { expiresIn: options.expiresIn } : {}),
-    })) as WebhookCreateResult
-    return payload
+    })
+    return data
   },
 
   /**
@@ -621,10 +654,10 @@ export const webhook = {
    * ```
    */
   async delete(id: string): Promise<{ deleted: boolean }> {
-    const payload = (await callCore('webhook.delete', {
+    const { data } = await callCore<{ deleted: boolean }>('webhook.delete', {
       id,
-    })) as { deleted: boolean }
-    return payload
+    })
+    return data
   },
 
   /**
@@ -652,11 +685,11 @@ export const webhook = {
     name: string,
     options?: WebhookDeleteByNameOptions,
   ): Promise<{ count: number }> {
-    const payload = (await callCore('webhook.deleteByName', {
+    const { data } = await callCore<{ count: number }>('webhook.deleteByName', {
       name,
       ...(options?.filter ? { filter: options.filter } : {}),
-    })) as { count: number }
-    return payload
+    })
+    return data
   },
 
   /**
@@ -675,9 +708,9 @@ export const webhook = {
    * ```
    */
   async list(options?: WebhookListOptions): Promise<{ webhooks: WebhookListItem[] }> {
-    const payload = (await callCore('webhook.list', {
+    const { data } = await callCore<WebhookListItem[]>('webhook.list', {
       ...(options?.name ? { name: options.name } : {}),
-    })) as { webhooks: WebhookListItem[] }
-    return payload
+    })
+    return { webhooks: data }
   },
 }
