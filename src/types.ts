@@ -66,7 +66,7 @@ export interface ToolParams<Input, Output> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Trigger types for tool execution */
-export type ToolTrigger = 'field_change' | 'page_action' | 'agent' | 'workflow'
+export type ToolTrigger = 'field_change' | 'page_action' | 'agent' | 'workflow' | 'form_submit'
 
 /** Field info when tool is triggered by a field change */
 export interface ToolFieldContext {
@@ -269,6 +269,18 @@ export interface WebhookResponse {
 export interface WebhookContext {
   /** Environment variables available during webhook handling */
   env: Record<string, string | undefined>
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Platform-Injected Context (for registration-based webhooks)
+  // These are populated when the platform forwards a WebhookRegistration request
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** App installation ID (null for provision-level webhooks) */
+  appInstallationId?: string | null
+  /** Workplace info (null for provision-level webhooks) */
+  workplace?: { id: string; subdomain: string | null } | null
+  /** Registration metadata passed when webhook.create() was called */
+  registration?: Record<string, unknown>
 }
 
 export type WebhookHandler = (

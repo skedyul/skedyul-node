@@ -9,8 +9,12 @@ export {
   workplace,
   communicationChannel,
   instance,
+  token,
+  file,
+  webhook,
   configure,
   getConfig,
+  runWithConfig,
 } from './core/client'
 export type {
   InstanceContext,
@@ -19,6 +23,11 @@ export type {
   InstancePagination,
   InstanceListResult,
   InstanceListArgs,
+  FileUrlResponse,
+  WebhookCreateResult,
+  WebhookListItem,
+  WebhookDeleteByNameOptions,
+  WebhookListOptions,
 } from './core/client'
 
 // Default export for ESM compatibility when importing from CJS
@@ -27,9 +36,9 @@ export {
   defineConfig,
   loadConfig,
   validateConfig,
-  getRequiredInstallEnvKeys,
-  getAllEnvKeys,
   CONFIG_FILE_NAMES,
+  getAllEnvKeys,
+  getRequiredInstallEnvKeys,
 } from './config'
 export type {
   SkedyulConfig,
@@ -37,25 +46,58 @@ export type {
   EnvVariableDefinition,
   EnvSchema,
   EnvVisibility,
-  InstallConfig,
-  AppModelDefinition,
   ComputeLayerType,
   // Install handler types
   InstallHandlerContext,
   InstallHandlerResult,
   InstallHandler,
-  PreInstallConfig,
-  PostInstallConfig,
-  // Communication Channel types
+  // Model types
+  ModelDefinition,
+  ModelFieldDefinition,
+  ResourceScope,
+  FieldOwner,
+  InternalFieldDataType,
+  FieldOption,
+  InlineFieldDefinition,
   AppFieldVisibility,
-  AppFieldDefinition,
+  // Relationship types
+  RelationshipDefinition,
+  RelationshipLink,
+  RelationshipCardinality,
+  OnDeleteBehavior,
+  // Channel types
+  ChannelDefinition,
   ChannelToolBindings,
-  ChannelIdentifierType,
-  ChannelIdentifierValue,
-  CommunicationChannelDefinition,
   // Workflow types
-  WorkflowActionInput,
-  WorkflowAction,
   WorkflowDefinition,
+  WorkflowAction,
+  WorkflowActionInput,
+  // Page types
+  PageDefinition,
+  PageBlockDefinition,
+  PageFieldDefinition,
+  PageActionDefinition,
+  PageType,
+  PageBlockType,
+  PageFieldType,
+  PageFieldSource,
+  PageFormHeader,
+  PageInstanceFilter,
+  // Webhook handler types
+  WebhookHttpMethod,
+  WebhookRequest,
+  WebhookHandlerContext,
+  WebhookHandlerResponse,
+  WebhookHandlerFn,
+  WebhookHandlerDefinition,
+  Webhooks,
+  WebhookHandlerMetadata,
+  // Provision config
+  ProvisionConfig,
+  // Dependency types
+  ModelDependency,
+  ChannelDependency,
+  WorkflowDependency,
+  ResourceDependency,
+  StructuredFilter,
 } from './config'
-

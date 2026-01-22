@@ -25,6 +25,7 @@ import type {
 } from './types'
 import type { WebhookResponse, ToolExecutionContext, ToolTrigger } from './types'
 import { coreApiService } from './core/service'
+import { runWithConfig } from './core/client'
 import type { CommunicationChannel, Message, WebhookRequest } from './core/types'
 
 type ToolCallArgs = {
@@ -373,6 +374,12 @@ function createCallToolHandler<T extends ToolRegistry>(
       // Get context from args.context (separate from inputs)
       const rawContext = (args.context ?? {}) as Record<string, unknown>
 
+      // Debug logging for tool handler
+      console.log('\n🔧 callTool processing:')
+      console.log('   Full args received:', JSON.stringify(args, null, 2))
+      console.log('   args.context:', JSON.stringify(args.context, null, 2))
+      console.log('   rawContext:', JSON.stringify(rawContext, null, 2))
+
       // Determine trigger type from context
       let trigger: ToolTrigger = 'agent'
       if (rawContext.field) {
@@ -397,8 +404,31 @@ function createCallToolHandler<T extends ToolRegistry>(
         mode: estimateMode ? 'estimate' : 'execute',
       }
 
+      console.log('   Built executionContext:', JSON.stringify({
+        trigger: executionContext.trigger,
+        appInstallationId: executionContext.appInstallationId,
+        workplace: executionContext.workplace,
+        field: executionContext.field,
+        fieldValues: executionContext.fieldValues,
+        mode: executionContext.mode,
+      }, null, 2))
+
+      // Build request-scoped config from env passed in MCP call
+      const requestConfig = {
+        baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+        apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+      }
+
+      console.log('   Request config:', JSON.stringify({
+        baseUrl: requestConfig.baseUrl ? '(set)' : '(empty)',
+        apiToken: requestConfig.apiToken ? '(set)' : '(empty)',
+      }, null, 2))
+
       // Call handler with two arguments: (input, context)
-      const functionResult = await fn(inputs as never, executionContext as never)
+      // Wrap in runWithConfig for request-scoped SDK configuration
+      const functionResult = await runWithConfig(requestConfig, async () => {
+        return await fn(inputs as never, executionContext as never)
+      })
 
       const billing = normalizeBilling(functionResult.billing)
 
@@ -691,13 +721,22 @@ export function createSkedyulServer(
         outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
-        // Args are in Skedyul format: { inputs: {...}, env: {...} }
+        // Args are in Skedyul format: { inputs: {...}, context: {...}, env: {...} }
         const rawArgs = args as Record<string, unknown>
         const toolInputs = (rawArgs.inputs ?? {}) as Record<string, unknown>
+        const toolContext = rawArgs.context as Record<string, unknown> | undefined
         const toolEnv = rawArgs.env as Record<string, string> | undefined
+
+        // Debug logging for MCP SDK tool calls
+        console.log('\n📞 MCP SDK registerTool handler:')
+        console.log('   Tool:', toolName)
+        console.log('   Raw args:', JSON.stringify(rawArgs, null, 2))
+        console.log('   Extracted context:', JSON.stringify(toolContext, null, 2))
+
         const validatedInputs = inputZodSchema ? inputZodSchema.parse(toolInputs) : toolInputs
         const result = await callTool(toolKey, {
           inputs: validatedInputs,
+          context: toolContext,
           env: toolEnv,
         })
 
@@ -814,9 +853,28 @@ function createDedicatedServerInstance(
           rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
         }
 
-        // Build WebhookContext
+        // Build WebhookContext - check for platform-injected headers
+        const appInstallationId = req.headers['x-skedyul-app-installation-id'] as string | undefined
+        const workplaceId = req.headers['x-skedyul-workplace-id'] as string | undefined
+        const registrationContextHeader = req.headers['x-skedyul-registration-context'] as string | undefined
+
+        // Parse registration context from base64-encoded header
+        let registrationContext: Record<string, unknown> = {}
+        if (registrationContextHeader) {
+          try {
+            const decoded = Buffer.from(registrationContextHeader, 'base64').toString('utf-8')
+            registrationContext = JSON.parse(decoded) as Record<string, unknown>
+          } catch {
+            console.warn('Failed to parse X-Skedyul-Registration-Context header')
+          }
+        }
+
         const webhookContext: WebhookContext = {
           env: process.env as Record<string, string | undefined>,
+          // Platform-injected context for registration-based webhooks
+          appInstallationId: appInstallationId ?? null,
+          workplace: workplaceId ? { id: workplaceId, subdomain: null } : null,
+          registration: registrationContext,
         }
 
         // Invoke the handler
@@ -1140,9 +1198,34 @@ function createServerlessInstance(
             rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
           }
 
-          // Build WebhookContext
+          // Build WebhookContext - check for platform-injected headers
+          const appInstallationId =
+            event.headers?.['x-skedyul-app-installation-id'] ??
+            event.headers?.['X-Skedyul-App-Installation-Id']
+          const workplaceId =
+            event.headers?.['x-skedyul-workplace-id'] ??
+            event.headers?.['X-Skedyul-Workplace-Id']
+          const registrationContextHeader =
+            event.headers?.['x-skedyul-registration-context'] ??
+            event.headers?.['X-Skedyul-Registration-Context']
+
+          // Parse registration context from base64-encoded header
+          let registrationContext: Record<string, unknown> = {}
+          if (registrationContextHeader) {
+            try {
+              const decoded = Buffer.from(registrationContextHeader, 'base64').toString('utf-8')
+              registrationContext = JSON.parse(decoded) as Record<string, unknown>
+            } catch {
+              console.warn('Failed to parse X-Skedyul-Registration-Context header')
+            }
+          }
+
           const webhookContext: WebhookContext = {
             env: process.env as Record<string, string | undefined>,
+            // Platform-injected context for registration-based webhooks
+            appInstallationId: appInstallationId ?? null,
+            workplace: workplaceId ? { id: workplaceId, subdomain: null } : null,
+            registration: registrationContext,
           }
 
           // Invoke the handler
@@ -1377,12 +1460,22 @@ function createServerlessInstance(
             } else if (rpcMethod === 'tools/call') {
               const toolName = params?.name as string
               // Support both formats:
-              // 1. Skedyul format: { inputs: {...}, env: {...} }
+              // 1. Skedyul format: { inputs: {...}, context: {...}, env: {...} }
               // 2. Standard MCP format: { ...directArgs }
               const rawArgs = (params?.arguments ?? {}) as Record<string, unknown>
-              const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs
+              const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs || 'context' in rawArgs
               const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
+              const toolContext = hasSkedyulFormat ? (rawArgs.context as Record<string, unknown> | undefined) : undefined
               const toolEnv = hasSkedyulFormat ? (rawArgs.env as Record<string, string> | undefined) : undefined
+
+              // Debug logging for MCP tool calls
+              console.log('\n📞 MCP tools/call received:')
+              console.log('   Tool:', toolName)
+              console.log('   Raw arguments:', JSON.stringify(rawArgs, null, 2))
+              console.log('   Skedyul format detected:', hasSkedyulFormat)
+              console.log('   Extracted inputs:', JSON.stringify(toolInputs, null, 2))
+              console.log('   Extracted context:', JSON.stringify(toolContext, null, 2))
+              console.log('   Extracted env keys:', toolEnv ? Object.keys(toolEnv) : 'none')
 
               // Find tool by name (check both registry key and tool.name)
               let toolKey: string | null = null
@@ -1420,6 +1513,7 @@ function createServerlessInstance(
                   : toolInputs
                 const toolResult = await callTool(toolKey, {
                   inputs: validatedInputs,
+                  context: toolContext,
                   env: toolEnv,
                 })
 

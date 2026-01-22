@@ -41,14 +41,13 @@ interface ValidationResult {
     name: string
     version?: string
     computeLayer?: string
-    runtime?: string
-    /** Tools path (string) or 'dynamic-import' if using import() */
-    tools?: string | 'dynamic-import'
-    workflowsPath?: string
-    globalEnvKeys: string[]
-    installEnvKeys: string[]
-    requiredInstallEnvKeys: string[]
-    appModels: string[]
+    /** Tools type: 'dynamic-import' if using import() */
+    tools?: 'dynamic-import' | 'object'
+    envKeys: string[]
+    modelHandles: string[]
+    channelHandles: string[]
+    workflowCount: number
+    pageCount: number
   }
   errors: string[]
   warnings: string[]
@@ -148,38 +147,31 @@ export async function validateCommand(args: string[]): Promise<void> {
   }
 
   if (!config.tools) {
-    warnings.push('No tools specified. Will default to "./src/registry.ts".')
+    warnings.push('No tools specified.')
   }
 
-  if (!config.workflows) {
-    warnings.push('No workflows path specified. Will default to "./workflows".')
-  }
+  // Resolve provision if available (may be a Promise for dynamic imports)
+  const provision = config.provision && 'env' in config.provision 
+    ? config.provision 
+    : undefined
 
-  // Check if tools file exists (only for string paths, not dynamic imports)
+  // Check if tools is a dynamic import
   const toolsConfig = config.tools
   const isToolsDynamicImport = toolsConfig !== undefined && typeof toolsConfig !== 'string'
-  
-  if (!isToolsDynamicImport) {
-    const toolsPath = (toolsConfig as string | undefined) || './src/registry.ts'
-    const absoluteToolsPath = path.resolve(path.dirname(configPath), toolsPath)
-    if (!fs.existsSync(absoluteToolsPath)) {
-      // Check for .js variant
-      const jsToolsPath = absoluteToolsPath.replace(/\.ts$/, '.js')
-      if (!fs.existsSync(jsToolsPath)) {
-        warnings.push(`Tools file not found: ${toolsPath}`)
+
+  // Check workflow files exist (provision.workflows contains workflow definitions with paths)
+  if (provision?.workflows) {
+    for (const workflow of provision.workflows) {
+      if (workflow.path) {
+        const absoluteWorkflowPath = path.resolve(path.dirname(configPath), workflow.path)
+        if (!fs.existsSync(absoluteWorkflowPath)) {
+          warnings.push(`Workflow file not found: ${workflow.path}`)
+        }
       }
     }
   }
 
-  // Check if workflows directory exists
-  const workflowsPath = config.workflowsPath || './workflows'
-  const absoluteWorkflowsPath = path.resolve(path.dirname(configPath), workflowsPath)
-  if (!fs.existsSync(absoluteWorkflowsPath)) {
-    warnings.push(`Workflows directory not found: ${workflowsPath}`)
-  }
-
   const envKeys = getAllEnvKeys(config)
-  const requiredInstallKeys = getRequiredInstallEnvKeys(config)
 
   const result: ValidationResult = {
     valid: validation.valid,
@@ -188,12 +180,12 @@ export async function validateCommand(args: string[]): Promise<void> {
       name: config.name,
       version: config.version,
       computeLayer: config.computeLayer,
-      tools: isToolsDynamicImport ? 'dynamic-import' : (toolsConfig as string | undefined),
-      workflowsPath: config.workflowsPath,
-      globalEnvKeys: envKeys.global,
-      installEnvKeys: envKeys.install,
-      requiredInstallEnvKeys: requiredInstallKeys,
-      appModels: config.install?.appModels?.map((m) => m.entityHandle) || [],
+      tools: isToolsDynamicImport ? 'dynamic-import' : (toolsConfig ? 'object' : undefined),
+      envKeys: envKeys.global,
+      modelHandles: provision?.models?.map((m) => m.handle) || [],
+      channelHandles: provision?.channels?.map((c) => c.handle) || [],
+      workflowCount: provision?.workflows?.length || 0,
+      pageCount: provision?.pages?.length || 0,
     },
     errors: validation.errors,
     warnings,
@@ -215,16 +207,21 @@ export async function validateCommand(args: string[]): Promise<void> {
       ? 'dynamic import (import())' 
       : (toolsConfig || './src/registry.ts (default)')
     
+    // Resolve provision if available (may be a Promise for dynamic imports)
+    const provision = config.provision && 'env' in config.provision 
+      ? config.provision 
+      : undefined
+    
     console.log('Configuration:')
     console.log(`  Compute Layer: ${config.computeLayer || 'dedicated (default)'}`)
     console.log(`  Tools:         ${toolsDisplay}`)
-    console.log(`  Workflows:     ${config.workflows || './workflows (default)'}`)
+    console.log(`  Workflows:     ${provision?.workflows?.length || 0} workflows`)
     console.log('')
 
     if (envKeys.global.length > 0) {
-      console.log('Global Environment Variables:')
+      console.log('Environment Variables:')
       for (const key of envKeys.global) {
-        const def = config.env?.[key]
+        const def = provision?.env?.[key]
         const required = def?.required ? ' (required)' : ''
         const visibility = def?.visibility === 'encrypted' ? ' 🔒' : ''
         console.log(`  ${key}${required}${visibility}`)
@@ -233,22 +230,18 @@ export async function validateCommand(args: string[]): Promise<void> {
       console.log('')
     }
 
-    if (envKeys.install.length > 0) {
-      console.log('Install Environment Variables:')
-      for (const key of envKeys.install) {
-        const def = config.install?.env?.[key]
-        const required = def?.required ? ' (required)' : ''
-        const visibility = def?.visibility === 'encrypted' ? ' 🔒' : ''
-        console.log(`  ${key}${required}${visibility}`)
-        if (def?.label) console.log(`    └─ ${def.label}`)
+    if (provision?.models && provision.models.length > 0) {
+      console.log('Models:')
+      for (const model of provision.models) {
+        console.log(`  ${model.handle}: ${model.name} (${model.scope})`)
       }
       console.log('')
     }
 
-    if (config.install?.appModels && config.install.appModels.length > 0) {
-      console.log('App Models:')
-      for (const model of config.install.appModels) {
-        console.log(`  ${model.entityHandle}: ${model.label}`)
+    if (provision?.channels && provision.channels.length > 0) {
+      console.log('Channels:')
+      for (const channel of provision.channels) {
+        console.log(`  ${channel.handle}: ${channel.name}`)
       }
       console.log('')
     }
@@ -276,10 +269,10 @@ export async function validateCommand(args: string[]): Promise<void> {
   if (validation.valid) {
     console.log('✅ Config is valid')
     if (!verbose) {
-      console.log(`   ${envKeys.global.length} global env vars, ${envKeys.install.length} install env vars`)
-      if (requiredInstallKeys.length > 0) {
-        console.log(`   ${requiredInstallKeys.length} required install vars: ${requiredInstallKeys.join(', ')}`)
-      }
+      const modelCount = provision?.models?.length || 0
+      const channelCount = provision?.channels?.length || 0
+      const workflowCount = provision?.workflows?.length || 0
+      console.log(`   ${envKeys.global.length} env vars, ${modelCount} models, ${channelCount} channels, ${workflowCount} workflows`)
     }
   } else {
     console.log('❌ Config has errors')

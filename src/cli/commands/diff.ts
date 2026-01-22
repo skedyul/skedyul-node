@@ -5,7 +5,6 @@ import {
   loadConfig,
   validateConfig,
   CONFIG_FILE_NAMES,
-  getAllEnvKeys,
   type SkedyulConfig,
   type EnvSchema,
 } from '../../config'
@@ -57,13 +56,11 @@ interface ToolsDiff {
 
 interface DiffResult {
   configPath: string
-  globalEnv: EnvDiff
-  installEnv: EnvDiff
+  env: EnvDiff
   tools?: ToolsDiff
   summary: {
     hasChanges: boolean
-    globalEnvChanges: number
-    installEnvChanges: number
+    envChanges: number
     toolChanges: number
   }
 }
@@ -192,15 +189,18 @@ export async function diffCommand(args: string[]): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const previousConfig = undefined as SkedyulConfig | undefined
 
-  // Compare env schemas
-  const globalEnvDiff = compareEnvSchemas(
-    config.env,
-    previousConfig?.env,
-  )
+  // Resolve provision if available (may be a Promise for dynamic imports)
+  const provision = config.provision && 'env' in config.provision 
+    ? config.provision 
+    : undefined
+  const previousProvision = previousConfig?.provision && 'env' in previousConfig.provision 
+    ? previousConfig.provision 
+    : undefined
 
-  const installEnvDiff = compareEnvSchemas(
-    config.install?.env,
-    previousConfig?.install?.env,
+  // Compare env schemas (all env is now at provision level)
+  const envDiff = compareEnvSchemas(
+    provision?.env,
+    previousProvision?.env,
   )
 
   // Compare tools if registry path provided
@@ -225,27 +225,19 @@ export async function diffCommand(args: string[]): Promise<void> {
 
   const result: DiffResult = {
     configPath,
-    globalEnv: globalEnvDiff,
-    installEnv: installEnvDiff,
+    env: envDiff,
     tools: toolsDiff,
     summary: {
       hasChanges:
-        globalEnvDiff.added.length > 0 ||
-        globalEnvDiff.removed.length > 0 ||
-        globalEnvDiff.changed.length > 0 ||
-        installEnvDiff.added.length > 0 ||
-        installEnvDiff.removed.length > 0 ||
-        installEnvDiff.changed.length > 0 ||
+        envDiff.added.length > 0 ||
+        envDiff.removed.length > 0 ||
+        envDiff.changed.length > 0 ||
         (toolsDiff?.added.length ?? 0) > 0 ||
         (toolsDiff?.removed.length ?? 0) > 0,
-      globalEnvChanges:
-        globalEnvDiff.added.length +
-        globalEnvDiff.removed.length +
-        globalEnvDiff.changed.length,
-      installEnvChanges:
-        installEnvDiff.added.length +
-        installEnvDiff.removed.length +
-        installEnvDiff.changed.length,
+      envChanges:
+        envDiff.added.length +
+        envDiff.removed.length +
+        envDiff.changed.length,
       toolChanges: (toolsDiff?.added.length ?? 0) + (toolsDiff?.removed.length ?? 0),
     },
   }
@@ -267,35 +259,18 @@ export async function diffCommand(args: string[]): Promise<void> {
     console.log('')
   }
 
-  // Global env diff
-  if (result.summary.globalEnvChanges > 0) {
-    console.log('Global Environment Variables:')
-    for (const key of globalEnvDiff.added) {
-      const def = config.env?.[key]
+  // Environment variables diff
+  if (result.summary.envChanges > 0) {
+    console.log('Environment Variables:')
+    for (const key of envDiff.added) {
+      const def = provision?.env?.[key]
       const required = def?.required ? ' (required)' : ''
       console.log(`  + ${key}${required}`)
     }
-    for (const key of globalEnvDiff.removed) {
+    for (const key of envDiff.removed) {
       console.log(`  - ${key}`)
     }
-    for (const item of globalEnvDiff.changed) {
-      console.log(`  ~ ${item.key}: ${item.changes.join(', ')}`)
-    }
-    console.log('')
-  }
-
-  // Install env diff
-  if (result.summary.installEnvChanges > 0) {
-    console.log('Install Environment Variables:')
-    for (const key of installEnvDiff.added) {
-      const def = config.install?.env?.[key]
-      const required = def?.required ? ' (required)' : ''
-      console.log(`  + ${key}${required}`)
-    }
-    for (const key of installEnvDiff.removed) {
-      console.log(`  - ${key}`)
-    }
-    for (const item of installEnvDiff.changed) {
+    for (const item of envDiff.changed) {
       console.log(`  ~ ${item.key}: ${item.changes.join(', ')}`)
     }
     console.log('')
@@ -316,11 +291,8 @@ export async function diffCommand(args: string[]): Promise<void> {
   // Summary
   if (result.summary.hasChanges) {
     console.log('Summary:')
-    if (result.summary.globalEnvChanges > 0) {
-      console.log(`  • ${result.summary.globalEnvChanges} global env var change(s)`)
-    }
-    if (result.summary.installEnvChanges > 0) {
-      console.log(`  • ${result.summary.installEnvChanges} install env var change(s)`)
+    if (result.summary.envChanges > 0) {
+      console.log(`  • ${result.summary.envChanges} env var change(s)`)
     }
     if (result.summary.toolChanges > 0) {
       console.log(`  • ${result.summary.toolChanges} tool change(s)`)
