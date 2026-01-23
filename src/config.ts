@@ -278,7 +278,8 @@ export interface PageDefinition {
   type: PageType
   title: string
   path?: string
-  navigation?: boolean
+  /** Whether to show in navigation - boolean or Liquid template string */
+  navigation?: boolean | string
   blocks: PageBlockDefinition[]
   actions?: PageActionDefinition[]
   filter?: PageInstanceFilter
