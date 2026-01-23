@@ -223,10 +223,15 @@ export interface PageFormHeader {
 
 export interface PageActionDefinition {
   handle: string
+  /** Button label - supports Liquid templates e.g. "{{ compliance_records[0].status == 'APPROVED' ? 'Register' : 'Pending' }}" */
   label: string
   handler: string
   icon?: string
   variant?: 'primary' | 'secondary' | 'destructive'
+  /** Whether the action is disabled - boolean or Liquid template string e.g. "{{ compliance_records[0].status != 'APPROVED' }}" */
+  isDisabled?: boolean | string
+  /** Whether the action is hidden - boolean or Liquid template string */
+  isHidden?: boolean | string
 }
 
 export interface PageFieldDefinition {
