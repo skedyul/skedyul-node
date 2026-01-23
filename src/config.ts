@@ -209,7 +209,7 @@ export interface WorkflowDefinition {
 
 export type PageType = 'INSTANCE' | 'LIST'
 export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link'
-export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT' | 'FORM'
+export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT' | 'FORM' | 'RELATIONSHIP'
 
 export interface PageFieldSource {
   model: string
@@ -242,6 +242,8 @@ export interface PageFieldDefinition {
   header?: PageFormHeader
   fields?: PageFieldDefinition[]
   actions?: PageActionDefinition[]
+  /** Target internal model handle for RELATIONSHIP type fields */
+  model?: string
 }
 
 export interface PageBlockDefinition {
