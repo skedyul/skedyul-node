@@ -201,7 +201,7 @@ export const WorkflowDefinitionSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const PageTypeSchema = z.enum(['INSTANCE', 'LIST'])
-export const PageBlockTypeSchema = z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link'])
+export const PageBlockTypeSchema = z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link', 'list'])
 export const PageFieldTypeSchema = z.enum(['STRING', 'FILE', 'NUMBER', 'DATE', 'BOOLEAN', 'SELECT', 'FORM'])
 
 export const PageFieldSourceSchema = z.object({
@@ -254,6 +254,12 @@ export const PageBlockDefinitionSchema = z.object({
   title: z.string().optional(),
   fields: z.array(PageFieldDefinitionSchema).optional(),
   readonly: z.boolean().optional(),
+  // For list block type
+  model: z.string().optional(),
+  labelField: z.string().optional(),
+  descriptionField: z.string().optional(),
+  icon: z.string().optional(),
+  emptyMessage: z.string().optional(),
 })
 
 export const PageInstanceFilterSchema = z.object({

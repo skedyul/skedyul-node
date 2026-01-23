@@ -208,7 +208,7 @@ export interface WorkflowDefinition {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PageType = 'INSTANCE' | 'LIST'
-export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link'
+export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link' | 'list'
 export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT' | 'FORM' | 'RELATIONSHIP'
 
 export interface PageFieldSource {
@@ -251,6 +251,16 @@ export interface PageBlockDefinition {
   title?: string
   fields?: PageFieldDefinition[]
   readonly?: boolean
+  /** For list block type: Model handle to fetch instances from */
+  model?: string
+  /** For list block type: Field to use as the tile label */
+  labelField?: string
+  /** For list block type: Field to use as the tile description */
+  descriptionField?: string
+  /** For list block type: Icon for each tile */
+  icon?: string
+  /** For list block type: Message when no items */
+  emptyMessage?: string
 }
 
 export interface PageInstanceFilter {
