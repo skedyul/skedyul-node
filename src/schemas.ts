@@ -277,6 +277,7 @@ export const InputComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   props: z.object({
     label: z.string().optional(),
     placeholder: z.string().optional(),
+    helpText: z.string().optional(),
     type: z.enum(['text', 'number', 'email', 'password', 'tel', 'url']).optional(),
     required: z.boolean().optional(),
     disabled: z.boolean().optional(),
@@ -290,6 +291,7 @@ export const TextareaComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   props: z.object({
     label: z.string().optional(),
     placeholder: z.string().optional(),
+    helpText: z.string().optional(),
     required: z.boolean().optional(),
     disabled: z.boolean().optional(),
     value: z.string().optional(),
@@ -302,6 +304,7 @@ export const SelectComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   props: z.object({
     label: z.string().optional(),
     placeholder: z.string().optional(),
+    helpText: z.string().optional(),
     items: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
     value: z.string().optional(),
     isDisabled: z.boolean().optional(),
@@ -315,6 +318,7 @@ export const ComboboxComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   props: z.object({
     label: z.string().optional(),
     placeholder: z.string().optional(),
+    helpText: z.string().optional(),
     items: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
     value: z.string().optional(),
   }),
@@ -326,6 +330,7 @@ export const CheckboxComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   component: z.literal('Checkbox'),
   props: z.object({
     label: z.string().optional(),
+    helpText: z.string().optional(),
     checked: z.boolean().optional(),
     disabled: z.boolean().optional(),
   }),
@@ -336,6 +341,7 @@ export const DatePickerComponentDefinitionSchema = FormV2StylePropsSchema.extend
   component: z.literal('DatePicker'),
   props: z.object({
     label: z.string().optional(),
+    helpText: z.string().optional(),
     value: z.union([z.string(), z.date()]).optional(),
     disabled: z.boolean().optional(),
   }),
@@ -346,6 +352,7 @@ export const TimePickerComponentDefinitionSchema = FormV2StylePropsSchema.extend
   component: z.literal('TimePicker'),
   props: z.object({
     label: z.string().optional(),
+    helpText: z.string().optional(),
     value: z.string().optional(),
     disabled: z.boolean().optional(),
   }),
@@ -357,6 +364,7 @@ export const ImageSettingComponentDefinitionSchema = FormV2StylePropsSchema.exte
   props: z.object({
     label: z.string().optional(),
     description: z.string().optional(),
+    helpText: z.string().optional(),
     accept: z.string().optional(),
   }),
 })
@@ -367,6 +375,7 @@ export const FileSettingComponentDefinitionSchema = FormV2StylePropsSchema.exten
   props: z.object({
     label: z.string().optional(),
     description: z.string().optional(),
+    helpText: z.string().optional(),
     accept: z.string().optional(),
     required: z.boolean().optional(),
     button: z.object({
@@ -428,6 +437,7 @@ export const FieldSettingComponentDefinitionSchema = FormV2StylePropsSchema.exte
   props: z.object({
     label: z.string(),
     description: z.string().optional(),
+    helpText: z.string().optional(),
     mode: z.enum(['field', 'setting']).optional(),
     button: FieldSettingButtonPropsSchema,
   }),

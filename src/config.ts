@@ -277,6 +277,7 @@ export interface InputComponentDefinition extends FormV2StyleProps {
   props: {
     label?: string
     placeholder?: string
+    helpText?: string
     type?: 'text' | 'number' | 'email' | 'password' | 'tel' | 'url'
     required?: boolean
     disabled?: boolean
@@ -290,6 +291,7 @@ export interface TextareaComponentDefinition extends FormV2StyleProps {
   props: {
     label?: string
     placeholder?: string
+    helpText?: string
     required?: boolean
     disabled?: boolean
     value?: string
@@ -302,6 +304,7 @@ export interface SelectComponentDefinition extends FormV2StyleProps {
   props: {
     label?: string
     placeholder?: string
+    helpText?: string
     items?: Array<{ value: string; label: string }>
     value?: string
     isDisabled?: boolean
@@ -316,6 +319,7 @@ export interface ComboboxComponentDefinition extends FormV2StyleProps {
   props: {
     label?: string
     placeholder?: string
+    helpText?: string
     items?: Array<{ value: string; label: string }>
     value?: string
   }
@@ -328,6 +332,7 @@ export interface CheckboxComponentDefinition extends FormV2StyleProps {
   component: 'Checkbox'
   props: {
     label?: string
+    helpText?: string
     checked?: boolean
     disabled?: boolean
   }
@@ -338,6 +343,7 @@ export interface DatePickerComponentDefinition extends FormV2StyleProps {
   component: 'DatePicker'
   props: {
     label?: string
+    helpText?: string
     value?: string | Date
     disabled?: boolean
   }
@@ -348,6 +354,7 @@ export interface TimePickerComponentDefinition extends FormV2StyleProps {
   component: 'TimePicker'
   props: {
     label?: string
+    helpText?: string
     value?: string
     disabled?: boolean
   }
@@ -359,6 +366,7 @@ export interface FieldSettingComponentDefinition extends FormV2StyleProps {
   props: {
     label: string
     description?: string
+    helpText?: string
     mode?: 'field' | 'setting'
     button: FieldSettingButtonProps
   }
@@ -372,6 +380,7 @@ export interface ImageSettingComponentDefinition extends FormV2StyleProps {
   props: {
     label?: string
     description?: string
+    helpText?: string
     accept?: string
   }
 }
@@ -382,6 +391,7 @@ export interface FileSettingComponentDefinition extends FormV2StyleProps {
   props: {
     label?: string
     description?: string
+    helpText?: string
     accept?: string
     required?: boolean
     button?: {
