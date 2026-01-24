@@ -360,6 +360,22 @@ export const ImageSettingComponentDefinitionSchema = FormV2StylePropsSchema.exte
   }),
 })
 
+/** FileSetting component definition for file uploads */
+export const FileSettingComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('FileSetting'),
+  props: z.object({
+    label: z.string().optional(),
+    description: z.string().optional(),
+    accept: z.string().optional(),
+    required: z.boolean().optional(),
+    button: z.object({
+      label: z.string().optional(),
+      variant: z.enum(['default', 'outline', 'ghost', 'link']).optional(),
+      size: z.enum(['sm', 'md', 'lg']).optional(),
+    }).optional(),
+  }),
+})
+
 /** List component definition */
 export const ListComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   component: z.literal('List'),
@@ -428,6 +444,7 @@ export const FormV2ComponentDefinitionSchema = z.discriminatedUnion('component',
   TimePickerComponentDefinitionSchema,
   FieldSettingComponentDefinitionSchema,
   ImageSettingComponentDefinitionSchema,
+  FileSettingComponentDefinitionSchema,
   ListComponentDefinitionSchema,
   EmptyFormComponentDefinitionSchema,
 ])

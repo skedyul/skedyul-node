@@ -375,6 +375,22 @@ export interface ImageSettingComponentDefinition extends FormV2StyleProps {
   }
 }
 
+/** FileSetting component definition for file uploads */
+export interface FileSettingComponentDefinition extends FormV2StyleProps {
+  component: 'FileSetting'
+  props: {
+    label?: string
+    description?: string
+    accept?: string
+    required?: boolean
+    button?: {
+      label?: string
+      variant?: 'default' | 'outline' | 'ghost' | 'link'
+      size?: 'sm' | 'md' | 'lg'
+    }
+  }
+}
+
 /** List component definition */
 export interface ListComponentDefinition extends FormV2StyleProps {
   component: 'List'
@@ -410,6 +426,7 @@ export type FormV2ComponentDefinition =
   | TimePickerComponentDefinition
   | FieldSettingComponentDefinition
   | ImageSettingComponentDefinition
+  | FileSettingComponentDefinition
   | ListComponentDefinition
   | EmptyFormComponentDefinition
 
