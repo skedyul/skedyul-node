@@ -414,6 +414,17 @@ export const EmptyFormComponentDefinitionSchema = FormV2StylePropsSchema.extend(
   }),
 })
 
+/** Alert component definition for display-only informational content */
+export const AlertComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('Alert'),
+  props: z.object({
+    title: z.string(),
+    description: z.string(),
+    icon: z.string().optional(),
+    variant: z.enum(['default', 'destructive']).optional(),
+  }),
+})
+
 /** Forward declaration for FieldSetting with modalForm */
 export type FormV2ComponentDefinition = z.infer<typeof FormV2ComponentDefinitionSchema>
 
@@ -459,6 +470,7 @@ export const FormV2ComponentDefinitionSchema = z.discriminatedUnion('component',
   FileSettingComponentDefinitionSchema,
   ListComponentDefinitionSchema,
   EmptyFormComponentDefinitionSchema,
+  AlertComponentDefinitionSchema,
 ])
 
 /** FormV2 props definition */
