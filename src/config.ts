@@ -253,7 +253,8 @@ export interface FieldSettingButtonProps {
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
   size?: 'default' | 'sm' | 'lg' | 'icon'
   isLoading?: boolean
-  isDisabled?: boolean
+  /** Can be boolean or Liquid template string that resolves to boolean */
+  isDisabled?: boolean | string
   leftIcon?: string
 }
 

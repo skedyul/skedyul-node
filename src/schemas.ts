@@ -243,7 +243,8 @@ export const FieldSettingButtonPropsSchema = z.object({
   variant: z.enum(['default', 'destructive', 'outline', 'secondary', 'ghost', 'link']).optional(),
   size: z.enum(['default', 'sm', 'lg', 'icon']).optional(),
   isLoading: z.boolean().optional(),
-  isDisabled: z.boolean().optional(),
+  /** Can be boolean or Liquid template string that resolves to boolean */
+  isDisabled: z.union([z.boolean(), z.string()]).optional(),
   leftIcon: z.string().optional(),
 })
 
