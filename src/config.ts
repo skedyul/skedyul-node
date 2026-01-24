@@ -279,7 +279,7 @@ export interface InputComponentDefinition extends FormV2StyleProps {
     label?: string
     placeholder?: string
     helpText?: string
-    type?: 'text' | 'number' | 'email' | 'password' | 'tel' | 'url'
+    type?: 'text' | 'number' | 'email' | 'password' | 'tel' | 'url' | 'hidden'
     required?: boolean
     disabled?: boolean
     value?: string | number

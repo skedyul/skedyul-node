@@ -279,7 +279,7 @@ export const InputComponentDefinitionSchema = FormV2StylePropsSchema.extend({
     label: z.string().optional(),
     placeholder: z.string().optional(),
     helpText: z.string().optional(),
-    type: z.enum(['text', 'number', 'email', 'password', 'tel', 'url']).optional(),
+    type: z.enum(['text', 'number', 'email', 'password', 'tel', 'url', 'hidden']).optional(),
     required: z.boolean().optional(),
     disabled: z.boolean().optional(),
     value: z.union([z.string(), z.number()]).optional(),
