@@ -82,6 +82,9 @@ export type {
   PageFieldType,
   PageFieldSource,
   PageFormHeader,
+  PageContextMode,
+  PageContextItemDefinition,
+  PageContextDefinition,
   PageInstanceFilter,
   // Webhook handler types
   WebhookHttpMethod,

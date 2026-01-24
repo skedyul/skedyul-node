@@ -244,6 +244,7 @@ export const FieldSettingButtonPropsSchema = z.object({
   size: z.enum(['default', 'sm', 'lg', 'icon']).optional(),
   isLoading: z.boolean().optional(),
   isDisabled: z.boolean().optional(),
+  leftIcon: z.string().optional(),
 })
 
 /** Relationship extension for dynamic data loading */
@@ -533,6 +534,25 @@ export const PageBlockDefinitionSchema = z.union([
   ListBlockDefinitionSchema,
 ])
 
+/** Mode for context data fetching */
+export const PageContextModeSchema = z.enum(['first', 'many', 'count'])
+
+/** Single context item definition */
+export const PageContextItemDefinitionSchema = z.object({
+  /** Model handle to fetch data from */
+  model: z.string(),
+  /** Fetch mode: 'first' returns single object, 'many' returns array, 'count' returns number */
+  mode: PageContextModeSchema,
+  /** Optional filters using StructuredFilter format */
+  filters: StructuredFilterSchema.optional(),
+  /** Optional limit for 'many' mode */
+  limit: z.number().optional(),
+})
+
+/** Context definition: variable name -> context item */
+export const PageContextDefinitionSchema = z.record(z.string(), PageContextItemDefinitionSchema)
+
+/** @deprecated Use PageContextDefinitionSchema instead */
 export const PageInstanceFilterSchema = z.object({
   model: z.string(),
   where: z.record(z.string(), z.unknown()).optional(),
@@ -546,6 +566,9 @@ export const PageDefinitionSchema = z.object({
   navigation: z.union([z.boolean(), z.string()]).optional().default(true),
   blocks: z.array(PageBlockDefinitionSchema),
   actions: z.array(PageActionDefinitionSchema).optional(),
+  /** Context data to load for Liquid templates. appInstallationId filtering is automatic. */
+  context: PageContextDefinitionSchema.optional(),
+  /** @deprecated Use context instead */
   filter: PageInstanceFilterSchema.optional(),
 })
 
@@ -617,6 +640,10 @@ export type PageFieldType = z.infer<typeof PageFieldTypeSchema>
 export type PageFieldSource = z.infer<typeof PageFieldSourceSchema>
 export type PageActionDefinition = z.infer<typeof PageActionDefinitionSchema>
 export type PageBlockDefinition = z.infer<typeof PageBlockDefinitionSchema>
+export type PageContextMode = z.infer<typeof PageContextModeSchema>
+export type PageContextItemDefinition = z.infer<typeof PageContextItemDefinitionSchema>
+export type PageContextDefinition = z.infer<typeof PageContextDefinitionSchema>
+/** @deprecated Use PageContextDefinition instead */
 export type PageInstanceFilter = z.infer<typeof PageInstanceFilterSchema>
 export type PageDefinition = z.infer<typeof PageDefinitionSchema>
 export type ModelDependency = z.infer<typeof ModelDependencySchema>

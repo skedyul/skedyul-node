@@ -254,6 +254,7 @@ export interface FieldSettingButtonProps {
   size?: 'default' | 'sm' | 'lg' | 'icon'
   isLoading?: boolean
   isDisabled?: boolean
+  leftIcon?: string
 }
 
 /** Relationship extension for dynamic data loading */
@@ -524,6 +525,25 @@ export interface ListBlockDefinition {
 /** Union of all block types */
 export type PageBlockDefinition = CardBlockDefinition | LegacyFormBlockDefinition | ListBlockDefinition
 
+/** Mode for context data fetching */
+export type PageContextMode = 'first' | 'many' | 'count'
+
+/** Single context item definition */
+export interface PageContextItemDefinition {
+  /** Model handle to fetch data from */
+  model: string
+  /** Fetch mode: 'first' returns single object, 'many' returns array, 'count' returns number */
+  mode: PageContextMode
+  /** Optional filters using StructuredFilter format */
+  filters?: StructuredFilter
+  /** Optional limit for 'many' mode */
+  limit?: number
+}
+
+/** Context definition: variable name -> context item */
+export type PageContextDefinition = Record<string, PageContextItemDefinition>
+
+/** @deprecated Use PageContextDefinition instead */
 export interface PageInstanceFilter {
   model: string
   where?: Record<string, unknown>
@@ -538,6 +558,9 @@ export interface PageDefinition {
   navigation?: boolean | string
   blocks: PageBlockDefinition[]
   actions?: PageActionDefinition[]
+  /** Context data to load for Liquid templates. appInstallationId filtering is automatic. */
+  context?: PageContextDefinition
+  /** @deprecated Use context instead */
   filter?: PageInstanceFilter
 }
 
