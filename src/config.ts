@@ -208,7 +208,7 @@ export interface WorkflowDefinition {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PageType = 'INSTANCE' | 'LIST'
-export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link' | 'list'
+export type PageBlockType = 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link' | 'list' | 'card'
 export type PageFieldType = 'STRING' | 'FILE' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT' | 'FORM' | 'RELATIONSHIP'
 
 export interface PageFieldSource {
@@ -234,6 +234,235 @@ export interface PageActionDefinition {
   isHidden?: boolean | string
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FormV2 Component Definitions (mirrors skedyul-ui FormComponentV2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Base style props for FormV2 components */
+export interface FormV2StyleProps {
+  id: string
+  row: number
+  col: number
+  className?: string
+  hidden?: boolean
+}
+
+/** Button props for FieldSetting component */
+export interface FieldSettingButtonProps {
+  label: string
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
+  size?: 'default' | 'sm' | 'lg' | 'icon'
+  isLoading?: boolean
+  isDisabled?: boolean
+}
+
+/** Relationship extension for dynamic data loading */
+export interface RelationshipExtension {
+  model: string
+}
+
+/** Modal form definition for nested forms (handled by skedyul-web, not skedyul-ui) */
+export interface ModalFormDefinition {
+  header: PageFormHeader
+  handler: string
+  fields: FormV2ComponentDefinition[]
+  layout: FormLayoutConfigDefinition
+  actions: PageActionDefinition[]
+}
+
+/** Input component definition */
+export interface InputComponentDefinition extends FormV2StyleProps {
+  component: 'Input'
+  props: {
+    label?: string
+    placeholder?: string
+    type?: 'text' | 'number' | 'email' | 'password' | 'tel' | 'url'
+    required?: boolean
+    disabled?: boolean
+    value?: string | number
+  }
+}
+
+/** Textarea component definition */
+export interface TextareaComponentDefinition extends FormV2StyleProps {
+  component: 'Textarea'
+  props: {
+    label?: string
+    placeholder?: string
+    required?: boolean
+    disabled?: boolean
+    value?: string
+  }
+}
+
+/** Select component definition */
+export interface SelectComponentDefinition extends FormV2StyleProps {
+  component: 'Select'
+  props: {
+    label?: string
+    placeholder?: string
+    items?: Array<{ value: string; label: string }>
+    value?: string
+    isDisabled?: boolean
+  }
+  /** For relationship-based selects */
+  relationship?: RelationshipExtension
+}
+
+/** Combobox component definition */
+export interface ComboboxComponentDefinition extends FormV2StyleProps {
+  component: 'Combobox'
+  props: {
+    label?: string
+    placeholder?: string
+    items?: Array<{ value: string; label: string }>
+    value?: string
+  }
+  /** For relationship-based comboboxes */
+  relationship?: RelationshipExtension
+}
+
+/** Checkbox component definition */
+export interface CheckboxComponentDefinition extends FormV2StyleProps {
+  component: 'Checkbox'
+  props: {
+    label?: string
+    checked?: boolean
+    disabled?: boolean
+  }
+}
+
+/** DatePicker component definition */
+export interface DatePickerComponentDefinition extends FormV2StyleProps {
+  component: 'DatePicker'
+  props: {
+    label?: string
+    value?: string | Date
+    disabled?: boolean
+  }
+}
+
+/** TimePicker component definition */
+export interface TimePickerComponentDefinition extends FormV2StyleProps {
+  component: 'TimePicker'
+  props: {
+    label?: string
+    value?: string
+    disabled?: boolean
+  }
+}
+
+/** FieldSetting component definition (button that can open modal) */
+export interface FieldSettingComponentDefinition extends FormV2StyleProps {
+  component: 'FieldSetting'
+  props: {
+    label: string
+    description?: string
+    mode?: 'field' | 'setting'
+    button: FieldSettingButtonProps
+  }
+  /** Nested modal form (handled by skedyul-web) */
+  modalForm?: ModalFormDefinition
+}
+
+/** ImageSetting component definition */
+export interface ImageSettingComponentDefinition extends FormV2StyleProps {
+  component: 'ImageSetting'
+  props: {
+    label?: string
+    description?: string
+    accept?: string
+  }
+}
+
+/** List component definition */
+export interface ListComponentDefinition extends FormV2StyleProps {
+  component: 'List'
+  props: {
+    items?: Array<{ id: string; label: string; description?: string }>
+    emptyMessage?: string
+  }
+  /** Model to fetch list items from */
+  model?: string
+  labelField?: string
+  descriptionField?: string
+  icon?: string
+}
+
+/** EmptyForm component definition */
+export interface EmptyFormComponentDefinition extends FormV2StyleProps {
+  component: 'EmptyForm'
+  props: {
+    title?: string
+    description?: string
+    icon?: string
+  }
+}
+
+/** Union of all FormV2 component definitions */
+export type FormV2ComponentDefinition =
+  | InputComponentDefinition
+  | TextareaComponentDefinition
+  | SelectComponentDefinition
+  | ComboboxComponentDefinition
+  | CheckboxComponentDefinition
+  | DatePickerComponentDefinition
+  | TimePickerComponentDefinition
+  | FieldSettingComponentDefinition
+  | ImageSettingComponentDefinition
+  | ListComponentDefinition
+  | EmptyFormComponentDefinition
+
+/** Layout column definition */
+export interface FormLayoutColumnDefinition {
+  field: string
+  colSpan: number
+  dataType?: string
+  subQuery?: unknown
+}
+
+/** Layout row definition */
+export interface FormLayoutRowDefinition {
+  columns: FormLayoutColumnDefinition[]
+}
+
+/** FormLayoutConfig definition (mirrors skedyul-ui FormLayoutConfig) */
+export interface FormLayoutConfigDefinition {
+  type: 'form'
+  rows: FormLayoutRowDefinition[]
+}
+
+/** FormV2 props definition */
+export interface FormV2PropsDefinition {
+  formVersion: 'v2'
+  id?: string
+  fields: FormV2ComponentDefinition[]
+  layout: FormLayoutConfigDefinition
+}
+
+/** Card block header definition */
+export interface CardBlockHeader {
+  title: string
+  description?: string
+  descriptionHref?: string
+}
+
+/** Card block definition (CardV2-aligned) */
+export interface CardBlockDefinition {
+  type: 'card'
+  /** Disable drag-and-drop in the form */
+  restructurable?: boolean
+  header?: CardBlockHeader
+  form: FormV2PropsDefinition
+  actions?: PageActionDefinition[]
+  secondaryActions?: PageActionDefinition[]
+  primaryActions?: PageActionDefinition[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy Page Field Definition (for backward compatibility)
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface PageFieldDefinition {
   handle: string
   type: PageFieldType
@@ -251,22 +480,32 @@ export interface PageFieldDefinition {
   model?: string
 }
 
-export interface PageBlockDefinition {
-  type: PageBlockType
+/** Legacy form block definition */
+export interface LegacyFormBlockDefinition {
+  type: 'form' | 'spreadsheet' | 'kanban' | 'calendar' | 'link'
   title?: string
   fields?: PageFieldDefinition[]
   readonly?: boolean
-  /** For list block type: Model handle to fetch instances from */
-  model?: string
-  /** For list block type: Field to use as the tile label */
+}
+
+/** List block definition */
+export interface ListBlockDefinition {
+  type: 'list'
+  title?: string
+  /** Model handle to fetch instances from */
+  model: string
+  /** Field to use as the tile label */
   labelField?: string
-  /** For list block type: Field to use as the tile description */
+  /** Field to use as the tile description */
   descriptionField?: string
-  /** For list block type: Icon for each tile */
+  /** Icon for each tile */
   icon?: string
-  /** For list block type: Message when no items */
+  /** Message when no items */
   emptyMessage?: string
 }
+
+/** Union of all block types */
+export type PageBlockDefinition = CardBlockDefinition | LegacyFormBlockDefinition | ListBlockDefinition
 
 export interface PageInstanceFilter {
   model: string

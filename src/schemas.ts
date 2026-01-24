@@ -201,8 +201,8 @@ export const WorkflowDefinitionSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const PageTypeSchema = z.enum(['INSTANCE', 'LIST'])
-export const PageBlockTypeSchema = z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link', 'list'])
-export const PageFieldTypeSchema = z.enum(['STRING', 'FILE', 'NUMBER', 'DATE', 'BOOLEAN', 'SELECT', 'FORM'])
+export const PageBlockTypeSchema = z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link', 'list', 'card'])
+export const PageFieldTypeSchema = z.enum(['STRING', 'FILE', 'NUMBER', 'DATE', 'BOOLEAN', 'SELECT', 'FORM', 'RELATIONSHIP'])
 
 export const PageFieldSourceSchema = z.object({
   model: z.string(),
@@ -220,7 +220,247 @@ export const PageActionDefinitionSchema = z.object({
   handler: z.string(),
   icon: z.string().optional(),
   variant: z.enum(['primary', 'secondary', 'destructive']).optional(),
+  isDisabled: z.union([z.boolean(), z.string()]).optional(),
+  isHidden: z.union([z.boolean(), z.string()]).optional(),
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FormV2 Component Schemas (mirrors skedyul-ui FormComponentV2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Base style props for FormV2 components */
+export const FormV2StylePropsSchema = z.object({
+  id: z.string(),
+  row: z.number(),
+  col: z.number(),
+  className: z.string().optional(),
+  hidden: z.boolean().optional(),
+})
+
+/** Button props for FieldSetting component */
+export const FieldSettingButtonPropsSchema = z.object({
+  label: z.string(),
+  variant: z.enum(['default', 'destructive', 'outline', 'secondary', 'ghost', 'link']).optional(),
+  size: z.enum(['default', 'sm', 'lg', 'icon']).optional(),
+  isLoading: z.boolean().optional(),
+  isDisabled: z.boolean().optional(),
+})
+
+/** Relationship extension for dynamic data loading */
+export const RelationshipExtensionSchema = z.object({
+  model: z.string(),
+})
+
+/** Layout column definition */
+export const FormLayoutColumnDefinitionSchema = z.object({
+  field: z.string(),
+  colSpan: z.number(),
+  dataType: z.string().optional(),
+  subQuery: z.unknown().optional(),
+})
+
+/** Layout row definition */
+export const FormLayoutRowDefinitionSchema = z.object({
+  columns: z.array(FormLayoutColumnDefinitionSchema),
+})
+
+/** FormLayoutConfig definition */
+export const FormLayoutConfigDefinitionSchema = z.object({
+  type: z.literal('form'),
+  rows: z.array(FormLayoutRowDefinitionSchema),
+})
+
+/** Input component definition */
+export const InputComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('Input'),
+  props: z.object({
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    type: z.enum(['text', 'number', 'email', 'password', 'tel', 'url']).optional(),
+    required: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+    value: z.union([z.string(), z.number()]).optional(),
+  }),
+})
+
+/** Textarea component definition */
+export const TextareaComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('Textarea'),
+  props: z.object({
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    required: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+    value: z.string().optional(),
+  }),
+})
+
+/** Select component definition */
+export const SelectComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('Select'),
+  props: z.object({
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    items: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+    value: z.string().optional(),
+    isDisabled: z.boolean().optional(),
+  }),
+  relationship: RelationshipExtensionSchema.optional(),
+})
+
+/** Combobox component definition */
+export const ComboboxComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('Combobox'),
+  props: z.object({
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    items: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+    value: z.string().optional(),
+  }),
+  relationship: RelationshipExtensionSchema.optional(),
+})
+
+/** Checkbox component definition */
+export const CheckboxComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('Checkbox'),
+  props: z.object({
+    label: z.string().optional(),
+    checked: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+  }),
+})
+
+/** DatePicker component definition */
+export const DatePickerComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('DatePicker'),
+  props: z.object({
+    label: z.string().optional(),
+    value: z.union([z.string(), z.date()]).optional(),
+    disabled: z.boolean().optional(),
+  }),
+})
+
+/** TimePicker component definition */
+export const TimePickerComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('TimePicker'),
+  props: z.object({
+    label: z.string().optional(),
+    value: z.string().optional(),
+    disabled: z.boolean().optional(),
+  }),
+})
+
+/** ImageSetting component definition */
+export const ImageSettingComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('ImageSetting'),
+  props: z.object({
+    label: z.string().optional(),
+    description: z.string().optional(),
+    accept: z.string().optional(),
+  }),
+})
+
+/** List component definition */
+export const ListComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('List'),
+  props: z.object({
+    items: z.array(z.object({
+      id: z.string(),
+      label: z.string(),
+      description: z.string().optional(),
+    })).optional(),
+    emptyMessage: z.string().optional(),
+  }),
+  model: z.string().optional(),
+  labelField: z.string().optional(),
+  descriptionField: z.string().optional(),
+  icon: z.string().optional(),
+})
+
+/** EmptyForm component definition */
+export const EmptyFormComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('EmptyForm'),
+  props: z.object({
+    title: z.string().optional(),
+    description: z.string().optional(),
+    icon: z.string().optional(),
+  }),
+})
+
+/** Forward declaration for FieldSetting with modalForm */
+export type FormV2ComponentDefinition = z.infer<typeof FormV2ComponentDefinitionSchema>
+
+/** Modal form definition for nested forms */
+export const ModalFormDefinitionSchema: z.ZodType<{
+  header: z.infer<typeof PageFormHeaderSchema>
+  handler: string
+  fields: FormV2ComponentDefinition[]
+  layout: z.infer<typeof FormLayoutConfigDefinitionSchema>
+  actions: z.infer<typeof PageActionDefinitionSchema>[]
+}> = z.object({
+  header: PageFormHeaderSchema,
+  handler: z.string(),
+  fields: z.lazy(() => z.array(FormV2ComponentDefinitionSchema)),
+  layout: FormLayoutConfigDefinitionSchema,
+  actions: z.array(PageActionDefinitionSchema),
+})
+
+/** FieldSetting component definition */
+export const FieldSettingComponentDefinitionSchema = FormV2StylePropsSchema.extend({
+  component: z.literal('FieldSetting'),
+  props: z.object({
+    label: z.string(),
+    description: z.string().optional(),
+    mode: z.enum(['field', 'setting']).optional(),
+    button: FieldSettingButtonPropsSchema,
+  }),
+  modalForm: ModalFormDefinitionSchema.optional(),
+})
+
+/** Union of all FormV2 component definitions */
+export const FormV2ComponentDefinitionSchema = z.discriminatedUnion('component', [
+  InputComponentDefinitionSchema,
+  TextareaComponentDefinitionSchema,
+  SelectComponentDefinitionSchema,
+  ComboboxComponentDefinitionSchema,
+  CheckboxComponentDefinitionSchema,
+  DatePickerComponentDefinitionSchema,
+  TimePickerComponentDefinitionSchema,
+  FieldSettingComponentDefinitionSchema,
+  ImageSettingComponentDefinitionSchema,
+  ListComponentDefinitionSchema,
+  EmptyFormComponentDefinitionSchema,
+])
+
+/** FormV2 props definition */
+export const FormV2PropsDefinitionSchema = z.object({
+  formVersion: z.literal('v2'),
+  id: z.string().optional(),
+  fields: z.array(FormV2ComponentDefinitionSchema),
+  layout: FormLayoutConfigDefinitionSchema,
+})
+
+/** Card block header definition */
+export const CardBlockHeaderSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  descriptionHref: z.string().optional(),
+})
+
+/** Card block definition (CardV2-aligned) */
+export const CardBlockDefinitionSchema = z.object({
+  type: z.literal('card'),
+  restructurable: z.boolean().optional(),
+  header: CardBlockHeaderSchema.optional(),
+  form: FormV2PropsDefinitionSchema,
+  actions: z.array(PageActionDefinitionSchema).optional(),
+  secondaryActions: z.array(PageActionDefinitionSchema).optional(),
+  primaryActions: z.array(PageActionDefinitionSchema).optional(),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy Page Field Definition (for backward compatibility)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Base field definition */
 const PageFieldDefinitionBaseSchema = z.object({
@@ -233,6 +473,7 @@ const PageFieldDefinitionBaseSchema = z.object({
   source: PageFieldSourceSchema.optional(),
   options: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
   accept: z.string().optional(),
+  model: z.string().optional(),
 })
 
 /** Page field definition type */
@@ -249,18 +490,31 @@ export const PageFieldDefinitionSchema: z.ZodType<PageFieldDefinition> = PageFie
   actions: z.lazy(() => z.array(PageActionDefinitionSchema)).optional(),
 })
 
-export const PageBlockDefinitionSchema = z.object({
-  type: PageBlockTypeSchema,
+/** Legacy form block definition */
+export const LegacyFormBlockDefinitionSchema = z.object({
+  type: z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link']),
   title: z.string().optional(),
   fields: z.array(PageFieldDefinitionSchema).optional(),
   readonly: z.boolean().optional(),
-  // For list block type
-  model: z.string().optional(),
+})
+
+/** List block definition */
+export const ListBlockDefinitionSchema = z.object({
+  type: z.literal('list'),
+  title: z.string().optional(),
+  model: z.string(),
   labelField: z.string().optional(),
   descriptionField: z.string().optional(),
   icon: z.string().optional(),
   emptyMessage: z.string().optional(),
 })
+
+/** Union of all block types */
+export const PageBlockDefinitionSchema = z.union([
+  CardBlockDefinitionSchema,
+  LegacyFormBlockDefinitionSchema,
+  ListBlockDefinitionSchema,
+])
 
 export const PageInstanceFilterSchema = z.object({
   model: z.string(),
@@ -272,7 +526,7 @@ export const PageDefinitionSchema = z.object({
   type: PageTypeSchema,
   title: z.string(),
   path: z.string().optional(),
-  navigation: z.boolean().optional().default(true),
+  navigation: z.union([z.boolean(), z.string()]).optional().default(true),
   blocks: z.array(PageBlockDefinitionSchema),
   actions: z.array(PageActionDefinitionSchema).optional(),
   filter: PageInstanceFilterSchema.optional(),
@@ -360,6 +614,20 @@ export type WebhookHttpMethod = z.infer<typeof WebhookHttpMethodSchema>
 export type WebhookHandlerDefinition = z.infer<typeof WebhookHandlerDefinitionSchema>
 export type Webhooks = z.infer<typeof WebhooksSchema>
 export type ProvisionConfig = z.infer<typeof ProvisionConfigSchema>
+
+// FormV2 types
+export type FormV2StyleProps = z.infer<typeof FormV2StylePropsSchema>
+export type FieldSettingButtonProps = z.infer<typeof FieldSettingButtonPropsSchema>
+export type RelationshipExtension = z.infer<typeof RelationshipExtensionSchema>
+export type FormLayoutColumnDefinition = z.infer<typeof FormLayoutColumnDefinitionSchema>
+export type FormLayoutRowDefinition = z.infer<typeof FormLayoutRowDefinitionSchema>
+export type FormLayoutConfigDefinition = z.infer<typeof FormLayoutConfigDefinitionSchema>
+export type ModalFormDefinition = z.infer<typeof ModalFormDefinitionSchema>
+export type FormV2PropsDefinition = z.infer<typeof FormV2PropsDefinitionSchema>
+export type CardBlockHeader = z.infer<typeof CardBlockHeaderSchema>
+export type CardBlockDefinition = z.infer<typeof CardBlockDefinitionSchema>
+export type LegacyFormBlockDefinition = z.infer<typeof LegacyFormBlockDefinitionSchema>
+export type ListBlockDefinition = z.infer<typeof ListBlockDefinitionSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type Guards
