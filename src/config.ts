@@ -427,6 +427,17 @@ export interface EmptyFormComponentDefinition extends FormV2StyleProps {
   }
 }
 
+/** Alert component definition for display-only informational content */
+export interface AlertComponentDefinition extends FormV2StyleProps {
+  component: 'Alert'
+  props: {
+    title: string
+    description: string
+    icon?: string
+    variant?: 'default' | 'destructive'
+  }
+}
+
 /** Union of all FormV2 component definitions */
 export type FormV2ComponentDefinition =
   | InputComponentDefinition
@@ -441,6 +452,7 @@ export type FormV2ComponentDefinition =
   | FileSettingComponentDefinition
   | ListComponentDefinition
   | EmptyFormComponentDefinition
+  | AlertComponentDefinition
 
 /** Layout column definition */
 export interface FormLayoutColumnDefinition {
