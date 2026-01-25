@@ -565,14 +565,21 @@ export type PageBlockDefinition = CardBlockDefinition | LegacyFormBlockDefinitio
 /** Mode for context data fetching */
 export type PageContextMode = 'first' | 'many' | 'count'
 
+/** Simple context filters with Liquid template support */
+export type PageContextFilters = Record<string, string | StructuredFilter[keyof StructuredFilter]>
+
 /** Single context item definition */
 export interface PageContextItemDefinition {
   /** Model handle to fetch data from */
   model: string
   /** Fetch mode: 'first' returns single object, 'many' returns array, 'count' returns number */
   mode: PageContextMode
-  /** Optional filters using StructuredFilter format */
-  filters?: StructuredFilter
+  /**
+   * Optional filters. Supports:
+   * - Simple key-value with Liquid templates: { id: '{{ path_params.id }}' }
+   * - StructuredFilter format: { status: { eq: 'APPROVED' } }
+   */
+  filters?: PageContextFilters
   /** Optional limit for 'many' mode */
   limit?: number
 }
@@ -586,13 +593,68 @@ export interface PageInstanceFilter {
   where?: Record<string, unknown>
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Navigation Definitions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Navigation item for sidebar */
+export interface NavigationItem {
+  /** Display label (supports Liquid templates) */
+  label: string
+  /** URL href (supports Liquid templates with path_params and context) */
+  href: string
+  /** Optional icon name */
+  icon?: string
+}
+
+/** Navigation section with title and items */
+export interface NavigationSection {
+  /** Section title (supports Liquid templates) */
+  title?: string
+  /** Navigation items in this section */
+  items: NavigationItem[]
+}
+
+/** Sidebar navigation configuration */
+export interface NavigationSidebar {
+  /** Sections to display in the sidebar */
+  sections: NavigationSection[]
+}
+
+/** Breadcrumb item */
+export interface BreadcrumbItem {
+  /** Display label (supports Liquid templates) */
+  label: string
+  /** Optional href - if not provided, item is not clickable */
+  href?: string
+}
+
+/** Breadcrumb navigation configuration */
+export interface NavigationBreadcrumb {
+  /** Breadcrumb items from left to right */
+  items: BreadcrumbItem[]
+}
+
+/** Full navigation configuration */
+export interface NavigationConfig {
+  /** Sidebar navigation */
+  sidebar?: NavigationSidebar
+  /** Breadcrumb navigation */
+  breadcrumb?: NavigationBreadcrumb
+}
+
 export interface PageDefinition {
-  handle: string
   type: PageType
   title: string
-  path?: string
-  /** Whether to show in navigation - boolean or Liquid template string */
-  navigation?: boolean | string
+  /** URL path for this page (e.g., '/phone-numbers' or '/phone-numbers/[id]' for dynamic segments) */
+  path: string
+  /**
+   * Navigation configuration:
+   * - true/false: show/hide in auto-generated navigation
+   * - string: Liquid template that evaluates to true/false
+   * - NavigationConfig: full navigation override for this page (replaces base navigation)
+   */
+  navigation?: boolean | string | NavigationConfig
   blocks: PageBlockDefinition[]
   actions?: PageActionDefinition[]
   /** Context data to load for Liquid templates. appInstallationId filtering is automatic. */
@@ -676,6 +738,8 @@ export interface ProvisionConfig {
   channels?: ChannelDefinition[]
   /** Workflow definitions */
   workflows?: WorkflowDefinition[]
+  /** Base navigation configuration for all pages (can be overridden per page) */
+  navigation?: NavigationConfig
   /** Page definitions for app UI */
   pages?: PageDefinition[]
   /** Webhook handler names to auto-register at provision level */

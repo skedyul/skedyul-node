@@ -574,14 +574,30 @@ export const PageBlockDefinitionSchema = z.union([
 /** Mode for context data fetching */
 export const PageContextModeSchema = z.enum(['first', 'many', 'count'])
 
+/**
+ * Page context filters schema.
+ * Supports both structured filters and simple Liquid template strings.
+ */
+export const PageContextFiltersSchema = z.record(
+  z.string(),
+  z.union([
+    z.string(), // Liquid template string, e.g., '{{ path_params.id }}'
+    z.record(z.string(), z.union([PrimitiveSchema, z.array(PrimitiveSchema)])), // StructuredFilter
+  ]),
+)
+
 /** Single context item definition */
 export const PageContextItemDefinitionSchema = z.object({
   /** Model handle to fetch data from */
   model: z.string(),
   /** Fetch mode: 'first' returns single object, 'many' returns array, 'count' returns number */
   mode: PageContextModeSchema,
-  /** Optional filters using StructuredFilter format */
-  filters: StructuredFilterSchema.optional(),
+  /**
+   * Optional filters. Supports:
+   * - Simple key-value with Liquid templates: { id: '{{ path_params.id }}' }
+   * - StructuredFilter format: { status: { eq: 'APPROVED' } }
+   */
+  filters: PageContextFiltersSchema.optional(),
   /** Optional limit for 'many' mode */
   limit: z.number().optional(),
 })
@@ -595,12 +611,68 @@ export const PageInstanceFilterSchema = z.object({
   where: z.record(z.string(), z.unknown()).optional(),
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Navigation Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Navigation item for sidebar */
+export const NavigationItemSchema = z.object({
+  /** Display label (supports Liquid templates) */
+  label: z.string(),
+  /** URL href (supports Liquid templates with path_params and context) */
+  href: z.string(),
+  /** Optional icon name */
+  icon: z.string().optional(),
+})
+
+/** Navigation section with title and items */
+export const NavigationSectionSchema = z.object({
+  /** Section title (supports Liquid templates) */
+  title: z.string().optional(),
+  /** Navigation items in this section */
+  items: z.array(NavigationItemSchema),
+})
+
+/** Sidebar navigation configuration */
+export const NavigationSidebarSchema = z.object({
+  /** Sections to display in the sidebar */
+  sections: z.array(NavigationSectionSchema),
+})
+
+/** Breadcrumb item */
+export const BreadcrumbItemSchema = z.object({
+  /** Display label (supports Liquid templates) */
+  label: z.string(),
+  /** Optional href - if not provided, item is not clickable */
+  href: z.string().optional(),
+})
+
+/** Breadcrumb navigation configuration */
+export const NavigationBreadcrumbSchema = z.object({
+  /** Breadcrumb items from left to right */
+  items: z.array(BreadcrumbItemSchema),
+})
+
+/** Full navigation configuration */
+export const NavigationConfigSchema = z.object({
+  /** Sidebar navigation */
+  sidebar: NavigationSidebarSchema.optional(),
+  /** Breadcrumb navigation */
+  breadcrumb: NavigationBreadcrumbSchema.optional(),
+})
+
 export const PageDefinitionSchema = z.object({
-  handle: z.string(),
   type: PageTypeSchema,
   title: z.string(),
-  path: z.string().optional(),
-  navigation: z.union([z.boolean(), z.string()]).optional().default(true),
+  /** URL path for this page (e.g., '/phone-numbers' or '/phone-numbers/[id]' for dynamic segments) */
+  path: z.string(),
+  /**
+   * Navigation configuration:
+   * - true/false: show/hide in auto-generated navigation
+   * - string: Liquid template that evaluates to true/false
+   * - NavigationConfigSchema: full navigation override for this page (replaces base navigation)
+   */
+  navigation: z.union([z.boolean(), z.string(), NavigationConfigSchema]).optional().default(true),
   blocks: z.array(PageBlockDefinitionSchema),
   actions: z.array(PageActionDefinitionSchema).optional(),
   /** Context data to load for Liquid templates. appInstallationId filtering is automatic. */
@@ -633,6 +705,8 @@ export const ProvisionConfigSchema = z.object({
   relationships: z.array(RelationshipDefinitionSchema).optional(),
   channels: z.array(ChannelDefinitionSchema).optional(),
   workflows: z.array(WorkflowDefinitionSchema).optional(),
+  /** Base navigation configuration for all pages (can be overridden per page) */
+  navigation: NavigationConfigSchema.optional(),
   pages: z.array(PageDefinitionSchema).optional(),
   webhooks: z.array(z.string()).optional(),
 })
@@ -678,10 +752,17 @@ export type PageFieldSource = z.infer<typeof PageFieldSourceSchema>
 export type PageActionDefinition = z.infer<typeof PageActionDefinitionSchema>
 export type PageBlockDefinition = z.infer<typeof PageBlockDefinitionSchema>
 export type PageContextMode = z.infer<typeof PageContextModeSchema>
+export type PageContextFilters = z.infer<typeof PageContextFiltersSchema>
 export type PageContextItemDefinition = z.infer<typeof PageContextItemDefinitionSchema>
 export type PageContextDefinition = z.infer<typeof PageContextDefinitionSchema>
 /** @deprecated Use PageContextDefinition instead */
 export type PageInstanceFilter = z.infer<typeof PageInstanceFilterSchema>
+export type NavigationItem = z.infer<typeof NavigationItemSchema>
+export type NavigationSection = z.infer<typeof NavigationSectionSchema>
+export type NavigationSidebar = z.infer<typeof NavigationSidebarSchema>
+export type BreadcrumbItem = z.infer<typeof BreadcrumbItemSchema>
+export type NavigationBreadcrumb = z.infer<typeof NavigationBreadcrumbSchema>
+export type NavigationConfig = z.infer<typeof NavigationConfigSchema>
 export type PageDefinition = z.infer<typeof PageDefinitionSchema>
 export type ModelDependency = z.infer<typeof ModelDependencySchema>
 export type ChannelDependency = z.infer<typeof ChannelDependencySchema>

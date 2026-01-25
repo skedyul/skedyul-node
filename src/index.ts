@@ -86,6 +86,13 @@ export type {
   PageContextItemDefinition,
   PageContextDefinition,
   PageInstanceFilter,
+  // Navigation types
+  NavigationItem,
+  NavigationSection,
+  NavigationSidebar,
+  BreadcrumbItem,
+  NavigationBreadcrumb,
+  NavigationConfig,
   // Webhook handler types
   WebhookHttpMethod,
   WebhookRequest,
