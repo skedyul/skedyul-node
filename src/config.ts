@@ -403,18 +403,32 @@ export interface FileSettingComponentDefinition extends FormV2StyleProps {
   }
 }
 
+/** Item template for server-side iterable rendering */
+export interface ListItemTemplate {
+  component: string
+  span?: number
+  mdSpan?: number
+  lgSpan?: number
+  props: Record<string, unknown>
+}
+
 /** List component definition */
 export interface ListComponentDefinition extends FormV2StyleProps {
   component: 'List'
   props: {
+    title?: string
     items?: Array<{ id: string; label: string; description?: string }>
     emptyMessage?: string
   }
-  /** Model to fetch list items from */
+  /** Model to fetch list items from (legacy) */
   model?: string
   labelField?: string
   descriptionField?: string
   icon?: string
+  /** Context variable name to iterate over (e.g., 'phone_numbers') */
+  iterable?: string
+  /** Template for each item - use {{ item.xyz }} for field values */
+  itemTemplate?: ListItemTemplate
 }
 
 /** EmptyForm component definition */

@@ -387,10 +387,20 @@ export const FileSettingComponentDefinitionSchema = FormV2StylePropsSchema.exten
   }),
 })
 
+/** Item template schema for server-side iterable rendering */
+export const ListItemTemplateSchema = z.object({
+  component: z.string(),
+  span: z.number().optional(),
+  mdSpan: z.number().optional(),
+  lgSpan: z.number().optional(),
+  props: z.record(z.string(), z.unknown()),
+})
+
 /** List component definition */
 export const ListComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   component: z.literal('List'),
   props: z.object({
+    title: z.string().optional(),
     items: z.array(z.object({
       id: z.string(),
       label: z.string(),
@@ -402,6 +412,10 @@ export const ListComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   labelField: z.string().optional(),
   descriptionField: z.string().optional(),
   icon: z.string().optional(),
+  /** Context variable name to iterate over (e.g., 'phone_numbers') */
+  iterable: z.string().optional(),
+  /** Template for each item - use {{ item.xyz }} for field values */
+  itemTemplate: ListItemTemplateSchema.optional(),
 })
 
 /** EmptyForm component definition */
