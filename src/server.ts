@@ -400,6 +400,7 @@ function createCallToolHandler<T extends ToolRegistry>(
         workplace: rawContext.workplace as { id: string; subdomain?: string } | undefined,
         field,
         fieldValues: rawContext.fieldValues as Record<string, unknown> | undefined,
+        params: rawContext.params as Record<string, string> | undefined,
         env: process.env as Record<string, string | undefined>,
         mode: estimateMode ? 'estimate' : 'execute',
       }

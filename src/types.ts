@@ -93,6 +93,8 @@ export interface ToolExecutionContext {
   field?: ToolFieldContext
   /** All current field values on the page (only for page_action trigger) */
   fieldValues?: Record<string, unknown>
+  /** Path parameters from URL (e.g., from /phone-numbers/[phone_id]/overview) */
+  params?: Record<string, string>
   /** Environment variables */
   env: Record<string, string | undefined>
   /** Execution mode - 'estimate' returns billing info without side effects */
