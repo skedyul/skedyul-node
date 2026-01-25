@@ -306,9 +306,11 @@ export interface SelectComponentDefinition extends FormV2StyleProps {
     label?: string
     placeholder?: string
     helpText?: string
-    items?: Array<{ value: string; label: string }>
+    /** Static items array or Liquid template string (e.g., '{{ system.models }}') */
+    items?: Array<{ value: string; label: string }> | string
     value?: string
     isDisabled?: boolean
+    required?: boolean
   }
   /** For relationship-based selects */
   relationship?: RelationshipExtension

@@ -12,6 +12,7 @@ export {
   token,
   file,
   webhook,
+  resource,
   configure,
   getConfig,
   runWithConfig,
@@ -28,6 +29,8 @@ export type {
   WebhookListItem,
   WebhookDeleteByNameOptions,
   WebhookListOptions,
+  ResourceLinkParams,
+  ResourceLinkResult,
 } from './core/client'
 
 // Default export for ESM compatibility when importing from CJS

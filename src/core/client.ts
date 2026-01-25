@@ -714,3 +714,61 @@ export const webhook = {
     return { webhooks: data }
   },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Resource Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parameters for resource.link
+ */
+export interface ResourceLinkParams {
+  /** SHARED model handle from provision config */
+  handle: string
+  /** User's model ID to link to */
+  targetModelId: string
+  /** Optional: scope to a communication channel */
+  channelId?: string
+}
+
+/**
+ * Result from resource.link
+ */
+export interface ResourceLinkResult {
+  /** Created AppResourceInstance ID */
+  instanceId: string
+}
+
+export const resource = {
+  /**
+   * Link a SHARED app resource (model) to a user's resource.
+   *
+   * Creates an AppResourceInstance hierarchy for MODEL types.
+   * This establishes the connection between an app's SHARED model
+   * (e.g., 'contact') and a user's actual workplace model (e.g., 'Clients').
+   *
+   * @param params - Link parameters
+   * @param ctx - Instance context with appInstallationId and workplace
+   *
+   * @example
+   * ```ts
+   * // Link the SHARED 'contact' model to user's 'Clients' model
+   * const { instanceId } = await resource.link({
+   *   handle: 'contact',           // SHARED model handle from provision config
+   *   targetModelId: modelId,      // User's selected model ID
+   *   channelId: channel.id,       // Optional: scope to communication channel
+   * }, ctx)
+   * ```
+   */
+  async link(
+    params: ResourceLinkParams,
+    ctx: InstanceContext,
+  ): Promise<ResourceLinkResult> {
+    const { data } = await callCore<ResourceLinkResult>('resource.link', {
+      appInstallationId: ctx.appInstallationId,
+      workplaceId: ctx.workplace.id,
+      ...params,
+    })
+    return data
+  },
+}

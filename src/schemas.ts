@@ -306,9 +306,11 @@ export const SelectComponentDefinitionSchema = FormV2StylePropsSchema.extend({
     label: z.string().optional(),
     placeholder: z.string().optional(),
     helpText: z.string().optional(),
-    items: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+    /** Static items array or Liquid template string (e.g., '{{ system.models }}') */
+    items: z.union([z.array(z.object({ value: z.string(), label: z.string() })), z.string()]).optional(),
     value: z.string().optional(),
     isDisabled: z.boolean().optional(),
+    required: z.boolean().optional(),
   }),
   relationship: RelationshipExtensionSchema.optional(),
 })
