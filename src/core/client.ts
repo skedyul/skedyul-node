@@ -311,6 +311,29 @@ export const communicationChannel = {
     })
     return data
   },
+
+  /**
+   * Remove a communication channel and its associated resources.
+   *
+   * Deletes the channel and cascades:
+   * - EnvVariables scoped to this channel
+   * - AppFields scoped to this channel
+   * - AppResourceInstances scoped to this channel
+   * - CommunicationChannelSubscriptions (Prisma cascade)
+   *
+   * ChatMessages are preserved with subscriptionId set to null.
+   *
+   * @example
+   * ```ts
+   * const { success } = await communicationChannel.remove('channel-id-123')
+   * ```
+   */
+  async remove(channelId: string): Promise<{ success: boolean }> {
+    const { data } = await callCore<{ success: boolean }>('communicationChannel.remove', {
+      communicationChannelId: channelId,
+    })
+    return data
+  },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -478,6 +501,26 @@ export const instance = {
       data,
     })
     return instance
+  },
+
+  /**
+   * Delete an existing instance.
+   *
+   * @example
+   * ```ts
+   * const { deleted } = await instance.delete('instance-id-123', ctx)
+   * ```
+   */
+  async delete(
+    id: string,
+    ctx: InstanceContext,
+  ): Promise<{ deleted: boolean }> {
+    const { data } = await callCore<{ deleted: boolean }>('instance.delete', {
+      id,
+      appInstallationId: ctx.appInstallationId,
+      workplaceId: ctx.workplace.id,
+    })
+    return data
   },
 }
 
