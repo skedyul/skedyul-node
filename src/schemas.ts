@@ -576,14 +576,15 @@ export const PageContextModeSchema = z.enum(['first', 'many', 'count'])
 
 /**
  * Page context filters schema.
- * Supports both structured filters and simple Liquid template strings.
+ * Uses structured filter format: { fieldHandle: { operator: value } }
+ * Values can be Liquid template strings, e.g., { id: { eq: '{{ path_params.id }}' } }
  */
 export const PageContextFiltersSchema = z.record(
   z.string(),
-  z.union([
-    z.string(), // Liquid template string, e.g., '{{ path_params.id }}'
-    z.record(z.string(), z.union([PrimitiveSchema, z.array(PrimitiveSchema)])), // StructuredFilter
-  ]),
+  z.record(
+    z.string(),
+    z.union([PrimitiveSchema, z.array(PrimitiveSchema), z.string()]),
+  ),
 )
 
 /** Single context item definition */

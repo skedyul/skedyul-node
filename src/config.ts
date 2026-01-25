@@ -565,8 +565,15 @@ export type PageBlockDefinition = CardBlockDefinition | LegacyFormBlockDefinitio
 /** Mode for context data fetching */
 export type PageContextMode = 'first' | 'many' | 'count'
 
-/** Simple context filters with Liquid template support */
-export type PageContextFilters = Record<string, string | StructuredFilter[keyof StructuredFilter]>
+/**
+ * Page context filters using structured format.
+ * Format: { fieldHandle: { operator: value } }
+ * Values can be Liquid template strings, e.g., { id: { eq: '{{ path_params.id }}' } }
+ */
+export type PageContextFilters = Record<
+  string,
+  Record<string, string | number | boolean | (string | number | boolean)[]>
+>
 
 /** Single context item definition */
 export interface PageContextItemDefinition {
