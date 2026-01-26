@@ -306,7 +306,7 @@ export interface SelectComponentDefinition extends FormV2StyleProps {
     label?: string
     placeholder?: string
     helpText?: string
-    /** Static items array or Liquid template string (e.g., '{{ system.models }}') */
+    /** Static items array (will be populated by iterable if using dynamic items) */
     items?: Array<{ value: string; label: string }> | string
     value?: string
     isDisabled?: boolean
@@ -314,6 +314,13 @@ export interface SelectComponentDefinition extends FormV2StyleProps {
   }
   /** For relationship-based selects */
   relationship?: RelationshipExtension
+  /** For dynamic items using iterable pattern (e.g., 'system.models') */
+  iterable?: string
+  /** Template for each item in the iterable */
+  itemTemplate?: {
+    value: string
+    label: string
+  }
 }
 
 /** Combobox component definition */

@@ -306,13 +306,20 @@ export const SelectComponentDefinitionSchema = FormV2StylePropsSchema.extend({
     label: z.string().optional(),
     placeholder: z.string().optional(),
     helpText: z.string().optional(),
-    /** Static items array or Liquid template string (e.g., '{{ system.models }}') */
+    /** Static items array (will be populated by iterable if using dynamic items) */
     items: z.union([z.array(z.object({ value: z.string(), label: z.string() })), z.string()]).optional(),
     value: z.string().optional(),
     isDisabled: z.boolean().optional(),
     required: z.boolean().optional(),
   }),
   relationship: RelationshipExtensionSchema.optional(),
+  /** For dynamic items using iterable pattern (e.g., 'system.models') */
+  iterable: z.string().optional(),
+  /** Template for each item in the iterable */
+  itemTemplate: z.object({
+    value: z.string(),
+    label: z.string(),
+  }).optional(),
 })
 
 /** Combobox component definition */
