@@ -676,6 +676,8 @@ export const PageDefinitionSchema = z.object({
   title: z.string(),
   /** URL path for this page (e.g., '/phone-numbers' or '/phone-numbers/[id]' for dynamic segments) */
   path: z.string(),
+  /** When true, this page is the default landing page for the app installation */
+  default: z.boolean().optional(),
   /**
    * Navigation configuration:
    * - true/false: show/hide in auto-generated navigation
