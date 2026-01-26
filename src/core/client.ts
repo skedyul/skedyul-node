@@ -877,3 +877,91 @@ export const resource = {
     return data
   },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contact Association Link API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parameters for creating a contact association link.
+ */
+export interface ContactAssociationLinkCreateParams {
+  /** Communication channel ID to link */
+  communicationChannelId: string
+  /** Model ID to associate contacts with */
+  modelId: string
+  /** Field ID providing the identifier (phone/email) */
+  identifierFieldId: string
+}
+
+/**
+ * Result from contactAssociationLink.create
+ */
+export interface ContactAssociationLinkCreateResult {
+  /** Created ContactAssociationLink ID */
+  id: string
+  /** Model name for display */
+  modelName: string
+  /** Field label for display */
+  identifierFieldLabel: string
+}
+
+export const contactAssociationLink = {
+  /**
+   * Create a contact association link between a channel and a model.
+   *
+   * Links a CommunicationChannel to a Model, specifying which field
+   * provides the identifier value (phone/email) for contact association.
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param params - Link creation parameters
+   *
+   * @example
+   * ```ts
+   * // Link a phone channel to the Clients model using the phone field
+   * const link = await contactAssociationLink.create({
+   *   communicationChannelId: channel.id,
+   *   modelId: clientsModelId,
+   *   identifierFieldId: phoneFieldId,
+   * })
+   * ```
+   */
+  async create(
+    params: ContactAssociationLinkCreateParams,
+  ): Promise<ContactAssociationLinkCreateResult> {
+    const { data } = await callCore<ContactAssociationLinkCreateResult>(
+      'contactAssociationLink.create',
+      { ...params },
+    )
+    return data
+  },
+
+  /**
+   * List contact association links for a channel.
+   *
+   * @param communicationChannelId - Channel to list links for
+   */
+  async list(
+    communicationChannelId: string,
+  ): Promise<ContactAssociationLinkCreateResult[]> {
+    const { data } = await callCore<ContactAssociationLinkCreateResult[]>(
+      'contactAssociationLink.list',
+      { communicationChannelId },
+    )
+    return data
+  },
+
+  /**
+   * Delete a contact association link.
+   *
+   * @param id - ContactAssociationLink ID to delete
+   */
+  async delete(id: string): Promise<{ success: boolean }> {
+    const { data } = await callCore<{ success: boolean }>(
+      'contactAssociationLink.delete',
+      { id },
+    )
+    return data
+  },
+}

@@ -13,6 +13,7 @@ export {
   file,
   webhook,
   resource,
+  contactAssociationLink,
   configure,
   getConfig,
   runWithConfig,
@@ -31,6 +32,8 @@ export type {
   WebhookListOptions,
   ResourceLinkParams,
   ResourceLinkResult,
+  ContactAssociationLinkCreateParams,
+  ContactAssociationLinkCreateResult,
 } from './core/client'
 
 // Default export for ESM compatibility when importing from CJS
