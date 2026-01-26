@@ -70,7 +70,8 @@ export type {
   OnDeleteBehavior,
   // Channel types
   ChannelDefinition,
-  ChannelToolBindings,
+  ChannelCapability,
+  ChannelCapabilityType,
   // Workflow types
   WorkflowDefinition,
   WorkflowAction,

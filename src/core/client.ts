@@ -256,7 +256,79 @@ export interface ReceiveMessageInput {
   remoteId?: string
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel Create Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parameters for creating a communication channel.
+ */
+export interface ChannelCreateParams {
+  /** Friendly name for the channel */
+  name: string
+  /** Unique identifier for the channel (e.g., phone number, email address) */
+  identifierValue: string
+  /** Optional: Link a SHARED model to user's model when creating the channel */
+  link?: {
+    /** SHARED model handle from provision config (e.g., 'contact') */
+    handle: string
+    /** User's model ID to link to */
+    targetModelId: string
+  }
+}
+
+/**
+ * Result from creating a communication channel.
+ */
+export interface ChannelCreateResult {
+  /** Created channel ID */
+  id: string
+  /** Channel name */
+  name: string
+  /** Channel handle from config */
+  handle: string
+  /** Channel identifier value */
+  identifierValue: string
+  /** AppResourceInstance ID if link was provided */
+  resourceInstanceId?: string
+}
+
 export const communicationChannel = {
+  /**
+   * Create a communication channel for an app installation.
+   *
+   * Creates a channel with the given handle from provision.config.ts.
+   * Optionally links a SHARED model to the user's model in a single operation.
+   *
+   * **Requires sk_wkp_ token** - channels are scoped to app installations.
+   *
+   * @param handle - Channel handle from provision.config.ts (e.g., "phone", "email")
+   * @param params - Channel creation parameters
+   *
+   * @example
+   * ```ts
+   * // Create a phone channel and link the contact model
+   * const channel = await communicationChannel.create("phone", {
+   *   name: "Sales Line",
+   *   identifierValue: "+61400000000",
+   *   link: {
+   *     handle: "contact",        // SHARED model from provision config
+   *     targetModelId: modelId,   // User's selected model
+   *   },
+   * });
+   * ```
+   */
+  async create(
+    handle: string,
+    params: ChannelCreateParams,
+  ): Promise<ChannelCreateResult> {
+    const { data } = await callCore<ChannelCreateResult>('communicationChannel.create', {
+      handle,
+      ...params,
+    })
+    return data
+  },
+
   /**
    * List communication channels with optional filters.
    *

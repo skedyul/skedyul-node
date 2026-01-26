@@ -154,16 +154,27 @@ export const RelationshipDefinitionSchema = z.object({
 // Channel Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ChannelToolBindingsSchema = z.object({
-  send_message: z.string(),
+/** Standard capability types for communication channels */
+export const ChannelCapabilityTypeSchema = z.enum([
+  'messaging', // Text-based: SMS, WhatsApp, Messenger, DMs
+  'voice', // Audio calls: Phone, WhatsApp Voice, etc.
+  'video', // Video calls (future)
+])
+
+/** Capability definition with display info and handler references */
+export const ChannelCapabilitySchema = z.object({
+  name: z.string(), // Display name: "SMS", "WhatsApp Messages"
+  icon: z.string().optional(), // Lucide icon name
+  receive: z.string().optional(), // Inbound webhook handler
+  send: z.string().optional(), // Outbound tool handle
 })
 
 export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   name: z.string(),
   icon: z.string().optional(),
-  tools: ChannelToolBindingsSchema,
-  requires: z.array(ResourceDependencySchema).optional(),
+  // Capabilities keyed by standard type (messaging, voice, video)
+  capabilities: z.record(ChannelCapabilityTypeSchema, ChannelCapabilitySchema),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -782,6 +793,8 @@ export type WorkflowDependency = z.infer<typeof WorkflowDependencySchema>
 export type ResourceDependency = z.infer<typeof ResourceDependencySchema>
 export type ModelFieldDefinition = z.infer<typeof ModelFieldDefinitionSchema>
 export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>
+export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
+export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
 export type ChannelDefinition = z.infer<typeof ChannelDefinitionSchema>
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>
 export type WebhookHttpMethod = z.infer<typeof WebhookHttpMethodSchema>

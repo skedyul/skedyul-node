@@ -164,16 +164,27 @@ export interface RelationshipDefinition {
 // Channel Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface ChannelToolBindings {
-  send_message: string
+/** Standard capability types for communication channels */
+export type ChannelCapabilityType = 'messaging' | 'voice' | 'video'
+
+/** Capability definition with display info and handler references */
+export interface ChannelCapability {
+  /** Display name: "SMS", "WhatsApp Messages" */
+  name: string
+  /** Lucide icon name */
+  icon?: string
+  /** Inbound webhook handler */
+  receive?: string
+  /** Outbound tool handle */
+  send?: string
 }
 
 export interface ChannelDefinition {
   handle: string
   name: string
   icon?: string
-  tools: ChannelToolBindings
-  requires?: ResourceDependency[]
+  /** Capabilities keyed by standard type (messaging, voice, video) */
+  capabilities: Partial<Record<ChannelCapabilityType, ChannelCapability>>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
