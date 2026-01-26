@@ -391,41 +391,31 @@ export const instance = {
   /**
    * List instances of an internal model.
    *
-   * **Behavior based on context:**
-   * - With ctx (appInstallationId): scoped to that installation
-   * - Without ctx + sk_app_ token: searches across ALL installations for the app
+   * The API token determines the context:
+   * - sk_wkp_ tokens: scoped to the token's app installation
+   * - sk_app_ tokens: searches across ALL installations for the app
    *
    * @example
    * ```ts
-   * // Scoped to a specific installation (in tool handlers)
-   * const ctx = {
-   *   appInstallationId: context.appInstallationId,
-   *   workplace: context.workplace,
-   * }
-   * const { data, pagination } = await instance.list('compliance_record', ctx, {
+   * // List with filters
+   * const { data, pagination } = await instance.list('compliance_record', {
+   *   filter: { status: 'pending' },
    *   page: 1,
    *   limit: 10,
    * })
    *
-   * // Cross-installation search (in webhooks with sk_app_ token)
-   * const { data } = await instance.list('phone_number', undefined, {
+   * // Cross-installation search (with sk_app_ token)
+   * const { data } = await instance.list('phone_number', {
    *   filter: { phone: '+1234567890' },
    * })
-   * if (data.length > 0) {
-   *   const { appInstallationId } = data[0]
-   *   const { token: scopedToken } = await token.exchange(appInstallationId)
-   * }
    * ```
    */
   async list(
     modelHandle: string,
-    ctx?: InstanceContext,
     args?: InstanceListArgs,
   ): Promise<InstanceListResult> {
     const { data, pagination } = await callCore<InstanceData[]>('instance.list', {
       modelHandle,
-      ...(ctx?.appInstallationId ? { appInstallationId: ctx.appInstallationId } : {}),
-      ...(ctx?.workplace?.id ? { workplaceId: ctx.workplace.id } : {}),
       ...(args?.page !== undefined ? { page: args.page } : {}),
       ...(args?.limit !== undefined ? { limit: args.limit } : {}),
       ...(args?.filter ? { filter: args.filter } : {}),
@@ -439,16 +429,17 @@ export const instance = {
   /**
    * Get a single instance by ID.
    *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
    * @example
    * ```ts
-   * const record = await instance.get('instance-id-123', ctx)
+   * const record = await instance.get('phone_number', 'ins_abc123')
    * ```
    */
-  async get(id: string, ctx: InstanceContext): Promise<InstanceData | null> {
+  async get(modelHandle: string, id: string): Promise<InstanceData | null> {
     const { data } = await callCore<InstanceData | null>('instance.get', {
+      modelHandle,
       id,
-      appInstallationId: ctx.appInstallationId,
-      workplaceId: ctx.workplace.id,
     })
     return data
   },
@@ -456,23 +447,22 @@ export const instance = {
   /**
    * Create a new instance of an internal model.
    *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
    * @example
    * ```ts
    * const newRecord = await instance.create('compliance_record', {
    *   status: 'pending',
    *   document_url: 'https://...',
-   * }, ctx)
+   * })
    * ```
    */
   async create(
     modelHandle: string,
     data: Record<string, unknown>,
-    ctx: InstanceContext,
   ): Promise<InstanceData> {
     const { data: instance } = await callCore<InstanceData>('instance.create', {
       modelHandle,
-      appInstallationId: ctx.appInstallationId,
-      workplaceId: ctx.workplace.id,
       data,
     })
     return instance
@@ -481,23 +471,24 @@ export const instance = {
   /**
    * Update an existing instance.
    *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
    * @example
    * ```ts
-   * const updated = await instance.update('instance-id-123', {
+   * const updated = await instance.update('compliance_record', 'ins_abc123', {
    *   status: 'approved',
    *   bundle_sid: 'BU123456',
-   * }, ctx)
+   * })
    * ```
    */
   async update(
+    modelHandle: string,
     id: string,
     data: Record<string, unknown>,
-    ctx: InstanceContext,
   ): Promise<InstanceData> {
     const { data: instance } = await callCore<InstanceData>('instance.update', {
+      modelHandle,
       id,
-      appInstallationId: ctx.appInstallationId,
-      workplaceId: ctx.workplace.id,
       data,
     })
     return instance
@@ -506,19 +497,20 @@ export const instance = {
   /**
    * Delete an existing instance.
    *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
    * @example
    * ```ts
-   * const { deleted } = await instance.delete('instance-id-123', ctx)
+   * const { deleted } = await instance.delete('phone_number', 'ins_abc123')
    * ```
    */
   async delete(
+    modelHandle: string,
     id: string,
-    ctx: InstanceContext,
   ): Promise<{ deleted: boolean }> {
     const { data } = await callCore<{ deleted: boolean }>('instance.delete', {
+      modelHandle,
       id,
-      appInstallationId: ctx.appInstallationId,
-      workplaceId: ctx.workplace.id,
     })
     return data
   },
@@ -790,8 +782,9 @@ export const resource = {
    * This establishes the connection between an app's SHARED model
    * (e.g., 'contact') and a user's actual workplace model (e.g., 'Clients').
    *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
    * @param params - Link parameters
-   * @param ctx - Instance context with appInstallationId and workplace
    *
    * @example
    * ```ts
@@ -800,16 +793,13 @@ export const resource = {
    *   handle: 'contact',           // SHARED model handle from provision config
    *   targetModelId: modelId,      // User's selected model ID
    *   channelId: channel.id,       // Optional: scope to communication channel
-   * }, ctx)
+   * })
    * ```
    */
   async link(
     params: ResourceLinkParams,
-    ctx: InstanceContext,
   ): Promise<ResourceLinkResult> {
     const { data } = await callCore<ResourceLinkResult>('resource.link', {
-      appInstallationId: ctx.appInstallationId,
-      workplaceId: ctx.workplace.id,
       ...params,
     })
     return data
