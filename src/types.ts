@@ -241,6 +241,7 @@ export interface ToolCallResponse {
   output: unknown
   billing: BillingInfo
   error?: string
+  effect?: ToolEffect
 }
 
 export interface DedicatedServerInstance {

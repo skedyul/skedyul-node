@@ -758,6 +758,7 @@ export function createSkedyulServer(
           content: [{ type: 'text' as const, text: JSON.stringify(result.output) }],
           structuredContent: outputData ?? undefined,
           billing: result.billing,
+          effect: result.effect,
         }
       },
     )
@@ -1533,6 +1534,7 @@ function createServerlessInstance(
                     content: [{ type: 'text', text: JSON.stringify(toolResult.output) }],
                     structuredContent: outputData ?? undefined,
                     billing: toolResult.billing,
+                    effect: toolResult.effect,
                   }
                 }
               } catch (validationError) {
