@@ -105,9 +105,21 @@ export interface BillingInfo {
   credits: number
 }
 
+/**
+ * Client-side effects that the tool wants the UI to execute.
+ * These are separate from the data output and represent navigation/UI actions.
+ */
+export interface ToolEffect {
+  /** URL to navigate to after the tool completes */
+  redirect?: string
+  // Future: toast, refresh, closeDialog, etc.
+}
+
 export interface ToolExecutionResult<Output = unknown> {
   output: Output
   billing: BillingInfo
+  /** Optional client-side effects to execute */
+  effect?: ToolEffect
 }
 
 export interface ToolSchemaWithJson<
