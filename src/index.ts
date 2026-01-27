@@ -75,6 +75,7 @@ export type {
   ChannelDefinition,
   ChannelCapability,
   ChannelCapabilityType,
+  ChannelIdentifierField,
   // Workflow types
   WorkflowDefinition,
   WorkflowAction,

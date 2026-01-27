@@ -169,11 +169,25 @@ export const ChannelCapabilitySchema = z.object({
   send: z.string().optional(), // Outbound tool handle
 })
 
+/**
+ * Identifier field configuration for channels.
+ * Used to specify how to filter/create identifier fields (e.g., phone, email).
+ */
+export const ChannelIdentifierFieldSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  definition: z.object({
+    handle: z.string(),
+  }),
+})
+
 export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   name: z.string(),
   icon: z.string().optional(),
-  /** Field definition type for filtering identifier fields (e.g., 'phone', 'email') */
+  /** Structured identifier field config for filtering/creating identifier fields */
+  identifierField: ChannelIdentifierFieldSchema.optional(),
+  /** @deprecated Use identifierField instead. Kept for backward compatibility. */
   identifierType: z.string().optional(),
   // Capabilities keyed by standard type (messaging, voice, video)
   capabilities: z.record(ChannelCapabilityTypeSchema, ChannelCapabilitySchema),
@@ -797,6 +811,7 @@ export type ModelFieldDefinition = z.infer<typeof ModelFieldDefinitionSchema>
 export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
+export type ChannelIdentifierField = z.infer<typeof ChannelIdentifierFieldSchema>
 export type ChannelDefinition = z.infer<typeof ChannelDefinitionSchema>
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>
 export type WebhookHttpMethod = z.infer<typeof WebhookHttpMethodSchema>

@@ -179,11 +179,23 @@ export interface ChannelCapability {
   send?: string
 }
 
+/**
+ * Identifier field configuration for channels.
+ * Used to specify how to filter/create identifier fields (e.g., phone, email).
+ */
+export interface ChannelIdentifierField {
+  handle: string
+  label: string
+  definition: { handle: string }
+}
+
 export interface ChannelDefinition {
   handle: string
   name: string
   icon?: string
-  /** Field definition type for filtering identifier fields (e.g., 'phone', 'email') */
+  /** Structured identifier field config for filtering/creating identifier fields */
+  identifierField?: ChannelIdentifierField
+  /** @deprecated Use identifierField instead. Kept for backward compatibility. */
   identifierType?: string
   /** Capabilities keyed by standard type (messaging, voice, video) */
   capabilities: Partial<Record<ChannelCapabilityType, ChannelCapability>>
