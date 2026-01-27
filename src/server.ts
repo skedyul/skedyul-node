@@ -753,12 +753,18 @@ export function createSkedyulServer(
         }
 
         // Transform internal format to MCP protocol format
+        // Note: effect is embedded in structuredContent because the MCP SDK
+        // transport strips custom top-level fields in dedicated mode
         const outputData = result.output as Record<string, unknown> | null
+        const structuredContent = outputData
+          ? { ...outputData, __effect: result.effect }
+          : result.effect
+            ? { __effect: result.effect }
+            : undefined
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result.output) }],
-          structuredContent: outputData ?? undefined,
+          structuredContent,
           billing: result.billing,
-          effect: result.effect,
         }
       },
     )
@@ -1520,6 +1526,8 @@ function createServerlessInstance(
                 })
 
                 // Transform internal format to MCP protocol format
+                // Note: effect is embedded in structuredContent as __effect
+                // for consistency with dedicated mode (MCP SDK strips custom fields)
                 if (toolResult.error) {
                   const errorOutput = { error: toolResult.error }
                   result = {
@@ -1530,11 +1538,15 @@ function createServerlessInstance(
                   }
                 } else {
                   const outputData = toolResult.output as Record<string, unknown> | null
+                  const structuredContent = outputData
+                    ? { ...outputData, __effect: toolResult.effect }
+                    : toolResult.effect
+                      ? { __effect: toolResult.effect }
+                      : undefined
                   result = {
                     content: [{ type: 'text', text: JSON.stringify(toolResult.output) }],
-                    structuredContent: outputData ?? undefined,
+                    structuredContent,
                     billing: toolResult.billing,
-                    effect: toolResult.effect,
                   }
                 }
               } catch (validationError) {
