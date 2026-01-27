@@ -173,6 +173,8 @@ export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   name: z.string(),
   icon: z.string().optional(),
+  /** Field definition type for filtering identifier fields (e.g., 'phone', 'email') */
+  identifierType: z.string().optional(),
   // Capabilities keyed by standard type (messaging, voice, video)
   capabilities: z.record(ChannelCapabilityTypeSchema, ChannelCapabilitySchema),
 })

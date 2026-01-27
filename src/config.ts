@@ -183,6 +183,8 @@ export interface ChannelDefinition {
   handle: string
   name: string
   icon?: string
+  /** Field definition type for filtering identifier fields (e.g., 'phone', 'email') */
+  identifierType?: string
   /** Capabilities keyed by standard type (messaging, voice, video) */
   capabilities: Partial<Record<ChannelCapabilityType, ChannelCapability>>
 }
