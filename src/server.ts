@@ -436,6 +436,7 @@ function createCallToolHandler<T extends ToolRegistry>(
       return {
         output: functionResult.output,
         billing,
+        effect: functionResult.effect,
       }
     } catch (error) {
       return {
