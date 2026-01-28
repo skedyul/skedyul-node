@@ -189,6 +189,22 @@ export interface ChannelIdentifierField {
   definition: { handle: string }
 }
 
+export interface ChannelFieldPermissions {
+  read?: boolean
+  write?: boolean
+}
+
+export interface ChannelFieldDefinition {
+  handle: string
+  label: string
+  definition: { handle: string }
+  identifier?: boolean
+  required?: boolean
+  defaultValue?: { value: unknown }
+  visibility?: AppFieldVisibility
+  permissions?: ChannelFieldPermissions
+}
+
 export interface ChannelDefinition {
   handle: string
   name: string
@@ -197,6 +213,8 @@ export interface ChannelDefinition {
   identifierField?: ChannelIdentifierField
   /** @deprecated Use identifierField instead. Kept for backward compatibility. */
   identifierType?: string
+  /** Field definitions for channel identifier + optional mappings */
+  fields?: ChannelFieldDefinition[]
   /** Capabilities keyed by standard type (messaging, voice, video) */
   capabilities: Partial<Record<ChannelCapabilityType, ChannelCapability>>
 }
