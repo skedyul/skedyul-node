@@ -385,6 +385,30 @@ export const communicationChannel = {
   },
 
   /**
+   * Update a communication channel's properties.
+   *
+   * @param channelId - The ID of the channel to update
+   * @param params - The properties to update (e.g., name)
+   *
+   * @example
+   * ```ts
+   * const channel = await communicationChannel.update('channel-id-123', {
+   *   name: 'New Channel Name',
+   * })
+   * ```
+   */
+  async update(
+    channelId: string,
+    params: { name?: string },
+  ): Promise<CommunicationChannel> {
+    const { data } = await callCore<CommunicationChannel>('communicationChannel.update', {
+      communicationChannelId: channelId,
+      ...params,
+    })
+    return data
+  },
+
+  /**
    * Remove a communication channel and its associated resources.
    *
    * Deletes the channel and cascades:
