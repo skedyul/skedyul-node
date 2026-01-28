@@ -545,6 +545,8 @@ export interface FormV2PropsDefinition {
   id?: string
   fields: FormV2ComponentDefinition[]
   layout: FormLayoutConfigDefinition
+  /** Optional actions that trigger MCP tool calls */
+  actions?: PageActionDefinition[]
 }
 
 /** Card block header definition */

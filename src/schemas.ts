@@ -529,6 +529,8 @@ export const FormV2PropsDefinitionSchema = z.object({
   id: z.string().optional(),
   fields: z.array(FormV2ComponentDefinitionSchema),
   layout: FormLayoutConfigDefinitionSchema,
+  /** Optional actions that trigger MCP tool calls */
+  actions: z.array(PageActionDefinitionSchema).optional(),
 })
 
 /** Card block header definition */
