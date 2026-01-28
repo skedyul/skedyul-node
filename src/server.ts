@@ -938,10 +938,19 @@ function createDedicatedServerInstance(
         const originalEnv = { ...process.env }
         Object.assign(process.env, requestEnv)
 
-        // Invoke the handler
+        // Build request-scoped config for the skedyul client
+        // This uses AsyncLocalStorage to override the global config (same pattern as tools)
+        const requestConfig = {
+          baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+          apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+        }
+
+        // Invoke the handler with request-scoped config
         let webhookResponse: WebhookResponse
         try {
-          webhookResponse = await webhookDef.handler(webhookRequest, webhookContext)
+          webhookResponse = await runWithConfig(requestConfig, async () => {
+            return await webhookDef.handler(webhookRequest, webhookContext)
+          })
         } catch (err) {
           console.error(`Webhook handler '${handle}' error:`, err)
           sendJSON(res, 500, { error: 'Webhook handler error' })
@@ -1337,10 +1346,19 @@ function createServerlessInstance(
           const originalEnv = { ...process.env }
           Object.assign(process.env, requestEnv)
 
-          // Invoke the handler
+          // Build request-scoped config for the skedyul client
+          // This uses AsyncLocalStorage to override the global config (same pattern as tools)
+          const requestConfig = {
+            baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+            apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+          }
+
+          // Invoke the handler with request-scoped config
           let webhookResponse: WebhookResponse
           try {
-            webhookResponse = await webhookDef.handler(webhookRequest, webhookContext)
+            webhookResponse = await runWithConfig(requestConfig, async () => {
+              return await webhookDef.handler(webhookRequest, webhookContext)
+            })
           } catch (err) {
             console.error(`Webhook handler '${handle}' error:`, err)
             return createResponse(500, { error: 'Webhook handler error' }, headers)
