@@ -23,10 +23,10 @@ import type {
   WebhookRegistry,
   WebhookContext,
 } from './types'
-import type { WebhookResponse, ToolExecutionContext, ToolTrigger } from './types'
+import type { WebhookResponse, ToolExecutionContext, ToolTrigger, WebhookRequest } from './types'
 import { coreApiService } from './core/service'
 import { runWithConfig } from './core/client'
-import type { CommunicationChannel, Message, WebhookRequest } from './core/types'
+import type { CommunicationChannel, Message, WebhookRequest as CoreWebhookRequest } from './core/types'
 
 type ToolCallArgs = {
   env?: Record<string, string | undefined>
@@ -851,40 +851,92 @@ function createDedicatedServerInstance(
           parsedBody = rawBody
         }
 
-        // Build WebhookRequest
-        const webhookRequest = {
-          method: req.method ?? 'POST',
-          url: url.toString(),
-          path: pathname,
-          headers: req.headers as Record<string, string | string[] | undefined>,
-          query: Object.fromEntries(url.searchParams.entries()),
-          body: parsedBody,
-          rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
-        }
+        // Check if this is an envelope format from the platform
+        // Envelope format: { env: {...}, request: {...}, context: {...} }
+        const isEnvelope = (
+          typeof parsedBody === 'object' &&
+          parsedBody !== null &&
+          'env' in parsedBody &&
+          'request' in parsedBody &&
+          'context' in parsedBody
+        )
 
-        // Build WebhookContext - check for platform-injected headers
-        const appInstallationId = req.headers['x-skedyul-app-installation-id'] as string | undefined
-        const workplaceId = req.headers['x-skedyul-workplace-id'] as string | undefined
-        const registrationContextHeader = req.headers['x-skedyul-registration-context'] as string | undefined
+        let webhookRequest: WebhookRequest
+        let webhookContext: WebhookContext
+        let requestEnv: Record<string, string> = {}
 
-        // Parse registration context from base64-encoded header
-        let registrationContext: Record<string, unknown> = {}
-        if (registrationContextHeader) {
-          try {
-            const decoded = Buffer.from(registrationContextHeader, 'base64').toString('utf-8')
-            registrationContext = JSON.parse(decoded) as Record<string, unknown>
-          } catch {
-            console.warn('Failed to parse X-Skedyul-Registration-Context header')
+        if (isEnvelope) {
+          // Platform envelope format - extract env, request, and context
+          const envelope = parsedBody as {
+            env: Record<string, string>
+            request: {
+              method: string
+              url: string
+              path: string
+              headers: Record<string, string>
+              query: Record<string, string>
+              body: string
+            }
+            context: {
+              appInstallationId: string | null
+              workplace: { id: string; subdomain: string | null } | null
+              registration: Record<string, unknown> | null
+            }
+          }
+
+          requestEnv = envelope.env ?? {}
+
+          // Parse the original request body
+          let originalParsedBody: unknown = envelope.request.body
+          const originalContentType = envelope.request.headers['content-type'] ?? ''
+          if (originalContentType.includes('application/json')) {
+            try {
+              originalParsedBody = envelope.request.body ? JSON.parse(envelope.request.body) : {}
+            } catch {
+              // Keep as string if JSON parsing fails
+            }
+          }
+
+          webhookRequest = {
+            method: envelope.request.method,
+            url: envelope.request.url,
+            path: envelope.request.path,
+            headers: envelope.request.headers as Record<string, string | string[] | undefined>,
+            query: envelope.request.query,
+            body: originalParsedBody,
+            rawBody: envelope.request.body ? Buffer.from(envelope.request.body, 'utf-8') : undefined,
+          }
+
+          webhookContext = {
+            env: { ...process.env, ...requestEnv } as Record<string, string | undefined>,
+            appInstallationId: envelope.context.appInstallationId,
+            workplace: envelope.context.workplace,
+            registration: envelope.context.registration ?? {},
+          }
+        } else {
+          // Direct request format (legacy or direct calls)
+          webhookRequest = {
+            method: req.method ?? 'POST',
+            url: url.toString(),
+            path: pathname,
+            headers: req.headers as Record<string, string | string[] | undefined>,
+            query: Object.fromEntries(url.searchParams.entries()),
+            body: parsedBody,
+            rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
+          }
+
+          webhookContext = {
+            env: process.env as Record<string, string | undefined>,
+            appInstallationId: null,
+            workplace: null,
+            registration: {},
           }
         }
 
-        const webhookContext: WebhookContext = {
-          env: process.env as Record<string, string | undefined>,
-          // Platform-injected context for registration-based webhooks
-          appInstallationId: appInstallationId ?? null,
-          workplace: workplaceId ? { id: workplaceId, subdomain: null } : null,
-          registration: registrationContext,
-        }
+        // Temporarily inject env into process.env for skedyul client to use
+        // (same pattern as tool handler)
+        const originalEnv = { ...process.env }
+        Object.assign(process.env, requestEnv)
 
         // Invoke the handler
         let webhookResponse: WebhookResponse
@@ -894,6 +946,9 @@ function createDedicatedServerInstance(
           console.error(`Webhook handler '${handle}' error:`, err)
           sendJSON(res, 500, { error: 'Webhook handler error' })
           return
+        } finally {
+          // Restore original env
+          process.env = originalEnv
         }
 
         // Send response
@@ -1019,8 +1074,8 @@ function createDedicatedServerInstance(
             ]),
           )
 
-          const webhookRequest: WebhookRequest = {
-            method: req.method,
+          const coreWebhookRequest: CoreWebhookRequest = {
+            method: req.method ?? 'POST',
             headers: normalizedHeaders,
             body: webhookBody,
             query: Object.fromEntries(url.searchParams.entries()),
@@ -1032,7 +1087,7 @@ function createDedicatedServerInstance(
           }
 
           const webhookResponse = await coreApiService.dispatchWebhook(
-            webhookRequest,
+            coreWebhookRequest,
           )
 
           res.writeHead(webhookResponse.status, {
@@ -1185,57 +1240,102 @@ function createServerlessInstance(
             parsedBody = rawBody
           }
 
-          // Build URL
-          const forwardedProto =
-            event.headers?.['x-forwarded-proto'] ??
-            event.headers?.['X-Forwarded-Proto']
-          const protocol = forwardedProto ?? 'https'
-          const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
-          const queryString = event.queryStringParameters
-            ? '?' + new URLSearchParams(event.queryStringParameters as Record<string, string>).toString()
-            : ''
-          const webhookUrl = `${protocol}://${host}${path}${queryString}`
+          // Check if this is an envelope format from the platform
+          // Envelope format: { env: {...}, request: {...}, context: {...} }
+          const isEnvelope = (
+            typeof parsedBody === 'object' &&
+            parsedBody !== null &&
+            'env' in parsedBody &&
+            'request' in parsedBody &&
+            'context' in parsedBody
+          )
 
-          // Build WebhookRequest
-          const webhookRequest = {
-            method,
-            url: webhookUrl,
-            path,
-            headers: event.headers as Record<string, string | string[] | undefined>,
-            query: event.queryStringParameters ?? {},
-            body: parsedBody,
-            rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
-          }
+          let webhookRequest: WebhookRequest
+          let webhookContext: WebhookContext
+          let requestEnv: Record<string, string> = {}
 
-          // Build WebhookContext - check for platform-injected headers
-          const appInstallationId =
-            event.headers?.['x-skedyul-app-installation-id'] ??
-            event.headers?.['X-Skedyul-App-Installation-Id']
-          const workplaceId =
-            event.headers?.['x-skedyul-workplace-id'] ??
-            event.headers?.['X-Skedyul-Workplace-Id']
-          const registrationContextHeader =
-            event.headers?.['x-skedyul-registration-context'] ??
-            event.headers?.['X-Skedyul-Registration-Context']
+          if (isEnvelope) {
+            // Platform envelope format - extract env, request, and context
+            const envelope = parsedBody as {
+              env: Record<string, string>
+              request: {
+                method: string
+                url: string
+                path: string
+                headers: Record<string, string>
+                query: Record<string, string>
+                body: string
+              }
+              context: {
+                appInstallationId: string | null
+                workplace: { id: string; subdomain: string | null } | null
+                registration: Record<string, unknown> | null
+              }
+            }
 
-          // Parse registration context from base64-encoded header
-          let registrationContext: Record<string, unknown> = {}
-          if (registrationContextHeader) {
-            try {
-              const decoded = Buffer.from(registrationContextHeader, 'base64').toString('utf-8')
-              registrationContext = JSON.parse(decoded) as Record<string, unknown>
-            } catch {
-              console.warn('Failed to parse X-Skedyul-Registration-Context header')
+            requestEnv = envelope.env ?? {}
+
+            // Parse the original request body
+            let originalParsedBody: unknown = envelope.request.body
+            const originalContentType = envelope.request.headers['content-type'] ?? ''
+            if (originalContentType.includes('application/json')) {
+              try {
+                originalParsedBody = envelope.request.body ? JSON.parse(envelope.request.body) : {}
+              } catch {
+                // Keep as string if JSON parsing fails
+              }
+            }
+
+            webhookRequest = {
+              method: envelope.request.method,
+              url: envelope.request.url,
+              path: envelope.request.path,
+              headers: envelope.request.headers as Record<string, string | string[] | undefined>,
+              query: envelope.request.query,
+              body: originalParsedBody,
+              rawBody: envelope.request.body ? Buffer.from(envelope.request.body, 'utf-8') : undefined,
+            }
+
+            webhookContext = {
+              env: { ...process.env, ...requestEnv } as Record<string, string | undefined>,
+              appInstallationId: envelope.context.appInstallationId,
+              workplace: envelope.context.workplace,
+              registration: envelope.context.registration ?? {},
+            }
+          } else {
+            // Direct request format (legacy or direct calls)
+            const forwardedProto =
+              event.headers?.['x-forwarded-proto'] ??
+              event.headers?.['X-Forwarded-Proto']
+            const protocol = forwardedProto ?? 'https'
+            const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
+            const queryString = event.queryStringParameters
+              ? '?' + new URLSearchParams(event.queryStringParameters as Record<string, string>).toString()
+              : ''
+            const webhookUrl = `${protocol}://${host}${path}${queryString}`
+
+            webhookRequest = {
+              method,
+              url: webhookUrl,
+              path,
+              headers: event.headers as Record<string, string | string[] | undefined>,
+              query: event.queryStringParameters ?? {},
+              body: parsedBody,
+              rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
+            }
+
+            webhookContext = {
+              env: process.env as Record<string, string | undefined>,
+              appInstallationId: null,
+              workplace: null,
+              registration: {},
             }
           }
 
-          const webhookContext: WebhookContext = {
-            env: process.env as Record<string, string | undefined>,
-            // Platform-injected context for registration-based webhooks
-            appInstallationId: appInstallationId ?? null,
-            workplace: workplaceId ? { id: workplaceId, subdomain: null } : null,
-            registration: registrationContext,
-          }
+          // Temporarily inject env into process.env for skedyul client to use
+          // (same pattern as tool handler)
+          const originalEnv = { ...process.env }
+          Object.assign(process.env, requestEnv)
 
           // Invoke the handler
           let webhookResponse: WebhookResponse
@@ -1244,6 +1344,9 @@ function createServerlessInstance(
           } catch (err) {
             console.error(`Webhook handler '${handle}' error:`, err)
             return createResponse(500, { error: 'Webhook handler error' }, headers)
+          } finally {
+            // Restore original env
+            process.env = originalEnv
           }
 
           // Build response headers
@@ -1321,9 +1424,9 @@ function createServerlessInstance(
           const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
           const webhookUrl = `${protocol}://${host}${event.path}`
 
-          const webhookRequest: WebhookRequest = {
+          const coreWebhookRequest: CoreWebhookRequest = {
             method,
-            headers: event.headers ?? {},
+            headers: (event.headers ?? {}) as Record<string, string>,
             body: webhookBody,
             query: event.queryStringParameters ?? {},
             url: webhookUrl,
@@ -1334,7 +1437,7 @@ function createServerlessInstance(
           }
 
           const webhookResponse = await coreApiService.dispatchWebhook(
-            webhookRequest,
+            coreWebhookRequest,
           )
 
           return createResponse(

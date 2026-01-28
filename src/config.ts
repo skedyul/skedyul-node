@@ -732,9 +732,12 @@ export type WebhookHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 
 export interface WebhookRequest {
   method: string
-  headers: Record<string, string>
-  body: unknown
+  url: string
+  path: string
+  headers: Record<string, string | string[] | undefined>
   query: Record<string, string>
+  body: unknown
+  rawBody?: Buffer
 }
 
 export interface WebhookHandlerContext {
