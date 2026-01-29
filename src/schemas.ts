@@ -728,9 +728,13 @@ export const PageDefinitionSchema = z.object({
 
 export const WebhookHttpMethodSchema = z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 
+export const WebhookTypeSchema = z.enum(['WEBHOOK', 'CALLBACK'])
+
 export const WebhookHandlerDefinitionSchema = z.object({
   description: z.string().optional(),
   methods: z.array(WebhookHttpMethodSchema).optional(),
+  /** Invocation type: WEBHOOK (fire-and-forget) or CALLBACK (waits for response). Defaults to WEBHOOK. */
+  type: WebhookTypeSchema.optional(),
   handler: z.unknown(),
 })
 

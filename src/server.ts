@@ -1117,6 +1117,7 @@ function createDedicatedServerInstance(
                   name: w.name,
                   description: w.description,
                   methods: w.methods ?? ['POST'],
+                  type: w.type ?? 'WEBHOOK',
                 }))
               : []
             sendJSON(res, 200, {
@@ -1695,6 +1696,7 @@ function createServerlessInstance(
                     name: w.name,
                     description: w.description,
                     methods: w.methods ?? ['POST'],
+                    type: w.type ?? 'WEBHOOK',
                   }))
                 : []
               result = { webhooks }

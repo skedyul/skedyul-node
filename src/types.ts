@@ -351,11 +351,23 @@ export type WebhookLifecycleHook<TContext = WebhookLifecycleContext> = (
 // Webhook Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Webhook invocation type - determines how responses are handled.
+ * - WEBHOOK: Fire-and-forget. Returns 200 immediately, processes asynchronously.
+ * - CALLBACK: Waits for handler response and returns it to the caller (e.g., Twilio TwiML).
+ */
+export type WebhookType = 'WEBHOOK' | 'CALLBACK'
+
 export interface WebhookDefinition {
   name: string
   description: string
   /** HTTP methods this webhook accepts. Defaults to ['POST'] */
   methods?: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')[]
+  /**
+   * Invocation type. Defaults to 'WEBHOOK' (fire-and-forget).
+   * Use 'CALLBACK' when the caller expects the handler's response (e.g., Twilio TwiML).
+   */
+  type?: WebhookType
   handler: WebhookHandler
 
   // App lifecycle
@@ -387,5 +399,7 @@ export interface WebhookMetadata {
   name: string
   description: string
   methods: string[]
+  /** Invocation type: WEBHOOK (fire-and-forget) or CALLBACK (waits for response). */
+  type: WebhookType
 }
 
