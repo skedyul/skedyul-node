@@ -856,6 +856,52 @@ export type LegacyFormBlockDefinition = z.infer<typeof LegacyFormBlockDefinition
 export type ListBlockDefinition = z.infer<typeof ListBlockDefinitionSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Messaging Tool Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MessageSendChannelSchema = z.object({
+  id: z.string(),
+  handle: z.string(),
+  identifierValue: z.string(),
+})
+
+export const MessageSendSubscriptionSchema = z.object({
+  id: z.string(),
+  identifierValue: z.string(),
+})
+
+export const MessageSendContactSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+})
+
+export const MessageSendMessageSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  contentRaw: z.string().optional(),
+  title: z.string().optional(),
+})
+
+export const MessageSendInputSchema = z.object({
+  channel: MessageSendChannelSchema,
+  subscription: MessageSendSubscriptionSchema,
+  contact: MessageSendContactSchema,
+  message: MessageSendMessageSchema,
+})
+
+export const MessageSendOutputSchema = z.object({
+  status: z.enum(['sent', 'queued', 'failed']),
+  remoteId: z.string().optional(),
+})
+
+export type MessageSendChannel = z.infer<typeof MessageSendChannelSchema>
+export type MessageSendSubscription = z.infer<typeof MessageSendSubscriptionSchema>
+export type MessageSendContact = z.infer<typeof MessageSendContactSchema>
+export type MessageSendMessage = z.infer<typeof MessageSendMessageSchema>
+export type MessageSendInput = z.infer<typeof MessageSendInputSchema>
+export type MessageSendOutput = z.infer<typeof MessageSendOutputSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Type Guards
 // ─────────────────────────────────────────────────────────────────────────────
 
