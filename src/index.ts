@@ -57,6 +57,8 @@ export type {
   InstallHandlerContext,
   InstallHandlerResult,
   InstallHandler,
+  // Install config types
+  InstallConfig,
   // Model types
   ModelDefinition,
   ModelFieldDefinition,

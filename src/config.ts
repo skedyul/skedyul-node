@@ -789,6 +789,21 @@ export interface InstallHandlerResult {
 export type InstallHandler = (ctx: InstallHandlerContext) => Promise<InstallHandlerResult>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Install Configuration (for install.config.ts in apps)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Install configuration - defines tool names to invoke for install/uninstall lifecycle.
+ * Tool names reference tools in the tool registry, enabling agent-invocation.
+ */
+export interface InstallConfig {
+  /** Tool name to invoke when app is installed */
+  onInstall?: string
+  /** Tool name to invoke when app is uninstalled */
+  onUninstall?: string
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Provision Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -832,6 +847,8 @@ export interface SkedyulConfig {
   webhooks?: WebhookRegistry | Promise<{ webhookRegistry: WebhookRegistry }>
   /** Provision configuration - direct object or dynamic import */
   provision?: ProvisionConfig | Promise<{ default: ProvisionConfig }>
+  /** Install configuration - hooks for install/uninstall lifecycle */
+  install?: InstallConfig | Promise<{ default: InstallConfig }>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
