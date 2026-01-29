@@ -170,25 +170,41 @@ export const ChannelCapabilitySchema = z.object({
 })
 
 /**
- * Identifier field configuration for channels.
- * Used to specify how to filter/create identifier fields (e.g., phone, email).
+ * Field definition for channel field mappings.
+ * Defines fields that can be mapped when linking a channel to a model.
+ * One field should have identifier: true to mark it as the channel identifier.
  */
-export const ChannelIdentifierFieldSchema = z.object({
+export const ChannelFieldDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
   definition: z.object({
     handle: z.string(),
-  }),
-})
+  }).passthrough(),
+  /** Marks this field as the identifier field for the channel */
+  identifier: z.boolean().optional(),
+  /** Whether this field is required */
+  required: z.boolean().optional(),
+  /** Default value when creating a new field */
+  defaultValue: z.object({ value: z.unknown() }).passthrough().optional(),
+  /** Visibility settings for the field */
+  visibility: z.object({
+    data: z.boolean().optional(),
+    list: z.boolean().optional(),
+    filters: z.boolean().optional(),
+  }).passthrough().optional(),
+  /** Permission settings for the field */
+  permissions: z.object({
+    read: z.boolean().optional(),
+    write: z.boolean().optional(),
+  }).passthrough().optional(),
+}).passthrough()
 
 export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   name: z.string(),
   icon: z.string().optional(),
-  /** Structured identifier field config for filtering/creating identifier fields */
-  identifierField: ChannelIdentifierFieldSchema.optional(),
-  /** @deprecated Use identifierField instead. Kept for backward compatibility. */
-  identifierType: z.string().optional(),
+  /** Array of field definitions for this channel. One field must have identifier: true. */
+  fields: z.array(ChannelFieldDefinitionSchema),
   // Capabilities keyed by standard type (messaging, voice, video)
   capabilities: z.record(ChannelCapabilityTypeSchema, ChannelCapabilitySchema),
 })
@@ -817,7 +833,7 @@ export type ModelFieldDefinition = z.infer<typeof ModelFieldDefinitionSchema>
 export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
-export type ChannelIdentifierField = z.infer<typeof ChannelIdentifierFieldSchema>
+export type ChannelFieldDefinition = z.infer<typeof ChannelFieldDefinitionSchema>
 export type ChannelDefinition = z.infer<typeof ChannelDefinitionSchema>
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>
 export type WebhookHttpMethod = z.infer<typeof WebhookHttpMethodSchema>
