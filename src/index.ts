@@ -26,6 +26,8 @@ export type {
   InstanceListResult,
   InstanceListArgs,
   FileUrlResponse,
+  FileUploadParams,
+  FileUploadResult,
   WebhookCreateResult,
   WebhookListItem,
   WebhookDeleteByNameOptions,

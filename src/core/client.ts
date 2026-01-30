@@ -659,6 +659,30 @@ export interface FileUrlResponse {
   expiresAt: string
 }
 
+/**
+ * Parameters for file.upload
+ */
+export interface FileUploadParams {
+  /** File content - Buffer or base64-encoded string */
+  content: Buffer | string
+  /** Original filename */
+  name: string
+  /** MIME type of the file */
+  mimeType: string
+  /** Optional path prefix for organization (e.g., 'attachments', 'images') */
+  path?: string
+}
+
+/**
+ * Response from file.upload
+ */
+export interface FileUploadResult {
+  /** File ID (fl_xxx format) */
+  id: string
+  /** Public URL (null for private files) */
+  url: string | null
+}
+
 export const file = {
   /**
    * Get a temporary download URL for an app-scoped file.
@@ -678,6 +702,47 @@ export const file = {
   async getUrl(fileId: string): Promise<FileUrlResponse> {
     const { data } = await callCore<FileUrlResponse>('file.getUrl', {
       fileId,
+    })
+    return data
+  },
+
+  /**
+   * Upload file content and create a File record.
+   *
+   * Files are scoped to the app installation and stored privately.
+   * Use file.getUrl() to generate a temporary download URL when needed.
+   *
+   * @example
+   * ```ts
+   * // Upload a file from a Buffer
+   * const buffer = await downloadFromExternalUrl(url)
+   * const { id } = await file.upload({
+   *   content: buffer,
+   *   name: 'document.pdf',
+   *   mimeType: 'application/pdf',
+   * })
+   *
+   * // Upload with a path prefix for organization
+   * const { id } = await file.upload({
+   *   content: imageBuffer,
+   *   name: 'photo.jpg',
+   *   mimeType: 'image/jpeg',
+   *   path: 'attachments',
+   * })
+   * ```
+   */
+  async upload(params: FileUploadParams): Promise<FileUploadResult> {
+    // Convert Buffer to base64 string for transport
+    const content =
+      typeof params.content === 'string'
+        ? params.content
+        : params.content.toString('base64')
+
+    const { data } = await callCore<FileUploadResult>('file.upload', {
+      content,
+      name: params.name,
+      mimeType: params.mimeType,
+      ...(params.path ? { path: params.path } : {}),
     })
     return data
   },
