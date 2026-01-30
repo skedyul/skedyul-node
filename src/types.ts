@@ -116,8 +116,6 @@ export type ProvisionToolInput = Record<string, never>
  * Extends ToolExecutionContext with provision-specific fields.
  */
 export interface ProvisionToolContext extends ToolExecutionContext {
-  /** The webhook name being provisioned (e.g., 'receive_email') */
-  webhookName: string
   /** App version ID being provisioned */
   appVersionId: string
   /** Trigger is always 'provision' for these tools */

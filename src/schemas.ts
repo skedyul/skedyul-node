@@ -760,17 +760,6 @@ export const WebhooksSchema = z.record(z.string(), WebhookHandlerDefinitionSchem
 // Provision Config Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Configuration for a single webhook's provisioning lifecycle.
- * Defines tools to invoke when the webhook is provisioned/deprovisioned.
- */
-export const WebhookProvisionConfigSchema = z.object({
-  /** Tool name to invoke when webhook is provisioned */
-  onProvision: z.string().optional(),
-  /** Tool name to invoke when webhook is deprovisioned */
-  onDeprovision: z.string().optional(),
-})
-
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
   models: z.array(ModelDefinitionSchema).optional(),
@@ -780,8 +769,8 @@ export const ProvisionConfigSchema = z.object({
   /** Base navigation configuration for all pages (can be overridden per page) */
   navigation: NavigationConfigSchema.optional(),
   pages: z.array(PageDefinitionSchema).optional(),
-  /** Webhook handler configs to auto-register at provision level */
-  webhooks: z.record(z.string(), WebhookProvisionConfigSchema).optional(),
+  /** Tool name to invoke after executable is healthy during provisioning */
+  onProvision: z.string().optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
