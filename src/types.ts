@@ -66,7 +66,7 @@ export interface ToolParams<Input, Output> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Trigger types for tool execution */
-export type ToolTrigger = 'field_change' | 'page_action' | 'agent' | 'workflow' | 'form_submit'
+export type ToolTrigger = 'field_change' | 'page_action' | 'agent' | 'workflow' | 'form_submit' | 'provision'
 
 /** Field info when tool is triggered by a field change */
 export interface ToolFieldContext {
@@ -99,6 +99,29 @@ export interface ToolExecutionContext {
   env: Record<string, string | undefined>
   /** Execution mode - 'estimate' returns billing info without side effects */
   mode: 'execute' | 'estimate'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provision Tool Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Input type for Provision lifecycle tools (onProvision, onDeprovision).
+ * These tools receive no user input - all data comes from context.
+ */
+export type ProvisionToolInput = Record<string, never>
+
+/**
+ * Context type for Provision lifecycle tools.
+ * Extends ToolExecutionContext with provision-specific fields.
+ */
+export interface ProvisionToolContext extends ToolExecutionContext {
+  /** The webhook name being provisioned (e.g., 'receive_email') */
+  webhookName: string
+  /** App version ID being provisioned */
+  appVersionId: string
+  /** Trigger is always 'provision' for these tools */
+  trigger: 'provision'
 }
 
 export interface BillingInfo {

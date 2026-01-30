@@ -798,6 +798,17 @@ export interface InstallConfig {
 // Provision Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Configuration for a single webhook's provisioning lifecycle.
+ * Defines tools to invoke when the webhook is provisioned/deprovisioned.
+ */
+export interface WebhookProvisionConfig {
+  /** Tool name to invoke when webhook is provisioned */
+  onProvision?: string
+  /** Tool name to invoke when webhook is deprovisioned */
+  onDeprovision?: string
+}
+
 /** Provision-level configuration - auto-synced when app version is deployed */
 export interface ProvisionConfig {
   /** Global environment variables (developer-level, shared across all installs) */
@@ -814,8 +825,8 @@ export interface ProvisionConfig {
   navigation?: NavigationConfig
   /** Page definitions for app UI */
   pages?: PageDefinition[]
-  /** Webhook handler names to auto-register at provision level */
-  webhooks?: string[]
+  /** Webhook handler configs to auto-register at provision level */
+  webhooks?: Record<string, WebhookProvisionConfig>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
