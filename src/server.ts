@@ -380,37 +380,54 @@ function createCallToolHandler<T extends ToolRegistry>(
       console.log('   args.context:', JSON.stringify(args.context, null, 2))
       console.log('   rawContext:', JSON.stringify(rawContext, null, 2))
 
+      // Extract app info (required for all contexts)
+      const app = rawContext.app as { id: string; versionId: string }
+
       // Determine trigger type from context
-      let trigger: ToolTrigger = 'agent'
-      if (rawContext.field) {
-        trigger = 'field_change'
-      } else if (rawContext.fieldValues) {
-        trigger = 'page_action'
-      } else if (rawContext.trigger) {
-        trigger = rawContext.trigger as ToolTrigger
-      }
+      const trigger = (rawContext.trigger as ToolTrigger) || 'agent'
 
-      // Extract field info if present
-      const field = rawContext.field as { handle: string; type: string; pageHandle: string } | undefined
+      // Build execution context based on trigger type
+      let executionContext: ToolExecutionContext
 
-      // Build standardized execution context
-      const executionContext: ToolExecutionContext = {
-        trigger,
-        appInstallationId: rawContext.appInstallationId as string | undefined,
-        workplace: rawContext.workplace as { id: string; subdomain?: string } | undefined,
-        field,
-        fieldValues: rawContext.fieldValues as Record<string, unknown> | undefined,
-        params: rawContext.params as Record<string, string> | undefined,
-        env: process.env as Record<string, string | undefined>,
-        mode: estimateMode ? 'estimate' : 'execute',
+      if (trigger === 'provision') {
+        // Provision context - no installation, no workplace
+        executionContext = {
+          trigger: 'provision',
+          app,
+          env: process.env as Record<string, string | undefined>,
+          mode: estimateMode ? 'estimate' : 'execute',
+        }
+      } else {
+        // Runtime context - has installation, workplace, request
+        const workplace = rawContext.workplace as { id: string; subdomain: string }
+        const request = rawContext.request as { url: string; params: Record<string, string>; query: Record<string, string> }
+        const appInstallationId = rawContext.appInstallationId as string
+        const envVars = process.env as Record<string, string | undefined>
+        const modeValue: 'execute' | 'estimate' = estimateMode ? 'estimate' : 'execute'
+
+        if (trigger === 'field_change') {
+          const field = rawContext.field as { handle: string; type: string; pageHandle: string; value: unknown; previousValue?: unknown }
+          executionContext = { trigger: 'field_change', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, field }
+        } else if (trigger === 'page_action') {
+          const page = rawContext.page as { handle: string; values: Record<string, unknown> }
+          executionContext = { trigger: 'page_action', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, page }
+        } else if (trigger === 'form_submit') {
+          const form = rawContext.form as { handle: string; values: Record<string, unknown> }
+          executionContext = { trigger: 'form_submit', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, form }
+        } else if (trigger === 'workflow') {
+          executionContext = { trigger: 'workflow', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
+        } else {
+          // Default to agent
+          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
+        }
       }
 
       console.log('   Built executionContext:', JSON.stringify({
         trigger: executionContext.trigger,
-        appInstallationId: executionContext.appInstallationId,
-        workplace: executionContext.workplace,
-        field: executionContext.field,
-        fieldValues: executionContext.fieldValues,
+        app: executionContext.app,
+        appInstallationId: 'appInstallationId' in executionContext ? executionContext.appInstallationId : undefined,
+        workplace: 'workplace' in executionContext ? executionContext.workplace : undefined,
+        request: 'request' in executionContext ? executionContext.request : undefined,
         mode: executionContext.mode,
       }, null, 2))
 
@@ -878,8 +895,9 @@ function createDedicatedServerInstance(
               body: string
             }
             context: {
+              app: { id: string; versionId: string }
               appInstallationId: string | null
-              workplace: { id: string; subdomain: string | null } | null
+              workplace: { id: string; subdomain: string } | null
               registration: Record<string, unknown> | null
             }
           }
@@ -907,14 +925,35 @@ function createDedicatedServerInstance(
             rawBody: envelope.request.body ? Buffer.from(envelope.request.body, 'utf-8') : undefined,
           }
 
-          webhookContext = {
-            env: { ...process.env, ...requestEnv } as Record<string, string | undefined>,
-            appInstallationId: envelope.context.appInstallationId,
-            workplace: envelope.context.workplace,
-            registration: envelope.context.registration ?? {},
+          const envVars = { ...process.env, ...requestEnv } as Record<string, string | undefined>
+          const app = envelope.context.app
+
+          // Build webhook context based on whether we have installation context
+          if (envelope.context.appInstallationId && envelope.context.workplace) {
+            // Runtime webhook context
+            webhookContext = {
+              env: envVars,
+              app,
+              appInstallationId: envelope.context.appInstallationId,
+              workplace: envelope.context.workplace,
+              registration: envelope.context.registration ?? {},
+            }
+          } else {
+            // Provision webhook context
+            webhookContext = {
+              env: envVars,
+              app,
+            }
           }
         } else {
-          // Direct request format (legacy or direct calls)
+          // Direct request format (legacy or direct calls) - requires app info from headers or fail
+          const appId = req.headers['x-skedyul-app-id'] as string | undefined
+          const appVersionId = req.headers['x-skedyul-app-version-id'] as string | undefined
+          
+          if (!appId || !appVersionId) {
+            throw new Error('Missing app info in webhook request (x-skedyul-app-id and x-skedyul-app-version-id headers required)')
+          }
+
           webhookRequest = {
             method: req.method ?? 'POST',
             url: url.toString(),
@@ -925,11 +964,10 @@ function createDedicatedServerInstance(
             rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
           }
 
+          // Direct calls are provision-level (no installation context)
           webhookContext = {
             env: process.env as Record<string, string | undefined>,
-            appInstallationId: null,
-            workplace: null,
-            registration: {},
+            app: { id: appId, versionId: appVersionId },
           }
         }
 
@@ -1277,8 +1315,9 @@ function createServerlessInstance(
                 body: string
               }
               context: {
+                app: { id: string; versionId: string }
                 appInstallationId: string | null
-                workplace: { id: string; subdomain: string | null } | null
+                workplace: { id: string; subdomain: string } | null
                 registration: Record<string, unknown> | null
               }
             }
@@ -1306,14 +1345,35 @@ function createServerlessInstance(
               rawBody: envelope.request.body ? Buffer.from(envelope.request.body, 'utf-8') : undefined,
             }
 
-            webhookContext = {
-              env: { ...process.env, ...requestEnv } as Record<string, string | undefined>,
-              appInstallationId: envelope.context.appInstallationId,
-              workplace: envelope.context.workplace,
-              registration: envelope.context.registration ?? {},
+            const envVars = { ...process.env, ...requestEnv } as Record<string, string | undefined>
+            const app = envelope.context.app
+
+            // Build webhook context based on whether we have installation context
+            if (envelope.context.appInstallationId && envelope.context.workplace) {
+              // Runtime webhook context
+              webhookContext = {
+                env: envVars,
+                app,
+                appInstallationId: envelope.context.appInstallationId,
+                workplace: envelope.context.workplace,
+                registration: envelope.context.registration ?? {},
+              }
+            } else {
+              // Provision webhook context
+              webhookContext = {
+                env: envVars,
+                app,
+              }
             }
           } else {
-            // Direct request format (legacy or direct calls)
+            // Direct request format (legacy or direct calls) - requires app info from headers or fail
+            const appId = event.headers?.['x-skedyul-app-id'] ?? event.headers?.['X-Skedyul-App-Id']
+            const appVersionId = event.headers?.['x-skedyul-app-version-id'] ?? event.headers?.['X-Skedyul-App-Version-Id']
+            
+            if (!appId || !appVersionId) {
+              throw new Error('Missing app info in webhook request (x-skedyul-app-id and x-skedyul-app-version-id headers required)')
+            }
+
             const forwardedProto =
               event.headers?.['x-forwarded-proto'] ??
               event.headers?.['X-Forwarded-Proto']
@@ -1334,11 +1394,10 @@ function createServerlessInstance(
               rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
             }
 
+            // Direct calls are provision-level (no installation context)
             webhookContext = {
               env: process.env as Record<string, string | undefined>,
-              appInstallationId: null,
-              workplace: null,
-              registration: {},
+              app: { id: appId, versionId: appVersionId },
             }
           }
 

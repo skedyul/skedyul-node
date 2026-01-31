@@ -6,7 +6,7 @@ import {
   loadRegistry,
   formatJson,
 } from '../utils'
-import type { ToolRegistryEntry, ToolContext } from '../../types'
+import type { ToolRegistryEntry, ToolExecutionContext, AgentToolContext } from '../../types'
 
 function printHelp(): void {
   console.log(`
@@ -172,8 +172,14 @@ export async function invokeCommand(args: string[]): Promise<void> {
     }
   }
 
-  // Create context
-  const context: ToolContext = {
+  // Create context - CLI uses agent trigger with minimal context
+  // Note: CLI invoke is for local dev testing, so we use a minimal context
+  const context: AgentToolContext = {
+    trigger: 'agent',
+    app: { id: 'cli', versionId: 'local' },
+    appInstallationId: 'cli-local',
+    workplace: { id: 'cli', subdomain: 'local' },
+    request: { url: 'cli://invoke', params: {}, query: {} },
     env,
     mode: estimateMode ? 'estimate' : 'execute',
   }
@@ -185,12 +191,9 @@ export async function invokeCommand(args: string[]): Promise<void> {
   }
 
   try {
-    const handler = tool.handler as (params: { input: unknown; context: ToolContext }) => Promise<{ output: unknown; billing: { credits: number } }>
+    const handler = tool.handler as (input: unknown, context: ToolExecutionContext) => Promise<{ output: unknown; billing: { credits: number } }>
 
-    const result = await handler({
-      input: validatedArgs,
-      context,
-    })
+    const result = await handler(validatedArgs, context)
 
     // Output result
     if (estimateMode) {

@@ -1,108 +1,121 @@
 import type { CoreApiConfig } from './core/types'
 import type { z } from 'zod'
-import type { PageFieldType } from './schemas'
 
-export interface ToolContext {
-  env: Record<string, string | undefined>
-  mode?: 'execute' | 'estimate'
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** App info - always present in all contexts */
+export interface AppInfo {
+  id: string
+  versionId: string
+}
+
+/** Workplace info - present in runtime contexts */
+export interface WorkplaceInfo {
+  id: string
+  subdomain: string
+}
+
+/** Request info - present in runtime contexts */
+export interface RequestInfo {
+  url: string
+  params: Record<string, string>
+  query: Record<string, string>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Page Handler Context Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Context passed to field change handlers */
-export interface FieldChangeContext extends ToolContext {
-  /** Field handle from page definition */
-  fieldHandle: string
-  /** Field datatype */
-  fieldType: PageFieldType
-  /** Page handle */
-  pageHandle: string
-  /** App installation ID */
-  appInstallationId: string
-  /** Workplace info */
-  workplace: { id: string; subdomain: string }
-}
-
-/** Parameters for field change handlers */
-export interface FieldChangeParams<T = unknown> {
-  /** The new value */
-  value: T
-  /** Previous value if available */
-  previousValue?: T
-  /** Handler context */
-  context: FieldChangeContext
-}
-
-/** Context passed to page action handlers */
-export interface PageActionContext extends ToolContext {
-  /** Page handle */
-  pageHandle: string
-  /** App installation ID */
-  appInstallationId: string
-  /** Workplace info */
-  workplace: { id: string; subdomain: string }
-  /** All current field values on the page */
-  fieldValues: Record<string, unknown>
-}
-
-/** Parameters for page action handlers */
-export interface PageActionParams {
-  /** Handler context */
-  context: PageActionContext
-}
-
-/**
- * @deprecated Use ToolExecutionContext instead. This will be removed in a future version.
- */
-export interface ToolParams<Input, Output> {
-  input: Input
-  context: ToolContext
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tool Execution Context (Standardized)
+// Tool Execution Context
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Trigger types for tool execution */
-export type ToolTrigger = 'field_change' | 'page_action' | 'agent' | 'workflow' | 'form_submit' | 'provision'
+export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow'
 
-/** Field info when tool is triggered by a field change */
-export interface ToolFieldContext {
-  /** Field handle from page definition */
-  handle: string
-  /** Field datatype */
-  type: string
-  /** Page handle where the field is defined */
-  pageHandle: string
-}
-
-/**
- * Standardized execution context passed to all tool handlers.
- * This is injected by the runtime and contains metadata about how the tool was invoked.
- */
-export interface ToolExecutionContext {
-  /** How the tool was triggered */
-  trigger: ToolTrigger
-  /** App installation ID for scoping instance operations */
-  appInstallationId?: string
-  /** Workplace info */
-  workplace?: { id: string; subdomain?: string }
-  /** Field info (only present for field_change trigger) */
-  field?: ToolFieldContext
-  /** All current field values on the page (only for page_action trigger) */
-  fieldValues?: Record<string, unknown>
-  /** Path parameters from URL (e.g., from /phone-numbers/[phone_id]/overview) */
-  params?: Record<string, string>
+/** Base context shared by all tool executions */
+interface BaseToolContext {
   /** Environment variables */
   env: Record<string, string | undefined>
   /** Execution mode - 'estimate' returns billing info without side effects */
   mode: 'execute' | 'estimate'
+  /** App info - always present */
+  app: AppInfo
+}
+
+/** Provision context - no installation, no workplace */
+export interface ProvisionToolContext extends BaseToolContext {
+  trigger: 'provision'
+}
+
+/** Runtime base - has installation, workplace, request */
+interface RuntimeToolContext extends BaseToolContext {
+  appInstallationId: string
+  workplace: WorkplaceInfo
+  request: RequestInfo
+}
+
+/** Field change context */
+export interface FieldChangeToolContext extends RuntimeToolContext {
+  trigger: 'field_change'
+  field: {
+    handle: string
+    type: string
+    pageHandle: string
+    value: unknown
+    previousValue?: unknown
+  }
+}
+
+/** Page action context */
+export interface PageActionToolContext extends RuntimeToolContext {
+  trigger: 'page_action'
+  page: {
+    handle: string
+    values: Record<string, unknown>
+  }
+}
+
+/** Form submit context */
+export interface FormSubmitToolContext extends RuntimeToolContext {
+  trigger: 'form_submit'
+  form: {
+    handle: string
+    values: Record<string, unknown>
+  }
+}
+
+/** Agent-triggered context */
+export interface AgentToolContext extends RuntimeToolContext {
+  trigger: 'agent'
+}
+
+/** Workflow-triggered context */
+export interface WorkflowToolContext extends RuntimeToolContext {
+  trigger: 'workflow'
+}
+
+/** Discriminated union of all tool execution contexts */
+export type ToolExecutionContext =
+  | ProvisionToolContext
+  | FieldChangeToolContext
+  | PageActionToolContext
+  | FormSubmitToolContext
+  | AgentToolContext
+  | WorkflowToolContext
+
+/** Type guard for provision context */
+export function isProvisionContext(ctx: ToolExecutionContext): ctx is ProvisionToolContext {
+  return ctx.trigger === 'provision'
+}
+
+/** Type guard for runtime context (any non-provision trigger) */
+export function isRuntimeContext(
+  ctx: ToolExecutionContext,
+): ctx is FieldChangeToolContext | PageActionToolContext | FormSubmitToolContext | AgentToolContext | WorkflowToolContext {
+  return ctx.trigger !== 'provision'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Provision Tool Types
+// Tool Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -110,17 +123,6 @@ export interface ToolExecutionContext {
  * These tools receive no user input - all data comes from context.
  */
 export type ProvisionToolInput = Record<string, never>
-
-/**
- * Context type for Provision lifecycle tools.
- * Extends ToolExecutionContext with provision-specific fields.
- */
-export interface ProvisionToolContext extends ToolExecutionContext {
-  /** App version ID being provisioned */
-  appVersionId: string
-  /** Trigger is always 'provision' for these tools */
-  trigger: 'provision'
-}
 
 export interface BillingInfo {
   credits: number
@@ -133,7 +135,6 @@ export interface BillingInfo {
 export interface ToolEffect {
   /** URL to navigate to after the tool completes */
   redirect?: string
-  // Future: toast, refresh, closeDialog, etc.
 }
 
 export interface ToolExecutionResult<Output = unknown> {
@@ -143,23 +144,16 @@ export interface ToolExecutionResult<Output = unknown> {
   effect?: ToolEffect
 }
 
-export interface ToolSchemaWithJson<
-  Schema extends z.ZodTypeAny = z.ZodTypeAny,
-> {
+export interface ToolSchemaWithJson<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
   zod: Schema
   jsonSchema?: Record<string, unknown>
 }
 
-export type ToolSchema<Schema extends z.ZodTypeAny = z.ZodTypeAny> =
-  | Schema
-  | ToolSchemaWithJson<Schema>
+export type ToolSchema<Schema extends z.ZodTypeAny = z.ZodTypeAny> = Schema | ToolSchemaWithJson<Schema>
 
 /**
  * Tool handler function signature.
  * Receives tool-specific input as first argument and standardized context as second.
- *
- * @param input - Tool-specific input data (validated against inputs schema)
- * @param context - Standardized execution context injected by runtime
  */
 export type ToolHandler<Input, Output> = (
   input: Input,
@@ -177,7 +171,7 @@ export interface ToolDefinition<
   inputs: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
-  [key: string]: unknown // Allow additional properties
+  [key: string]: unknown
 }
 
 export interface ToolRegistryEntry {
@@ -196,16 +190,13 @@ export type ToolName<T extends ToolRegistry> = Extract<keyof T, string>
 export interface ToolMetadata {
   name: string
   description: string
-  /**
-   * JSON Schema describing the tool's inputs, as returned by Zod v4's z.toJSONSchema().
-   * This is intentionally loose to support arbitrary JSON Schema shapes.
-   */
   inputSchema?: Record<string, unknown>
-  /**
-   * Optional JSON Schema describing the tool's output, if provided.
-   */
   outputSchema?: Record<string, unknown>
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface HealthStatus {
   status: 'running'
@@ -275,9 +266,7 @@ export interface ServerlessServerInstance {
   getHealthStatus(): HealthStatus
 }
 
-export type SkedyulServerInstance =
-  | DedicatedServerInstance
-  | ServerlessServerInstance
+export type SkedyulServerInstance = DedicatedServerInstance | ServerlessServerInstance
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook Types
@@ -302,21 +291,33 @@ export interface WebhookResponse {
   body?: unknown
 }
 
-export interface WebhookContext {
-  /** Environment variables available during webhook handling */
+/** Base webhook context */
+interface BaseWebhookContext {
+  /** Environment variables */
   env: Record<string, string | undefined>
+  /** App info */
+  app: AppInfo
+}
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Platform-Injected Context (for registration-based webhooks)
-  // These are populated when the platform forwards a WebhookRegistration request
-  // ─────────────────────────────────────────────────────────────────────────
+/** Provision-level webhook context - no installation or workplace */
+export interface ProvisionWebhookContext extends BaseWebhookContext {
+  // No additional fields for provision-level webhooks
+}
 
-  /** App installation ID (null for provision-level webhooks) */
-  appInstallationId?: string | null
-  /** Workplace info (null for provision-level webhooks) */
-  workplace?: { id: string; subdomain: string | null } | null
+/** Runtime webhook context - has installation and workplace */
+export interface RuntimeWebhookContext extends BaseWebhookContext {
+  appInstallationId: string
+  workplace: WorkplaceInfo
   /** Registration metadata passed when webhook.create() was called */
   registration?: Record<string, unknown>
+}
+
+/** Discriminated union of webhook contexts */
+export type WebhookContext = ProvisionWebhookContext | RuntimeWebhookContext
+
+/** Type guard for runtime webhook context */
+export function isRuntimeWebhookContext(ctx: WebhookContext): ctx is RuntimeWebhookContext {
+  return 'appInstallationId' in ctx && ctx.appInstallationId !== undefined
 }
 
 export type WebhookHandler = (
@@ -357,16 +358,11 @@ export interface WebhookLifecycleResult {
 
 /**
  * Lifecycle hook for webhook operations.
- * Return null if the API doesn't support programmatic management
- * (user must configure manually).
+ * Return null if the API doesn't support programmatic management.
  */
 export type WebhookLifecycleHook<TContext = WebhookLifecycleContext> = (
   context: TContext,
-) =>
-  | Promise<WebhookLifecycleResult | null | undefined>
-  | WebhookLifecycleResult
-  | null
-  | undefined
+) => Promise<WebhookLifecycleResult | null | undefined> | WebhookLifecycleResult | null | undefined
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook Definition
@@ -392,23 +388,16 @@ export interface WebhookDefinition {
   handler: WebhookHandler
 
   // App lifecycle
-  /** Called when the app is installed to a workplace. Return null if manual setup required. */
   onAppInstalled?: WebhookLifecycleHook
-  /** Called when the app is uninstalled from a workplace. Return null if manual cleanup required. */
   onAppUninstalled?: WebhookLifecycleHook
 
-  // Version lifecycle (webhook URL changes)
-  /** Called when a new app version is provisioned. Return null if manual setup required. */
+  // Version lifecycle
   onAppVersionProvisioned?: WebhookLifecycleHook
-  /** Called when an app version is deprovisioned. Return null if manual cleanup required. */
   onAppVersionDeprovisioned?: WebhookLifecycleHook
 
-  // Communication channel lifecycle (knows which phone number/email/etc)
-  /** Called when a communication channel is created. Return null if manual setup required. */
+  // Communication channel lifecycle
   onCommunicationChannelCreated?: WebhookLifecycleHook<CommunicationChannelLifecycleContext>
-  /** Called when a communication channel is updated. Return null if manual update required. */
   onCommunicationChannelUpdated?: WebhookLifecycleHook<CommunicationChannelLifecycleContext>
-  /** Called when a communication channel is deleted. Return null if manual cleanup required. */
   onCommunicationChannelDeleted?: WebhookLifecycleHook<CommunicationChannelLifecycleContext>
 }
 
@@ -420,7 +409,5 @@ export interface WebhookMetadata {
   name: string
   description: string
   methods: string[]
-  /** Invocation type: WEBHOOK (fire-and-forget) or CALLBACK (waits for response). */
   type: WebhookType
 }
-
