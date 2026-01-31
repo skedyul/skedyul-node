@@ -1,8 +1,12 @@
 export interface CommunicationChannel {
   id: string
   name: string
-  type: 'sms' | 'whatsapp' | 'email'
+  handle: string
+  identifierValue: string
+  workplaceId: string
+  appInstallationId: string
   createdAt: string
+  type?: 'sms' | 'whatsapp' | 'email'
   metadata?: Record<string, unknown>
 }
 
