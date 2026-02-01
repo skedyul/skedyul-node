@@ -784,13 +784,15 @@ export type InstallHandler = (ctx: InstallHandlerContext) => Promise<InstallHand
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Install configuration - defines tool names to invoke for install/uninstall lifecycle.
+ * Install configuration - defines per-install env vars and lifecycle hooks.
  * Tool names reference tools in the tool registry, enabling agent-invocation.
  */
 export interface InstallConfig {
-  /** Tool name to invoke when app is installed */
+  /** Per-install environment variables (collected from user during install, passed at runtime) */
+  env?: EnvSchema
+  /** Tool name to invoke when app is installed (for verification/setup) */
   onInstall?: string
-  /** Tool name to invoke when app is uninstalled */
+  /** Tool name to invoke when app is uninstalled (for cleanup) */
   onUninstall?: string
 }
 
