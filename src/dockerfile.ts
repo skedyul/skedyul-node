@@ -19,11 +19,12 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY package.json pnpm-lock.yaml tsconfig.json tsup.config.ts ./
+# Copy package files (lockfile is optional)
+COPY package.json tsconfig.json tsup.config.ts ./
 COPY src ./src
 
 # Install dependencies (including dev deps for build), compile, then prune
-# Note: Using --no-frozen-lockfile since this is a standalone integration package
+# Note: Using --no-frozen-lockfile since lockfile may not exist
 RUN pnpm install --no-frozen-lockfile && \\
     pnpm run build && \\
     pnpm prune --prod && \\
