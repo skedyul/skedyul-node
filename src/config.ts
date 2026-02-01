@@ -301,9 +301,14 @@ export interface RelationshipExtension {
 export interface ModalFormDefinition {
   header: PageFormHeader
   handler: string
-  fields: FormV2ComponentDefinition[]
-  layout: FormLayoutConfigDefinition
-  actions: PageActionDefinition[]
+  /** Named dialog template to use instead of inline fields */
+  template?: string
+  /** Template-specific params to pass to the dialog */
+  templateParams?: Record<string, unknown>
+  /** Inline field definitions (used when template is not specified) */
+  fields?: FormV2ComponentDefinition[]
+  layout?: FormLayoutConfigDefinition
+  actions?: PageActionDefinition[]
 }
 
 /** Input component definition */

@@ -498,15 +498,22 @@ export type FormV2ComponentDefinition = z.infer<typeof FormV2ComponentDefinition
 export const ModalFormDefinitionSchema: z.ZodType<{
   header: z.infer<typeof PageFormHeaderSchema>
   handler: string
-  fields: FormV2ComponentDefinition[]
-  layout: z.infer<typeof FormLayoutConfigDefinitionSchema>
-  actions: z.infer<typeof PageActionDefinitionSchema>[]
+  template?: string
+  templateParams?: Record<string, unknown>
+  fields?: FormV2ComponentDefinition[]
+  layout?: z.infer<typeof FormLayoutConfigDefinitionSchema>
+  actions?: z.infer<typeof PageActionDefinitionSchema>[]
 }> = z.object({
   header: PageFormHeaderSchema,
   handler: z.string(),
-  fields: z.lazy(() => z.array(FormV2ComponentDefinitionSchema)),
-  layout: FormLayoutConfigDefinitionSchema,
-  actions: z.array(PageActionDefinitionSchema),
+  /** Named dialog template to use instead of inline fields */
+  template: z.string().optional(),
+  /** Template-specific params to pass to the dialog */
+  templateParams: z.record(z.string(), z.unknown()).optional(),
+  /** Inline field definitions (used when template is not specified) */
+  fields: z.lazy(() => z.array(FormV2ComponentDefinitionSchema)).optional(),
+  layout: FormLayoutConfigDefinitionSchema.optional(),
+  actions: z.array(PageActionDefinitionSchema).optional(),
 })
 
 /** FieldSetting component definition */
