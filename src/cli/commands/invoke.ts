@@ -154,7 +154,7 @@ export async function invokeCommand(args: string[]): Promise<void> {
   }
 
   // Validate inputs if schema exists
-  const inputSchema = getZodSchema(tool.inputs)
+  const inputSchema = getZodSchema(tool.inputSchema)
   let validatedArgs: Record<string, unknown> = toolArgs
 
   if (inputSchema) {

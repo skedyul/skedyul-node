@@ -22,7 +22,7 @@ function createEchoRegistry() {
     echo: {
       name: 'echo',
       description: 'Echo tool that returns the input value',
-      inputs: EchoInputSchema,
+      inputSchema: EchoInputSchema,
       outputSchema: EchoOutputSchema,
       handler: async ({ input, context }: { input: { value?: string }; context: { env: Record<string, string | undefined>; mode?: 'execute' | 'estimate' } }) => {
         const value = String(input?.value ?? 'missing')
@@ -218,7 +218,7 @@ test('Zod schema validation accepts valid inputs', async () => {
     add: {
       name: 'add',
       description: 'Add two numbers',
-      inputs: AddInputSchema,
+      inputSchema: AddInputSchema,
       outputSchema: AddOutputSchema,
       handler: async ({ input }: { input: { a: number; b: number } }) => {
         return {
@@ -283,7 +283,7 @@ test('Zod schema validation rejects invalid inputs', async () => {
     add: {
       name: 'add',
       description: 'Add two numbers',
-      inputs: AddInputSchema,
+      inputSchema: AddInputSchema,
       handler: async ({ input }: { input: { a: number; b: number } }) => {
         return {
           output: { result: input.a + input.b },
@@ -344,7 +344,7 @@ test('Zod schema with required and optional fields', async () => {
     createUser: {
       name: 'createUser',
       description: 'Create a user',
-      inputs: UserInputSchema,
+      inputSchema: UserInputSchema,
       handler: async ({ input }: { input: { name: string; age?: number; email?: string } }) => {
         return {
           output: {
@@ -416,7 +416,7 @@ test('Zod schema with nested objects and arrays', async () => {
     complex: {
       name: 'complex',
       description: 'Complex tool with nested structures',
-      inputs: ComplexInputSchema,
+      inputSchema: ComplexInputSchema,
       handler: async ({ input }: { input: { user: { name: string; tags: string[] }; metadata?: Record<string, string> } }) => {
         return {
           output: {
@@ -484,7 +484,7 @@ test('Multiple tools in registry work correctly', async () => {
     add: {
       name: 'add',
       description: 'Add two numbers',
-      inputs: z.object({
+      inputSchema: z.object({
         a: z.number(),
         b: z.number(),
       }),
@@ -496,7 +496,7 @@ test('Multiple tools in registry work correctly', async () => {
     multiply: {
       name: 'multiply',
       description: 'Multiply two numbers',
-      inputs: z.object({
+      inputSchema: z.object({
         a: z.number(),
         b: z.number(),
       }),
@@ -508,7 +508,7 @@ test('Multiple tools in registry work correctly', async () => {
     "say-hello-to-the dev": {
       name: 'Say hello to the dev',
       description: 'communicates with the dev',
-      inputs: z.object({
+      inputSchema: z.object({
         devName: z.string(),
       }),
       handler: async ({ input }: { input: { devName: string } }) => ({
@@ -606,7 +606,7 @@ test('Tool with custom name different from registry key', async () => {
     'custom-key': {
       name: 'custom-tool-name',
       description: 'Tool with custom name',
-      inputs: z.object({
+      inputSchema: z.object({
         value: z.string(),
       }),
       handler: async ({ input }: { input: { value: string } }) => ({
@@ -665,7 +665,7 @@ test('Estimate endpoint works with Zod schema validation', async () => {
     calculate: {
       name: 'calculate',
       description: 'Perform calculation',
-      inputs: CalculateInputSchema,
+      inputSchema: CalculateInputSchema,
       handler: async ({ input, context }: { input: { operation: 'add' | 'multiply'; a: number; b: number }; context: { mode?: 'execute' | 'estimate' } }) => {
         const result =
           input.operation === 'add'
@@ -731,7 +731,7 @@ test('server.create works with a namespaced registry object', async () => {
     'appointments.create': {
       name: 'appointments.create',
       description: 'Create an appointment (namespaced style)',
-      inputs: AppointmentInputSchema,
+      inputSchema: AppointmentInputSchema,
       outputSchema: AppointmentOutputSchema,
       handler: async ({
         input,

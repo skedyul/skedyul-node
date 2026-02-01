@@ -168,7 +168,7 @@ export interface ToolDefinition<
 > {
   name: string
   description: string
-  inputs: ToolSchema<InputSchema>
+  inputSchema: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
   [key: string]: unknown
@@ -177,7 +177,7 @@ export interface ToolDefinition<
 export interface ToolRegistryEntry {
   name: string
   description: string
-  inputs: ToolSchema
+  inputSchema: ToolSchema
   handler: unknown
   outputSchema?: ToolSchema
   [key: string]: unknown

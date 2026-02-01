@@ -84,7 +84,7 @@ export async function toolsCommand(args: string[]): Promise<void> {
   const tools: ToolInfo[] = []
 
   for (const [key, tool] of Object.entries(registry)) {
-    const inputZod = getZodSchema(tool.inputs)
+    const inputZod = getZodSchema(tool.inputSchema)
     const outputZod = getZodSchema(tool.outputSchema)
 
     tools.push({

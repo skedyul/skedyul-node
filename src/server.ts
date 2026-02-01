@@ -294,7 +294,7 @@ function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
   return Object.values(registry).map((tool) => ({
     name: tool.name,
     description: tool.description,
-    inputSchema: getJsonSchemaFromToolSchema(tool.inputs),
+    inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
     outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
   }))
 }
@@ -721,7 +721,7 @@ export function createSkedyulServer(
   for (const [toolKey, tool] of Object.entries(registry)) {
     // Use the tool's name or fall back to the registry key
     const toolName = tool.name || toolKey
-    const inputZodSchema = getZodSchema(tool.inputs)
+    const inputZodSchema = getZodSchema(tool.inputSchema)
     const outputZodSchema = getZodSchema(tool.outputSchema)
 
     // Wrap the input schema to accept Skedyul format: { inputs: {...}, env: {...} }
@@ -1572,7 +1572,7 @@ function createServerlessInstance(
               )
             }
 
-            const inputSchema = getZodSchema(tool.inputs)
+            const inputSchema = getZodSchema(tool.inputSchema)
             // Validate arguments against Zod schema
             const validatedArgs = inputSchema ? inputSchema.parse(toolArgs) : toolArgs
             const estimateResponse = await callTool(toolKey, {
@@ -1695,7 +1695,7 @@ function createServerlessInstance(
               }
 
               try {
-                const inputSchema = getZodSchema(tool.inputs)
+                const inputSchema = getZodSchema(tool.inputSchema)
                 const outputSchema = getZodSchema(tool.outputSchema)
                 const hasOutputSchema = Boolean(outputSchema)
                 const validatedInputs = inputSchema
