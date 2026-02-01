@@ -3,6 +3,7 @@ import { z } from 'zod'
 export * from './types'
 export * from './schemas'
 export { server } from './server'
+export { DEFAULT_DOCKERFILE } from './dockerfile'
 // Re-export zod so integrations use the same instance
 export { z }
 export {
