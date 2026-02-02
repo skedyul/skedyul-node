@@ -617,19 +617,7 @@ export interface ListBlockDefinition {
 export interface ModelMapperBlockDefinition {
   type: 'model-mapper'
   /** The SHARED model handle from provision config (e.g., "client", "patient") */
-  modelHandle: string
-  /** Display title (e.g., "Client Model") */
-  title: string
-  /** Description - can use Liquid templates */
-  description?: string
-  /** Status indicator - Liquid template resolving to 'success' | 'pending' | 'warning' | 'error' */
-  status?: string
-  /** Status badge text - Liquid template */
-  statusText?: string
-  /** Button label - Liquid template */
-  buttonLabel?: string
-  /** Button disabled state - Liquid template resolving to 'true' | 'false' */
-  buttonDisabled?: string
+  model: string
 }
 
 /** Union of all block types */

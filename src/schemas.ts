@@ -632,20 +632,8 @@ export const ListBlockDefinitionSchema = z.object({
 /** Model mapper block definition - for mapping SHARED models to workspace models */
 export const ModelMapperBlockDefinitionSchema = z.object({
   type: z.literal('model-mapper'),
-  /** The SHARED model handle from provision config */
-  modelHandle: z.string(),
-  /** Display title */
-  title: z.string(),
-  /** Description - can use Liquid templates */
-  description: z.string().optional(),
-  /** Status indicator - Liquid template resolving to 'success' | 'pending' | 'warning' | 'error' */
-  status: z.string().optional(),
-  /** Status badge text - Liquid template */
-  statusText: z.string().optional(),
-  /** Button label - Liquid template */
-  buttonLabel: z.string().optional(),
-  /** Button disabled state - Liquid template resolving to 'true' | 'false' */
-  buttonDisabled: z.string().optional(),
+  /** The SHARED model handle from provision config (e.g., "client", "patient") */
+  model: z.string(),
 })
 
 /** Union of all block types */
