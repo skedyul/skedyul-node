@@ -629,11 +629,31 @@ export const ListBlockDefinitionSchema = z.object({
   emptyMessage: z.string().optional(),
 })
 
+/** Model mapper block definition - for mapping SHARED models to workspace models */
+export const ModelMapperBlockDefinitionSchema = z.object({
+  type: z.literal('model-mapper'),
+  /** The SHARED model handle from provision config */
+  modelHandle: z.string(),
+  /** Display title */
+  title: z.string(),
+  /** Description - can use Liquid templates */
+  description: z.string().optional(),
+  /** Status indicator - Liquid template resolving to 'success' | 'pending' | 'warning' | 'error' */
+  status: z.string().optional(),
+  /** Status badge text - Liquid template */
+  statusText: z.string().optional(),
+  /** Button label - Liquid template */
+  buttonLabel: z.string().optional(),
+  /** Button disabled state - Liquid template resolving to 'true' | 'false' */
+  buttonDisabled: z.string().optional(),
+})
+
 /** Union of all block types */
 export const PageBlockDefinitionSchema = z.union([
   CardBlockDefinitionSchema,
   LegacyFormBlockDefinitionSchema,
   ListBlockDefinitionSchema,
+  ModelMapperBlockDefinitionSchema,
 ])
 
 /** Mode for context data fetching */
@@ -866,6 +886,7 @@ export type CardBlockHeader = z.infer<typeof CardBlockHeaderSchema>
 export type CardBlockDefinition = z.infer<typeof CardBlockDefinitionSchema>
 export type LegacyFormBlockDefinition = z.infer<typeof LegacyFormBlockDefinitionSchema>
 export type ListBlockDefinition = z.infer<typeof ListBlockDefinitionSchema>
+export type ModelMapperBlockDefinition = z.infer<typeof ModelMapperBlockDefinitionSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Messaging Tool Schemas

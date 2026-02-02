@@ -613,8 +613,27 @@ export interface ListBlockDefinition {
   emptyMessage?: string
 }
 
+/** Model mapper block definition - for mapping SHARED models to workspace models */
+export interface ModelMapperBlockDefinition {
+  type: 'model-mapper'
+  /** The SHARED model handle from provision config (e.g., "client", "patient") */
+  modelHandle: string
+  /** Display title (e.g., "Client Model") */
+  title: string
+  /** Description - can use Liquid templates */
+  description?: string
+  /** Status indicator - Liquid template resolving to 'success' | 'pending' | 'warning' | 'error' */
+  status?: string
+  /** Status badge text - Liquid template */
+  statusText?: string
+  /** Button label - Liquid template */
+  buttonLabel?: string
+  /** Button disabled state - Liquid template resolving to 'true' | 'false' */
+  buttonDisabled?: string
+}
+
 /** Union of all block types */
-export type PageBlockDefinition = CardBlockDefinition | LegacyFormBlockDefinition | ListBlockDefinition
+export type PageBlockDefinition = CardBlockDefinition | LegacyFormBlockDefinition | ListBlockDefinition | ModelMapperBlockDefinition
 
 /** Mode for context data fetching */
 export type PageContextMode = 'first' | 'many' | 'count'
