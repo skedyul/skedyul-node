@@ -167,6 +167,7 @@ export interface ToolDefinition<
   OutputSchema extends z.ZodTypeAny = z.ZodType<Output>,
 > {
   name: string
+  label?: string
   description: string
   inputSchema: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
@@ -176,6 +177,7 @@ export interface ToolDefinition<
 
 export interface ToolRegistryEntry {
   name: string
+  label?: string
   description: string
   inputSchema: ToolSchema
   handler: unknown
@@ -189,6 +191,7 @@ export type ToolName<T extends ToolRegistry> = Extract<keyof T, string>
 
 export interface ToolMetadata {
   name: string
+  displayName?: string
   description: string
   inputSchema?: Record<string, unknown>
   outputSchema?: Record<string, unknown>
@@ -230,7 +233,29 @@ export interface SkedyulServerConfig {
   ttlExtendSeconds?: number
   cors?: CorsOptions
   coreApi?: CoreApiConfig
+  /** Optional install handler for the /install endpoint */
+  installHandler?: InstallHandler
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Install Handler Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface InstallHandlerContext {
+  env: Record<string, string>
+  workplace: { id: string; subdomain: string }
+  appInstallationId: string
+  app: { id: string; versionId: string }
+}
+
+export interface InstallHandlerResult {
+  env?: Record<string, string>
+  redirect?: string
+}
+
+export type InstallHandler = (
+  ctx: InstallHandlerContext,
+) => Promise<InstallHandlerResult>
 
 export interface APIGatewayProxyEvent {
   body: string | null

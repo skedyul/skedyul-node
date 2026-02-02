@@ -11,6 +11,9 @@ import type {
   CorsOptions,
   DedicatedServerInstance,
   HealthStatus,
+  InstallHandler,
+  InstallHandlerContext,
+  InstallHandlerResult,
   ServerlessServerInstance,
   SkedyulServerConfig,
   SkedyulServerInstance,
@@ -293,6 +296,7 @@ async function handleCoreMethod(
 function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
   return Object.values(registry).map((tool) => ({
     name: tool.name,
+    displayName: tool.label || tool.name,
     description: tool.description,
     inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
     outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
@@ -721,6 +725,7 @@ export function createSkedyulServer(
   for (const [toolKey, tool] of Object.entries(registry)) {
     // Use the tool's name or fall back to the registry key
     const toolName = tool.name || toolKey
+    const toolDisplayName = tool.label || toolName
     const inputZodSchema = getZodSchema(tool.inputSchema)
     const outputZodSchema = getZodSchema(tool.outputSchema)
 
@@ -734,7 +739,7 @@ export function createSkedyulServer(
     mcpServer.registerTool(
       toolName,
       {
-        title: toolName,
+        title: toolDisplayName,
         description: tool.description,
         inputSchema: wrappedInputSchema,
         outputSchema: outputZodSchema,
@@ -1059,6 +1064,62 @@ function createDedicatedServerInstance(
           })
         }
 
+        return
+      }
+
+      // Handle /install endpoint for install handlers
+      if (pathname === '/install' && req.method === 'POST') {
+        if (!config.installHandler) {
+          sendJSON(res, 404, { error: 'Install handler not configured' })
+          return
+        }
+
+        let installBody: {
+          env?: Record<string, string>
+          context?: {
+            app: { id: string; versionId: string }
+            appInstallationId: string
+            workplace: { id: string; subdomain: string }
+          }
+        }
+
+        try {
+          installBody = (await parseJSONBody(req)) as typeof installBody
+        } catch {
+          sendJSON(res, 400, {
+            error: { code: -32700, message: 'Parse error' },
+          })
+          return
+        }
+
+        if (!installBody.context?.appInstallationId || !installBody.context?.workplace) {
+          sendJSON(res, 400, {
+            error: { code: -32602, message: 'Missing context (appInstallationId and workplace required)' },
+          })
+          return
+        }
+
+        const installContext: InstallHandlerContext = {
+          env: installBody.env ?? {},
+          workplace: installBody.context.workplace,
+          appInstallationId: installBody.context.appInstallationId,
+          app: installBody.context.app,
+        }
+
+        try {
+          const result = await config.installHandler(installContext)
+          sendJSON(res, 200, {
+            env: result.env ?? {},
+            redirect: result.redirect,
+          })
+        } catch (err) {
+          sendJSON(res, 500, {
+            error: {
+              code: -32603,
+              message: err instanceof Error ? err.message : String(err ?? ''),
+            },
+          })
+        }
         return
       }
 
@@ -1585,6 +1646,67 @@ function createServerlessInstance(
               {
                 billing: estimateResponse.billing ?? { credits: 0 },
               },
+              headers,
+            )
+          } catch (err) {
+            return createResponse(
+              500,
+              {
+                error: {
+                  code: -32603,
+                  message: err instanceof Error ? err.message : String(err ?? ''),
+                },
+              },
+              headers,
+            )
+          }
+        }
+
+        // Handle /install endpoint for install handlers
+        if (path === '/install' && method === 'POST') {
+          if (!config.installHandler) {
+            return createResponse(404, { error: 'Install handler not configured' }, headers)
+          }
+
+          let installBody: {
+            env?: Record<string, string>
+            context?: {
+              app: { id: string; versionId: string }
+              appInstallationId: string
+              workplace: { id: string; subdomain: string }
+            }
+          }
+
+          try {
+            installBody = event.body ? JSON.parse(event.body) : {}
+          } catch {
+            return createResponse(
+              400,
+              { error: { code: -32700, message: 'Parse error' } },
+              headers,
+            )
+          }
+
+          if (!installBody.context?.appInstallationId || !installBody.context?.workplace) {
+            return createResponse(
+              400,
+              { error: { code: -32602, message: 'Missing context (appInstallationId and workplace required)' } },
+              headers,
+            )
+          }
+
+          const installContext: InstallHandlerContext = {
+            env: installBody.env ?? {},
+            workplace: installBody.context.workplace,
+            appInstallationId: installBody.context.appInstallationId,
+            app: installBody.context.app,
+          }
+
+          try {
+            const result = await config.installHandler(installContext)
+            return createResponse(
+              200,
+              { env: result.env ?? {}, redirect: result.redirect },
               headers,
             )
           } catch (err) {

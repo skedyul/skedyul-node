@@ -417,6 +417,10 @@ export interface FieldSettingComponentDefinition extends FormV2StyleProps {
     description?: string
     helpText?: string
     mode?: 'field' | 'setting'
+    /** Status indicator: 'success', 'pending', 'error', 'warning' - can be Liquid template */
+    status?: 'success' | 'pending' | 'error' | 'warning' | string
+    /** Text to display alongside status badge - can be Liquid template */
+    statusText?: string
     button: FieldSettingButtonProps
   }
   /** Nested modal form (handled by skedyul-web) */
@@ -764,25 +768,14 @@ export interface WebhookHandlerDefinition {
 export type Webhooks = Record<string, WebhookHandlerDefinition>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Install Handler Types (for install.ts in apps)
+// Install Handler Types (re-exported from types.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface InstallHandlerContext {
-  env: Record<string, string>
-  workplace: { id: string; subdomain: string }
-  appInstallationId: string
-  createOAuthCallback: (
-    handlerName: string,
-    context?: Record<string, unknown>,
-  ) => Promise<{ url: string; id: string }>
-}
-
-export interface InstallHandlerResult {
-  env?: Record<string, string>
-  redirect?: string
-}
-
-export type InstallHandler = (ctx: InstallHandlerContext) => Promise<InstallHandlerResult>
+export type {
+  InstallHandlerContext,
+  InstallHandlerResult,
+  InstallHandler,
+} from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Install Configuration (for install.config.ts in apps)

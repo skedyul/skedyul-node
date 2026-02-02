@@ -524,6 +524,10 @@ export const FieldSettingComponentDefinitionSchema = FormV2StylePropsSchema.exte
     description: z.string().optional(),
     helpText: z.string().optional(),
     mode: z.enum(['field', 'setting']).optional(),
+    /** Status indicator - can be literal or Liquid template */
+    status: z.string().optional(),
+    /** Text to display alongside status badge - can be Liquid template */
+    statusText: z.string().optional(),
     button: FieldSettingButtonPropsSchema,
   }),
   modalForm: ModalFormDefinitionSchema.optional(),

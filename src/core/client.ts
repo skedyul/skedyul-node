@@ -925,6 +925,8 @@ export interface ResourceLinkParams {
   targetModelId: string
   /** Optional: scope to a communication channel */
   channelId?: string
+  /** Optional: field mappings (provision field handle -> workspace field ID) */
+  fieldMappings?: Record<string, string>
 }
 
 /**
