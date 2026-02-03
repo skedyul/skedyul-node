@@ -60,6 +60,10 @@ export type {
   InstallHandlerContext,
   InstallHandlerResult,
   InstallHandler,
+  // Provision handler types
+  ProvisionHandlerContext,
+  ProvisionHandlerResult,
+  ProvisionHandler,
   // Install config types
   InstallConfig,
   // Model types

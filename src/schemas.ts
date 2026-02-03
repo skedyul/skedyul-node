@@ -788,8 +788,6 @@ export const ProvisionConfigSchema = z.object({
   /** Base navigation configuration for all pages (can be overridden per page) */
   navigation: NavigationConfigSchema.optional(),
   pages: z.array(PageDefinitionSchema).optional(),
-  /** Tool name to invoke after executable is healthy during provisioning */
-  onProvision: z.string().optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -235,6 +235,8 @@ export interface SkedyulServerConfig {
   coreApi?: CoreApiConfig
   /** Optional install handler for the /install endpoint */
   installHandler?: InstallHandler
+  /** Optional provision handler for the /provision endpoint */
+  provisionHandler?: ProvisionHandler
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,6 +258,23 @@ export interface InstallHandlerResult {
 export type InstallHandler = (
   ctx: InstallHandlerContext,
 ) => Promise<InstallHandlerResult>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provision Handler Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProvisionHandlerContext {
+  env: Record<string, string>
+  app: { id: string; versionId: string }
+}
+
+export interface ProvisionHandlerResult {
+  // Empty for now, can add fields as needed
+}
+
+export type ProvisionHandler = (
+  ctx: ProvisionHandlerContext,
+) => Promise<ProvisionHandlerResult>
 
 export interface APIGatewayProxyEvent {
   body: string | null

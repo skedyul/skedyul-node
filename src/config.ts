@@ -782,6 +782,9 @@ export type {
   InstallHandlerContext,
   InstallHandlerResult,
   InstallHandler,
+  ProvisionHandlerContext,
+  ProvisionHandlerResult,
+  ProvisionHandler,
 } from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -821,8 +824,6 @@ export interface ProvisionConfig {
   navigation?: NavigationConfig
   /** Page definitions for app UI */
   pages?: PageDefinition[]
-  /** Tool name to invoke after executable is healthy during provisioning */
-  onProvision?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

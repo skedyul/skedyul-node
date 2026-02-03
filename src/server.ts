@@ -14,6 +14,9 @@ import type {
   InstallHandler,
   InstallHandlerContext,
   InstallHandlerResult,
+  ProvisionHandler,
+  ProvisionHandlerContext,
+  ProvisionHandlerResult,
   ServerlessServerInstance,
   SkedyulServerConfig,
   SkedyulServerInstance,
@@ -1106,12 +1109,77 @@ function createDedicatedServerInstance(
           app: installBody.context.app,
         }
 
+        // Build request-scoped config for SDK access
+        const installRequestConfig = {
+          baseUrl: process.env.SKEDYUL_API_URL ?? '',
+          apiToken: process.env.SKEDYUL_API_TOKEN ?? '',
+        }
+
         try {
-          const result = await config.installHandler(installContext)
+          const result = await runWithConfig(installRequestConfig, async () => {
+            return await config.installHandler!(installContext)
+          })
           sendJSON(res, 200, {
             env: result.env ?? {},
             redirect: result.redirect,
           })
+        } catch (err) {
+          sendJSON(res, 500, {
+            error: {
+              code: -32603,
+              message: err instanceof Error ? err.message : String(err ?? ''),
+            },
+          })
+        }
+        return
+      }
+
+      // Handle /provision endpoint for provision handlers
+      if (pathname === '/provision' && req.method === 'POST') {
+        if (!config.provisionHandler) {
+          sendJSON(res, 404, { error: 'Provision handler not configured' })
+          return
+        }
+
+        let provisionBody: {
+          env?: Record<string, string>
+          context?: {
+            app: { id: string; versionId: string }
+          }
+        }
+
+        try {
+          provisionBody = (await parseJSONBody(req)) as typeof provisionBody
+        } catch {
+          sendJSON(res, 400, {
+            error: { code: -32700, message: 'Parse error' },
+          })
+          return
+        }
+
+        if (!provisionBody.context?.app) {
+          sendJSON(res, 400, {
+            error: { code: -32602, message: 'Missing context (app required)' },
+          })
+          return
+        }
+
+        const provisionContext: ProvisionHandlerContext = {
+          env: provisionBody.env ?? {},
+          app: provisionBody.context.app,
+        }
+
+        // Build request-scoped config for SDK access
+        const provisionRequestConfig = {
+          baseUrl: process.env.SKEDYUL_API_URL ?? '',
+          apiToken: process.env.SKEDYUL_API_TOKEN ?? '',
+        }
+
+        try {
+          const result = await runWithConfig(provisionRequestConfig, async () => {
+            return await config.provisionHandler!(provisionContext)
+          })
+          sendJSON(res, 200, result)
         } catch (err) {
           sendJSON(res, 500, {
             error: {
