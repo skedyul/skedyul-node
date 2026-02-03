@@ -1170,9 +1170,11 @@ function createDedicatedServerInstance(
         }
 
         // Build request-scoped config for SDK access
+        // Use env from request body (passed during provisioning) with fallback to process.env
+        const requestEnv = provisionBody.env ?? {}
         const provisionRequestConfig = {
-          baseUrl: process.env.SKEDYUL_API_URL ?? '',
-          apiToken: process.env.SKEDYUL_API_TOKEN ?? '',
+          baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+          apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
         }
 
         try {
