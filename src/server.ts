@@ -32,6 +32,7 @@ import type {
 import type { WebhookResponse, ToolExecutionContext, ToolTrigger, WebhookRequest } from './types'
 import { coreApiService } from './core/service'
 import { runWithConfig } from './core/client'
+import { InstallError } from './errors'
 import type { CommunicationChannel, Message, WebhookRequest as CoreWebhookRequest } from './core/types'
 
 type ToolCallArgs = {
@@ -1131,12 +1132,23 @@ function createDedicatedServerInstance(
             redirect: result.redirect,
           })
         } catch (err) {
-          sendJSON(res, 500, {
-            error: {
-              code: -32603,
-              message: err instanceof Error ? err.message : String(err ?? ''),
-            },
-          })
+          // Check for typed install errors
+          if (err instanceof InstallError) {
+            sendJSON(res, 400, {
+              error: {
+                code: err.code,
+                message: err.message,
+                field: err.field,
+              },
+            })
+          } else {
+            sendJSON(res, 500, {
+              error: {
+                code: -32603,
+                message: err instanceof Error ? err.message : String(err ?? ''),
+              },
+            })
+          }
         }
         return
       }
@@ -1802,6 +1814,20 @@ function createServerlessInstance(
               headers,
             )
           } catch (err) {
+            // Check for typed install errors
+            if (err instanceof InstallError) {
+              return createResponse(
+                400,
+                {
+                  error: {
+                    code: err.code,
+                    message: err.message,
+                    field: err.field,
+                  },
+                },
+                headers,
+              )
+            }
             return createResponse(
               500,
               {

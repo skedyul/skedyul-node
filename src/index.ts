@@ -4,6 +4,15 @@ export * from './types'
 export * from './schemas'
 export { server } from './server'
 export { DEFAULT_DOCKERFILE } from './dockerfile'
+// Install handler errors
+export {
+  InstallError,
+  MissingRequiredFieldError,
+  AuthenticationError,
+  InvalidConfigurationError,
+  ConnectionError,
+} from './errors'
+export type { InstallErrorCode } from './errors'
 // Re-export zod so integrations use the same instance
 export { z }
 export {
