@@ -1072,7 +1072,7 @@ function createDedicatedServerInstance(
 
       // Handle /install endpoint for install handlers
       if (pathname === '/install' && req.method === 'POST') {
-        if (!config.installHandler) {
+        if (!config.hooks?.install) {
           sendJSON(res, 404, { error: 'Install handler not configured' })
           return
         }
@@ -1110,14 +1110,21 @@ function createDedicatedServerInstance(
         }
 
         // Build request-scoped config for SDK access
+        // Use env from request body (contains generated token from workflow)
         const installRequestConfig = {
-          baseUrl: process.env.SKEDYUL_API_URL ?? '',
-          apiToken: process.env.SKEDYUL_API_TOKEN ?? '',
+          baseUrl:
+            installBody.env?.SKEDYUL_API_URL ??
+            process.env.SKEDYUL_API_URL ??
+            '',
+          apiToken:
+            installBody.env?.SKEDYUL_API_TOKEN ??
+            process.env.SKEDYUL_API_TOKEN ??
+            '',
         }
 
         try {
           const result = await runWithConfig(installRequestConfig, async () => {
-            return await config.installHandler!(installContext)
+            return await config.hooks!.install!(installContext)
           })
           sendJSON(res, 200, {
             env: result.env ?? {},
@@ -1136,7 +1143,7 @@ function createDedicatedServerInstance(
 
       // Handle /provision endpoint for provision handlers
       if (pathname === '/provision' && req.method === 'POST') {
-        if (!config.provisionHandler) {
+        if (!config.hooks?.provision) {
           sendJSON(res, 404, { error: 'Provision handler not configured' })
           return
         }
@@ -1179,7 +1186,7 @@ function createDedicatedServerInstance(
 
         try {
           const result = await runWithConfig(provisionRequestConfig, async () => {
-            return await config.provisionHandler!(provisionContext)
+            return await config.hooks!.provision!(provisionContext)
           })
           sendJSON(res, 200, result)
         } catch (err) {
@@ -1734,7 +1741,7 @@ function createServerlessInstance(
 
         // Handle /install endpoint for install handlers
         if (path === '/install' && method === 'POST') {
-          if (!config.installHandler) {
+          if (!config.hooks?.install) {
             return createResponse(404, { error: 'Install handler not configured' }, headers)
           }
 
@@ -1772,8 +1779,23 @@ function createServerlessInstance(
             app: installBody.context.app,
           }
 
+          // Build request-scoped config for SDK access
+          // Use env from request body (contains generated token from workflow)
+          const installRequestConfig = {
+            baseUrl:
+              installBody.env?.SKEDYUL_API_URL ??
+              process.env.SKEDYUL_API_URL ??
+              '',
+            apiToken:
+              installBody.env?.SKEDYUL_API_TOKEN ??
+              process.env.SKEDYUL_API_TOKEN ??
+              '',
+          }
+
           try {
-            const result = await config.installHandler(installContext)
+            const result = await runWithConfig(installRequestConfig, async () => {
+              return await config.hooks!.install!(installContext)
+            })
             return createResponse(
               200,
               { env: result.env ?? {}, redirect: result.redirect },

@@ -225,6 +225,17 @@ export interface CorsOptions {
   allowHeaders?: string
 }
 
+/**
+ * Lifecycle hooks for the Skedyul server.
+ * These handlers are called during app installation and provisioning.
+ */
+export interface ServerHooks {
+  /** Called during app installation to validate/normalize env and perform setup */
+  install?: InstallHandler
+  /** Called after app version provisioning to set up version-level resources */
+  provision?: ProvisionHandler
+}
+
 export interface SkedyulServerConfig {
   computeLayer: ComputeLayer
   metadata: ServerMetadata
@@ -233,10 +244,8 @@ export interface SkedyulServerConfig {
   ttlExtendSeconds?: number
   cors?: CorsOptions
   coreApi?: CoreApiConfig
-  /** Optional install handler for the /install endpoint */
-  installHandler?: InstallHandler
-  /** Optional provision handler for the /provision endpoint */
-  provisionHandler?: ProvisionHandler
+  /** Lifecycle hooks for install and provision handlers */
+  hooks?: ServerHooks
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

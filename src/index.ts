@@ -64,6 +64,8 @@ export type {
   ProvisionHandlerContext,
   ProvisionHandlerResult,
   ProvisionHandler,
+  // Server hooks
+  ServerHooks,
   // Install config types
   InstallConfig,
   // Model types
