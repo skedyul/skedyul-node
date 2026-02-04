@@ -778,6 +778,29 @@ export const WebhooksSchema = z.record(z.string(), WebhookHandlerDefinitionSchem
 // ─────────────────────────────────────────────────────────────────────────────
 // Provision Config Schema
 // ─────────────────────────────────────────────────────────────────────────────
+// Agent Definition Schema
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const AgentDefinitionSchema = z.object({
+  /** Unique identifier within the app (used for upserts) */
+  handle: z.string().regex(/^[a-z0-9_-]+$/, 'Handle must be lowercase alphanumeric with dashes/underscores'),
+  /** Display name */
+  name: z.string().min(1),
+  /** Description of what the agent does */
+  description: z.string(),
+  /** System prompt (static, no templating) */
+  system: z.string(),
+  /** Tool names to bind (can be empty for orchestrator agents) */
+  tools: z.array(z.string()),
+  /** Optional LLM model override */
+  llmModelId: z.string().optional(),
+  /** Parent agent that can call this agent ('composer' or another agent handle) */
+  parentAgent: z.string().optional(),
+})
+
+export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
@@ -802,6 +825,7 @@ export const SkedyulConfigSchema = z.object({
   tools: z.unknown().optional(),
   webhooks: z.unknown().optional(),
   provision: z.union([ProvisionConfigSchema, z.unknown()]).optional(),
+  agents: z.array(AgentDefinitionSchema).optional(),
 })
 
 export type ParsedSkedyulConfig = z.infer<typeof SkedyulConfigSchema>
