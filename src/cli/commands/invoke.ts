@@ -2,11 +2,14 @@ import * as z from 'zod'
 import {
   parseArgs,
   parseEnvFlags,
-  loadEnvFile,
+  loadEnvFile as loadEnvFileFromPath,
   loadRegistry,
   formatJson,
 } from '../utils'
 import type { ToolRegistryEntry, ToolExecutionContext, AgentToolContext } from '../../types'
+import { getCredentials, callCliApi } from '../utils/auth'
+import { getLinkConfig, loadEnvFile as loadLinkedEnvFile } from '../utils/link'
+import { findRegistryPath } from '../utils/config'
 
 function printHelp(): void {
   console.log(`
@@ -27,6 +30,10 @@ Options:
   --estimate          Run in estimate mode (billing only, no execution)
   --help, -h          Show this help message
 
+Linked Mode Options:
+  --linked            Use linked credentials and real Core API access
+  --workplace, -w     Workplace subdomain (required with --linked)
+
 Examples:
   # Basic invocation
   skedyul dev invoke my_tool --registry ./dist/registry.js --args '{"key": "value"}'
@@ -38,11 +45,8 @@ Examples:
     --env API_KEY=secret123 \\
     --env BASE_URL=https://api.example.com
 
-  # Load env from file
-  skedyul dev invoke api_call \\
-    --registry ./dist/registry.js \\
-    --args '{"endpoint": "/users"}' \\
-    --env-file .env.local
+  # Linked mode with real Core API access
+  skedyul dev invoke my_tool --linked --workplace demo-clinic --args '{"key": "value"}'
 
   # Estimate mode (billing only)
   skedyul dev invoke expensive_tool \\
@@ -66,6 +70,11 @@ function getZodSchema(schema: unknown): z.ZodTypeAny | undefined {
   return undefined
 }
 
+interface TokenResponse {
+  token: string
+  expiresAt: string
+}
+
 export async function invokeCommand(args: string[]): Promise<void> {
   const { flags, positional } = parseArgs(args)
 
@@ -82,8 +91,22 @@ export async function invokeCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
+  const isLinked = flags.linked === true
+  const workplaceSubdomain = (flags.workplace || flags.w) as string | undefined
+
+  // Validate linked mode requirements
+  if (isLinked && !workplaceSubdomain) {
+    console.error('Error: --workplace is required with --linked')
+    console.error("Run 'skedyul dev invoke --help' for usage information.")
+    process.exit(1)
+  }
+
   // Get registry path
-  const registryPath = (flags.registry || flags.r || './dist/registry.js') as string
+  // Get registry path - auto-detect if not specified
+  let registryPath = (flags.registry || flags.r) as string | undefined
+  if (!registryPath) {
+    registryPath = findRegistryPath() ?? './dist/registry.js'
+  }
 
   // Parse tool arguments
   let toolArgs: Record<string, unknown> = {}
@@ -101,10 +124,10 @@ export async function invokeCommand(args: string[]): Promise<void> {
   const env: Record<string, string> = { ...process.env as Record<string, string> }
 
   // Load from env file if specified
-  const envFile = flags['env-file']
-  if (envFile && typeof envFile === 'string') {
+  const envFilePath = flags['env-file']
+  if (envFilePath && typeof envFilePath === 'string') {
     try {
-      const fileEnv = loadEnvFile(envFile)
+      const fileEnv = loadEnvFileFromPath(envFilePath)
       Object.assign(env, fileEnv)
     } catch (error) {
       console.error(`Error loading env file: ${error instanceof Error ? error.message : String(error)}`)
@@ -115,6 +138,47 @@ export async function invokeCommand(args: string[]): Promise<void> {
   // Parse --env flags from raw args
   const cliEnv = parseEnvFlags(args)
   Object.assign(env, cliEnv)
+
+  // Linked mode: load additional env and get API token
+  let linkConfig: ReturnType<typeof getLinkConfig> = null
+  let workplaceToken: string | null = null
+
+  if (isLinked && workplaceSubdomain) {
+    // Check authentication
+    const credentials = getCredentials()
+    if (!credentials) {
+      console.error('Error: Not logged in.')
+      console.error("Run 'skedyul auth login' to authenticate first.")
+      process.exit(1)
+    }
+
+    // Check link config
+    linkConfig = getLinkConfig(workplaceSubdomain)
+    if (!linkConfig) {
+      console.error(`Error: Not linked to ${workplaceSubdomain}`)
+      console.error(`Run 'skedyul dev link --workplace ${workplaceSubdomain}' first.`)
+      process.exit(1)
+    }
+
+    // Load env vars for this workplace
+    const linkedEnv = loadLinkedEnvFile(workplaceSubdomain)
+    Object.assign(env, linkedEnv)
+
+    // Get a fresh workplace token
+    console.error(`Getting API token for ${workplaceSubdomain}...`)
+    try {
+      const tokenResponse = await callCliApi<TokenResponse>(
+        { serverUrl: linkConfig.serverUrl, token: credentials.token },
+        '/token',
+        { appInstallationId: linkConfig.appInstallationId },
+      )
+      workplaceToken = tokenResponse.token
+      env.SKEDYUL_API_TOKEN = workplaceToken
+    } catch (error) {
+      console.error(`Failed to get API token: ${error instanceof Error ? error.message : String(error)}`)
+      process.exit(1)
+    }
+  }
 
   // Check for estimate mode
   const estimateMode = Boolean(flags.estimate)
@@ -172,20 +236,38 @@ export async function invokeCommand(args: string[]): Promise<void> {
     }
   }
 
-  // Create context - CLI uses agent trigger with minimal context
-  // Note: CLI invoke is for local dev testing, so we use a minimal context
-  const context: AgentToolContext = {
-    trigger: 'agent',
-    app: { id: 'cli', versionId: 'local' },
-    appInstallationId: 'cli-local',
-    workplace: { id: 'cli', subdomain: 'local' },
-    request: { url: 'cli://invoke', params: {}, query: {} },
-    env,
-    mode: estimateMode ? 'estimate' : 'execute',
+  // Create context based on mode
+  let context: AgentToolContext
+
+  if (isLinked && linkConfig) {
+    // Linked mode: use real context
+    context = {
+      trigger: 'agent',
+      app: { id: linkConfig.appId, versionId: linkConfig.appVersionId },
+      appInstallationId: linkConfig.appInstallationId,
+      workplace: { id: linkConfig.workplaceId, subdomain: linkConfig.workplaceSubdomain },
+      request: { url: 'cli://invoke', params: {}, query: {} },
+      env,
+      mode: estimateMode ? 'estimate' : 'execute',
+    }
+  } else {
+    // Standalone mode: use minimal context
+    context = {
+      trigger: 'agent',
+      app: { id: 'cli', versionId: 'local' },
+      appInstallationId: 'cli-local',
+      workplace: { id: 'cli', subdomain: 'local' },
+      request: { url: 'cli://invoke', params: {}, query: {} },
+      env,
+      mode: estimateMode ? 'estimate' : 'execute',
+    }
   }
 
   // Execute tool
   console.error(`Invoking tool: ${tool.name}`)
+  if (isLinked && workplaceSubdomain) {
+    console.error(`Workplace: ${workplaceSubdomain}`)
+  }
   if (estimateMode) {
     console.error('Mode: estimate (billing only)')
   }

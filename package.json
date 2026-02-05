@@ -40,7 +40,10 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@ngrok/ngrok": "^1.4.1",
     "@types/node": "^24.10.1",
+    "open": "^10.1.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }
 }

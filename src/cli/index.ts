@@ -5,50 +5,148 @@ import { toolsCommand } from './commands/tools'
 import { serveCommand } from './commands/serve'
 import { validateCommand } from './commands/validate'
 import { diffCommand } from './commands/diff'
+import { authCommand } from './commands/auth'
+import { linkCommand } from './commands/link'
+import { unlinkCommand } from './commands/unlink'
+import { installCommand } from './commands/install'
 
 const args = process.argv.slice(2)
 
 function printUsage(): void {
   console.log(`
-skedyul - Skedyul SDK CLI
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   ███████╗██╗  ██╗███████╗██████╗ ██╗   ██╗██╗   ██╗██╗                     │
+│   ██╔════╝██║ ██╔╝██╔════╝██╔══██╗╚██╗ ██╔╝██║   ██║██║                     │
+│   ███████╗█████╔╝ █████╗  ██║  ██║ ╚████╔╝ ██║   ██║██║                     │
+│   ╚════██║██╔═██╗ ██╔══╝  ██║  ██║  ╚██╔╝  ██║   ██║██║                     │
+│   ███████║██║  ██╗███████╗██████╔╝   ██║   ╚██████╔╝███████╗                │
+│   ╚══════╝╚═╝  ╚═╝╚══════╝╚═════╝    ╚═╝    ╚═════╝ ╚══════╝                │
+│                                                                             │
+│   The Skedyul SDK Command Line Interface                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-Usage:
-  skedyul dev <command> [options]
+USAGE
+  $ skedyul <command> [options]
 
-Commands:
-  dev invoke <tool>   Invoke a tool from the registry
-  dev tools           List all tools in the registry
-  dev serve           Start a local MCP server
-  dev validate        Validate skedyul.config.ts
-  dev diff            Show what would change on deploy
+COMMANDS
+  auth    Authenticate with Skedyul (login, logout, status)
+  dev     Development tools for building and testing apps locally
 
-Run 'skedyul dev <command> --help' for more information on a command.
+GETTING STARTED
+  1. Authenticate with Skedyul:
+     $ skedyul auth login
+
+  2. Link your project to a workplace:
+     $ skedyul dev link --workplace <subdomain>
+
+  3. Configure environment variables:
+     $ skedyul dev install --workplace <subdomain>
+
+  4. Start local development server:
+     $ skedyul dev serve --linked --workplace <subdomain>
+
+CONFIGURATION
+  Global credentials:     ~/.skedyul/credentials.json
+  Global config:          ~/.skedyul/config.json
+  Local server override:  .skedyul.local.json (in project root)
+  Link configs:           .skedyul/links/<workplace>.json
+  Environment vars:       .skedyul/env/<workplace>.env
+
+  To use a local Skedyul server, create .skedyul.local.json:
+  {
+    "serverUrl": "http://localhost:3000"
+  }
+
+MORE HELP
+  $ skedyul auth --help      Show authentication commands
+  $ skedyul dev --help       Show development commands
+  $ skedyul <cmd> --help     Show help for specific command
+
+DOCUMENTATION
+  https://docs.skedyul.com/cli
 `)
 }
 
 function printDevUsage(): void {
   console.log(`
-skedyul dev - Development tools for testing MCP servers locally
+SKEDYUL DEV - Development Tools
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Usage:
-  skedyul dev <command> [options]
+Build and test Skedyul apps locally with real API access.
 
-Commands:
-  invoke <tool>   Invoke a tool from the registry
-  tools           List all tools in the registry
-  serve           Start a local MCP server
-  validate        Validate skedyul.config.ts
-  diff            Show what would change on deploy
+USAGE
+  $ skedyul dev <command> [options]
 
-Examples:
-  skedyul dev invoke my_tool --registry ./dist/registry.js --args '{"key": "value"}'
-  skedyul dev tools --registry ./dist/registry.js
-  skedyul dev serve --registry ./dist/registry.js --port 3001
-  skedyul dev validate
-  skedyul dev diff
+COMMANDS
+  Testing & Debugging
+  ───────────────────
+  invoke <tool>     Invoke a single tool from your registry
+  tools             List all tools in your registry
+  serve             Start a local MCP server for testing
+  validate          Validate your skedyul.config.ts
 
-Options:
-  --help, -h      Show help for a command
+  Linked Mode (Sidecar)
+  ─────────────────────
+  link              Link project to a Skedyul workplace
+  unlink            Remove a workplace link
+  install           Configure installation environment variables
+
+  Deployment
+  ──────────
+  diff              Show what would change on deploy
+
+STANDALONE MODE
+  Test tools locally without connecting to Skedyul:
+
+  $ skedyul dev serve --registry ./dist/registry.js
+  $ skedyul dev invoke my_tool --args '{"key": "value"}'
+
+LINKED MODE (Sidecar)
+  Connect to Skedyul for full integration testing with real API access:
+
+  Step 1: Link to a workplace (creates your local-<username> AppVersion)
+  $ skedyul dev link --workplace demo-clinic
+
+  Step 2: Configure environment variables for the app
+  $ skedyul dev install --workplace demo-clinic
+
+  Step 3: Start server with ngrok tunnel (Skedyul routes calls to you)
+  $ skedyul dev serve --linked --workplace demo-clinic
+
+  Now Skedyul will route tool calls to your local machine!
+
+EXAMPLES
+  # List tools in your registry
+  $ skedyul dev tools --registry ./dist/registry.js
+
+  # Test a tool locally (standalone)
+  $ skedyul dev invoke appointment_types_list \\
+      --registry ./dist/registry.js \\
+      --env PETBOOQZ_API_KEY=xxx
+
+  # Test a tool with linked credentials (real API access)
+  $ skedyul dev invoke appointment_types_list \\
+      --linked --workplace demo-clinic
+
+  # Start server in standalone mode
+  $ skedyul dev serve --port 3001
+
+  # Start server in sidecar mode (with ngrok tunnel)
+  $ skedyul dev serve --linked --workplace demo-clinic
+
+  # Use existing ngrok tunnel URL
+  $ skedyul dev serve --linked --workplace demo-clinic \\
+      --tunnel-url https://abc123.ngrok.io
+
+OPTIONS
+  --help, -h    Show help for any command
+
+RUN COMMAND HELP
+  $ skedyul dev invoke --help
+  $ skedyul dev serve --help
+  $ skedyul dev link --help
 `)
 }
 
@@ -59,6 +157,12 @@ async function main(): Promise<void> {
   }
 
   const command = args[0]
+
+  // Top-level commands
+  if (command === 'auth') {
+    await authCommand(args.slice(1))
+    return
+  }
 
   if (command !== 'dev') {
     console.error(`Unknown command: ${command}`)
@@ -90,6 +194,15 @@ async function main(): Promise<void> {
       break
     case 'diff':
       await diffCommand(subArgs)
+      break
+    case 'link':
+      await linkCommand(subArgs)
+      break
+    case 'unlink':
+      await unlinkCommand(subArgs)
+      break
+    case 'install':
+      await installCommand(subArgs)
       break
     default:
       console.error(`Unknown dev command: ${subCommand}`)

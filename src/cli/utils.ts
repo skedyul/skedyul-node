@@ -126,6 +126,46 @@ export function loadEnvFile(filePath: string): Record<string, string> {
 }
 
 /**
+ * Load a TypeScript file using tsx's require hook
+ */
+async function loadTypeScriptFile(absolutePath: string): Promise<unknown> {
+  // First, try to find a compiled version
+  const altPaths = [
+    absolutePath.replace('/src/', '/dist/').replace('.ts', '.js'),
+    absolutePath.replace('/src/', '/build/').replace('.ts', '.js'),
+    absolutePath.replace('.ts', '.js'),
+  ]
+
+  for (const altPath of altPaths) {
+    if (fs.existsSync(altPath)) {
+      return await import(altPath)
+    }
+  }
+
+  // Try using tsx to load TypeScript files
+  try {
+    // Register tsx's require hook
+    require('tsx/cjs')
+
+    // Clear require cache for this file
+    delete require.cache[absolutePath]
+
+    // Now require the TypeScript file
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require(absolutePath)
+  } catch (tsxError) {
+    throw new Error(
+      `Cannot load TypeScript file: ${absolutePath}\n\n` +
+        `Compiled version not found. Please build your project:\n` +
+        `  pnpm build\n\n` +
+        `Or ensure tsx is installed:\n` +
+        `  pnpm add -D tsx\n\n` +
+        `Error: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`,
+    )
+  }
+}
+
+/**
  * Load a registry from a JS/TS file
  */
 export async function loadRegistry(registryPath: string): Promise<ToolRegistry> {
@@ -136,15 +176,27 @@ export async function loadRegistry(registryPath: string): Promise<ToolRegistry> 
   }
 
   try {
-    // Use dynamic import for ES modules compatibility
-    const module = await import(absolutePath)
+    let module: Record<string, unknown>
 
-    // Check for registry export (default or named)
-    const registry = module.registry || module.default?.registry || module.default
+    // If it's a TypeScript file, use tsx loader
+    if (absolutePath.endsWith('.ts')) {
+      module = (await loadTypeScriptFile(absolutePath)) as Record<string, unknown>
+    } else {
+      // Use dynamic import for JS files
+      module = await import(absolutePath)
+    }
+
+    // Check for registry export (various naming conventions)
+    const registry =
+      module.registry ||
+      module.toolRegistry ||
+      (module.default as Record<string, unknown> | undefined)?.registry ||
+      (module.default as Record<string, unknown> | undefined)?.toolRegistry ||
+      module.default
 
     if (!registry || typeof registry !== 'object') {
       throw new Error(
-        `Registry file must export a 'registry' object. Got: ${typeof registry}`,
+        `Registry file must export a 'registry' or 'toolRegistry' object. Got: ${typeof registry}`,
       )
     }
 
@@ -155,7 +207,7 @@ export async function loadRegistry(registryPath: string): Promise<ToolRegistry> 
     }
 
     // Check that at least one entry has expected tool shape
-    const firstTool = registry[keys[0]]
+    const firstTool = (registry as ToolRegistry)[keys[0]]
     if (!firstTool || typeof firstTool.name !== 'string') {
       throw new Error(
         'Registry entries must have a "name" property. Is this a valid tool registry?',
@@ -165,6 +217,9 @@ export async function loadRegistry(registryPath: string): Promise<ToolRegistry> 
     return registry as ToolRegistry
   } catch (error) {
     if (error instanceof Error && error.message.includes('Registry')) {
+      throw error
+    }
+    if (error instanceof Error && error.message.includes('Cannot load TypeScript')) {
       throw error
     }
     throw new Error(
