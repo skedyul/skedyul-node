@@ -52,8 +52,12 @@ function parseConfigFromSource(configPath: string): SkedyulAppConfig | null {
   try {
     const content = fs.readFileSync(configPath, 'utf-8')
 
-    // Extract name using regex (handle might be nested in agents, so prioritize name)
-    const nameMatch = content.match(/name\s*:\s*['"`]([^'"`]+)['"`]/)
+    // Extract name using regex (look for top-level name, not nested in agents)
+    // Match name: 'value' at the start of a line (with possible indentation of 2 spaces)
+    const nameMatch = content.match(/^\s{0,2}name\s*:\s*['"`]([^'"`]+)['"`]/m)
+    
+    // Extract description
+    const descMatch = content.match(/^\s{0,2}description\s*:\s*['"`]([^'"`]+)['"`]/m)
 
     // Try to get handle from package.json in the same directory
     const dir = path.dirname(configPath)
@@ -87,6 +91,7 @@ function parseConfigFromSource(configPath: string): SkedyulAppConfig | null {
     return {
       handle: handle ?? nameMatch?.[1] ?? 'unknown',
       name: nameMatch?.[1] ?? handle ?? 'Unknown App',
+      description: descMatch?.[1],
     }
   } catch {
     return null
@@ -102,10 +107,17 @@ export async function loadAppConfig(
     return null
   }
 
+  // For TypeScript files, always parse source directly to avoid dynamic import issues
+  // (skedyul.config.ts often has nested imports that can't be resolved at runtime)
+  if (configPath.endsWith('.ts')) {
+    const fallbackConfig = parseConfigFromSource(configPath)
+    if (fallbackConfig) {
+      return fallbackConfig
+    }
+  }
+
   try {
-    // For TypeScript files, we need to use the compiled dist version
-    // or use a runtime TypeScript loader
-    // For now, try to load from dist first, then fallback to source
+    // For JS files, try to load normally
     const distPath = configPath
       .replace('skedyul.config.ts', 'dist/skedyul.config.js')
       .replace('skedyul.config.mjs', 'dist/skedyul.config.js')
@@ -153,6 +165,178 @@ export async function loadAppConfig(
     }
 
     console.error('Failed to load skedyul.config:', error)
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Install Config Loading
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INSTALL_CONFIG_PATHS = [
+  'config/install.config.ts',
+  'config/install.config.js',
+  'install.config.ts',
+  'install.config.js',
+]
+
+export interface InstallEnvField {
+  label: string
+  required?: boolean
+  visibility?: 'visible' | 'encrypted'
+  placeholder?: string
+  description?: string
+}
+
+export interface InstallConfigData {
+  env?: Record<string, InstallEnvField>
+  onInstall?: string
+  onUninstall?: string
+}
+
+export async function loadInstallConfig(
+  projectDir?: string,
+  debug = false,
+): Promise<InstallConfigData | null> {
+  const dir = projectDir ?? process.cwd()
+
+  if (debug) console.log(`[loadInstallConfig] Looking in: ${dir}`)
+
+  for (const configPath of INSTALL_CONFIG_PATHS) {
+    const fullPath = path.join(dir, configPath)
+    if (debug) console.log(`[loadInstallConfig] Checking: ${fullPath}`)
+    
+    if (!fs.existsSync(fullPath)) {
+      if (debug) console.log(`[loadInstallConfig] Not found: ${fullPath}`)
+      continue
+    }
+
+    if (debug) console.log(`[loadInstallConfig] Found: ${fullPath}`)
+
+    try {
+      if (fullPath.endsWith('.ts')) {
+        // For TypeScript files, try to load from compiled dist first
+        const distPath = fullPath.replace(/\.ts$/, '.js').replace('/config/', '/dist/config/')
+        if (debug) console.log(`[loadInstallConfig] Checking dist: ${distPath}`)
+        
+        if (fs.existsSync(distPath)) {
+          try {
+            const module = await import(distPath)
+            const config = module.default ?? module
+            if (debug) console.log(`[loadInstallConfig] Loaded from dist:`, Object.keys(config))
+            if (config && typeof config === 'object') {
+              return config as InstallConfigData
+            }
+          } catch (distError) {
+            if (debug) console.log(`[loadInstallConfig] Dist import failed:`, distError)
+            // Fall through to source parsing
+          }
+        }
+        
+        // Parse source directly as fallback
+        if (debug) console.log(`[loadInstallConfig] Parsing source file...`)
+        const content = fs.readFileSync(fullPath, 'utf-8')
+        const parsed = parseInstallConfigFromSource(content)
+        if (debug) console.log(`[loadInstallConfig] Parsed result:`, parsed ? Object.keys(parsed.env || {}) : 'null')
+        if (parsed) {
+          return parsed
+        }
+      } else {
+        // JS files can be imported directly
+        const module = await import(fullPath)
+        const config = module.default ?? module
+        if (config && typeof config === 'object') {
+          return config as InstallConfigData
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to load ${configPath}:`, error)
+      continue
+    }
+  }
+
+  return null
+}
+
+/**
+ * Parse install config from TypeScript source when dynamic import fails.
+ * This is a fallback that extracts env vars using regex.
+ */
+function parseInstallConfigFromSource(content: string): InstallConfigData | null {
+  try {
+    const envVars: Record<string, InstallEnvField> = {}
+
+    // Match env block: env: { ... } - need to handle nested braces
+    const envStartMatch = content.match(/\benv\s*:\s*\{/)
+    if (!envStartMatch || envStartMatch.index === undefined) {
+      return null
+    }
+
+    // Find the matching closing brace
+    const startIdx = envStartMatch.index + envStartMatch[0].length
+    let braceCount = 1
+    let endIdx = startIdx
+
+    for (let i = startIdx; i < content.length && braceCount > 0; i++) {
+      if (content[i] === '{') braceCount++
+      else if (content[i] === '}') braceCount--
+      endIdx = i
+    }
+
+    const envBlock = content.substring(startIdx, endIdx)
+
+    // Match individual env var definitions using a more robust approach
+    // Look for UPPER_CASE_VAR: { followed by content until matching }
+    const varStartPattern = /([A-Z][A-Z0-9_]*)\s*:\s*\{/g
+    let varMatch
+
+    while ((varMatch = varStartPattern.exec(envBlock)) !== null) {
+      const varName = varMatch[1]
+      const varStartIdx = varMatch.index + varMatch[0].length
+
+      // Find matching closing brace for this var
+      let varBraceCount = 1
+      let varEndIdx = varStartIdx
+
+      for (let i = varStartIdx; i < envBlock.length && varBraceCount > 0; i++) {
+        if (envBlock[i] === '{') varBraceCount++
+        else if (envBlock[i] === '}') varBraceCount--
+        varEndIdx = i
+      }
+
+      const varContent = envBlock.substring(varStartIdx, varEndIdx)
+
+      const field: InstallEnvField = { label: varName }
+
+      // Extract label
+      const labelMatch = varContent.match(/label\s*:\s*['"`]([^'"`]+)['"`]/)
+      if (labelMatch) field.label = labelMatch[1]
+
+      // Extract required
+      const requiredMatch = varContent.match(/required\s*:\s*(true|false)/)
+      if (requiredMatch) field.required = requiredMatch[1] === 'true'
+
+      // Extract visibility
+      const visibilityMatch = varContent.match(/visibility\s*:\s*['"`](visible|encrypted)['"`]/)
+      if (visibilityMatch) field.visibility = visibilityMatch[1] as 'visible' | 'encrypted'
+
+      // Extract placeholder
+      const placeholderMatch = varContent.match(/placeholder\s*:\s*['"`]([^'"`]+)['"`]/)
+      if (placeholderMatch) field.placeholder = placeholderMatch[1]
+
+      // Extract description (handle multi-line strings)
+      const descMatch = varContent.match(/description\s*:\s*['"`]([^'"`]+)['"`]/)
+      if (descMatch) field.description = descMatch[1]
+
+      envVars[varName] = field
+    }
+
+    if (Object.keys(envVars).length === 0) {
+      return null
+    }
+
+    return { env: envVars }
+  } catch {
     return null
   }
 }

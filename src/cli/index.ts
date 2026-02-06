@@ -6,6 +6,7 @@ import { serveCommand } from './commands/serve'
 import { validateCommand } from './commands/validate'
 import { diffCommand } from './commands/diff'
 import { authCommand } from './commands/auth'
+import { configCommand } from './commands/config'
 import { linkCommand } from './commands/link'
 import { unlinkCommand } from './commands/unlink'
 import { installCommand } from './commands/install'
@@ -32,6 +33,7 @@ USAGE
 
 COMMANDS
   auth    Authenticate with Skedyul (login, logout, status)
+  config  Manage global CLI configuration (ngrok, server URL)
   dev     Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -45,7 +47,7 @@ GETTING STARTED
      $ skedyul dev install --workplace <subdomain>
 
   4. Start local development server:
-     $ skedyul dev serve --linked --workplace <subdomain>
+     $ skedyul dev serve --workplace <subdomain>
 
 CONFIGURATION
   Global credentials:     ~/.skedyul/credentials.json
@@ -61,6 +63,7 @@ CONFIGURATION
 
 MORE HELP
   $ skedyul auth --help      Show authentication commands
+  $ skedyul config --help    Show configuration commands
   $ skedyul dev --help       Show development commands
   $ skedyul <cmd> --help     Show help for specific command
 
@@ -113,7 +116,7 @@ LINKED MODE (Sidecar)
   $ skedyul dev install --workplace demo-clinic
 
   Step 3: Start server with ngrok tunnel (Skedyul routes calls to you)
-  $ skedyul dev serve --linked --workplace demo-clinic
+  $ skedyul dev serve --workplace demo-clinic
 
   Now Skedyul will route tool calls to your local machine!
 
@@ -128,16 +131,16 @@ EXAMPLES
 
   # Test a tool with linked credentials (real API access)
   $ skedyul dev invoke appointment_types_list \\
-      --linked --workplace demo-clinic
+      --workplace demo-clinic
 
   # Start server in standalone mode
   $ skedyul dev serve --port 3001
 
   # Start server in sidecar mode (with ngrok tunnel)
-  $ skedyul dev serve --linked --workplace demo-clinic
+  $ skedyul dev serve --workplace demo-clinic
 
   # Use existing ngrok tunnel URL
-  $ skedyul dev serve --linked --workplace demo-clinic \\
+  $ skedyul dev serve --workplace demo-clinic \\
       --tunnel-url https://abc123.ngrok.io
 
 OPTIONS
@@ -161,6 +164,11 @@ async function main(): Promise<void> {
   // Top-level commands
   if (command === 'auth') {
     await authCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'config') {
+    await configCommand(args.slice(1))
     return
   }
 

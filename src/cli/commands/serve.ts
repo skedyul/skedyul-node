@@ -6,11 +6,146 @@ import {
 } from '../utils'
 import { createSkedyulServer } from '../../server'
 import type { DedicatedServerInstance } from '../../types'
-import { getCredentials, callCliApi } from '../utils/auth'
-import { getLinkConfig, loadEnvFile as loadLinkedEnvFile } from '../utils/link'
-import { findRegistryPath } from '../utils/config'
+import { getCredentials, callCliApi, getNgrokAuthtoken, setNgrokAuthtoken, getServerUrl } from '../utils/auth'
+import { getLinkConfig, loadEnvFile as loadLinkedEnvFile, saveEnvFile, saveLinkConfig, type LinkConfig } from '../utils/link'
+import { findRegistryPath, loadInstallConfig, loadAppConfig, type InstallEnvField } from '../utils/config'
 import { startTunnel, isNgrokAvailable } from '../utils/tunnel'
 import type { TunnelConnection } from '../utils/tunnel'
+import * as readline from 'readline'
+
+/**
+ * Prompt the user for input
+ */
+async function promptInput(question: string, hidden = false): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  return new Promise((resolve) => {
+    if (hidden) {
+      // For hidden input, don't echo characters
+      process.stdout.write(question)
+      let input = ''
+      
+      const stdin = process.stdin
+      const wasRaw = stdin.isRaw
+      if (stdin.setRawMode) stdin.setRawMode(true)
+      stdin.resume()
+      stdin.setEncoding('utf8')
+      
+      const onData = (char: string) => {
+        if (char === '\n' || char === '\r') {
+          stdin.removeListener('data', onData)
+          if (stdin.setRawMode) stdin.setRawMode(wasRaw ?? false)
+          process.stdout.write('\n')
+          rl.close()
+          resolve(input)
+        } else if (char === '\u0003') {
+          // Ctrl+C
+          process.exit(0)
+        } else if (char === '\u007F' || char === '\b') {
+          // Backspace
+          if (input.length > 0) {
+            input = input.slice(0, -1)
+          }
+        } else {
+          input += char
+        }
+      }
+      
+      stdin.on('data', onData)
+    } else {
+      rl.question(question, (answer) => {
+        rl.close()
+        resolve(answer.trim())
+      })
+    }
+  })
+}
+
+/**
+ * Check if required env vars are configured, prompt if missing.
+ * After collecting env vars, calls the install API to run the install workflow.
+ */
+async function ensureEnvConfigured(
+  workplaceSubdomain: string,
+  existingEnv: Record<string, string>,
+  linkConfig: LinkConfig,
+  credentials: { token: string },
+): Promise<Record<string, string>> {
+  const installConfig = await loadInstallConfig()
+  
+  if (!installConfig?.env) {
+    return existingEnv
+  }
+
+  const envFields = Object.entries(installConfig.env)
+  const missingRequired: Array<{ key: string; field: InstallEnvField }> = []
+
+  // Check for missing required fields
+  for (const [key, field] of envFields) {
+    if (field.required && (!existingEnv[key] || existingEnv[key] === '')) {
+      missingRequired.push({ key, field })
+    }
+  }
+
+  if (missingRequired.length === 0) {
+    return existingEnv
+  }
+
+  // Prompt for missing env vars
+  console.log(`\n⚠ Missing required environment variables for ${workplaceSubdomain}:`)
+  console.log('─'.repeat(50))
+
+  const newEnv = { ...existingEnv }
+
+  for (const { key, field } of missingRequired) {
+    const isSecret = field.visibility === 'encrypted'
+    
+    console.log(`\n${field.label || key}`)
+    if (field.description) {
+      console.log(`  ${field.description}`)
+    }
+    if (field.placeholder) {
+      console.log(`  Example: ${field.placeholder}`)
+    }
+
+    const value = await promptInput(`  Enter ${key}: `, isSecret)
+    
+    if (!value && field.required) {
+      console.error(`\nError: ${key} is required.`)
+      process.exit(1)
+    }
+    
+    if (value) {
+      newEnv[key] = value
+    }
+  }
+
+  // Save the updated env locally
+  saveEnvFile(workplaceSubdomain, newEnv)
+  console.log(`\n✓ Saved to .skedyul/env/${workplaceSubdomain}.env`)
+
+  // Call the install API to run the install workflow with the new env vars
+  console.log(`\nRunning installation workflow...`)
+  try {
+    await callCliApi(
+      { serverUrl: linkConfig.serverUrl, token: credentials.token },
+      '/install',
+      {
+        appVersionId: linkConfig.appVersionId,
+        env: newEnv,
+      },
+    )
+    console.log(`  ✓ Installation completed`)
+  } catch (error) {
+    console.error(`  ⚠ Installation workflow failed: ${error instanceof Error ? error.message : String(error)}`)
+    console.error(`  (You can continue with local testing, but some features may not work)`)
+  }
+
+  return newEnv
+}
 
 function printHelp(): void {
   console.log(`
@@ -39,8 +174,7 @@ Options:
   --help, -h          Show this help message
 
 Sidecar Mode Options:
-  --linked            Enable sidecar mode (connect to Skedyul)
-  --workplace, -w     Workplace subdomain (required with --linked)
+  --workplace, -w     Workplace subdomain (enables sidecar mode automatically)
   --no-tunnel         Don't start ngrok tunnel (use with external tunnel)
   --tunnel-url        Use existing tunnel URL instead of starting new one
 
@@ -49,10 +183,10 @@ Examples:
   skedyul dev serve --registry ./dist/registry.js
 
   # Sidecar mode with ngrok tunnel
-  skedyul dev serve --linked --workplace demo-clinic
+  skedyul dev serve --workplace demo-clinic
 
   # Sidecar mode with existing tunnel
-  skedyul dev serve --linked --workplace demo-clinic \\
+  skedyul dev serve --workplace demo-clinic \\
     --tunnel-url https://abc123.ngrok.io
 
 Endpoints:
@@ -104,15 +238,10 @@ export async function serveCommand(args: string[]): Promise<void> {
     return
   }
 
-  const isLinked = flags.linked === true
   const workplaceSubdomain = (flags.workplace || flags.w) as string | undefined
-
-  // Validate sidecar mode requirements
-  if (isLinked && !workplaceSubdomain) {
-    console.error('Error: --workplace is required with --linked')
-    console.error("Run 'skedyul dev serve --help' for usage information.")
-    process.exit(1)
-  }
+  
+  // If --workplace is provided, automatically enable linked mode
+  const isLinked = flags.linked === true || !!workplaceSubdomain
 
   // Get registry path - auto-detect if not specified
   let registryPath = (flags.registry || flags.r) as string | undefined
@@ -177,21 +306,90 @@ export async function serveCommand(args: string[]): Promise<void> {
       process.exit(1)
     }
 
-    // Check link config
+    // Check link config - auto-link if not linked
     linkConfig = getLinkConfig(workplaceSubdomain)
     if (!linkConfig) {
-      console.error(`Error: Not linked to ${workplaceSubdomain}`)
-      console.error(`Run 'skedyul dev link --workplace ${workplaceSubdomain}' first.`)
-      process.exit(1)
+      console.log(`Not linked to ${workplaceSubdomain}, linking now...`)
+      
+      // Load app config to get handle
+      const appConfig = await loadAppConfig()
+      if (!appConfig) {
+        console.error('Error: No skedyul.config.ts found in current directory.')
+        console.error('Make sure you are in a Skedyul app directory.')
+        process.exit(1)
+      }
+
+      console.log(`  App: ${appConfig.handle}`)
+      
+      // Get server URL
+      const serverUrl = getServerUrl()
+      
+      try {
+        interface LinkResponse {
+          appId: string
+          appHandle: string
+          appVersionId: string
+          appVersionHandle: string
+          appInstallationId: string
+          workplaceId: string
+          workplaceSubdomain: string
+          isNewVersion: boolean
+          isNewInstallation: boolean
+        }
+
+        const response = await callCliApi<LinkResponse>(
+          { serverUrl, token: credentials.token },
+          '/link',
+          {
+            appHandle: appConfig.handle,
+            workplaceSubdomain,
+          },
+        )
+
+        // Save link config
+        linkConfig = {
+          appId: response.appId,
+          appHandle: response.appHandle,
+          appVersionId: response.appVersionId,
+          appVersionHandle: response.appVersionHandle,
+          appInstallationId: response.appInstallationId,
+          workplaceId: response.workplaceId,
+          workplaceSubdomain: response.workplaceSubdomain,
+          createdAt: new Date().toISOString(),
+          serverUrl,
+        }
+
+        saveLinkConfig(linkConfig)
+
+        if (response.isNewVersion) {
+          console.log(`  ✓ Created AppVersion: ${response.appVersionHandle}`)
+        } else {
+          console.log(`  ✓ Using AppVersion: ${response.appVersionHandle}`)
+        }
+
+        if (response.isNewInstallation) {
+          console.log(`  ✓ Created AppInstallation`)
+        } else {
+          console.log(`  ✓ Using AppInstallation`)
+        }
+
+        console.log(`  ✓ Link saved to .skedyul/links/${workplaceSubdomain}.json`)
+      } catch (error) {
+        console.error(`Failed to link: ${error instanceof Error ? error.message : String(error)}`)
+        process.exit(1)
+      }
+    } else {
+      console.log(`Loading link from .skedyul/links/${workplaceSubdomain}.json`)
     }
 
-    console.log(`Loading link from .skedyul/links/${workplaceSubdomain}.json`)
     console.log(`  App: ${linkConfig.appHandle}`)
     console.log(`  Workplace: ${linkConfig.workplaceSubdomain}`)
     console.log(`  AppVersion: ${linkConfig.appVersionHandle}`)
 
-    // Load env vars for this workplace
-    const linkedEnv = loadLinkedEnvFile(workplaceSubdomain)
+    // Load env vars for this workplace, prompt for missing required vars
+    let linkedEnv = loadLinkedEnvFile(workplaceSubdomain)
+    linkedEnv = await ensureEnvConfigured(workplaceSubdomain, linkedEnv, linkConfig, credentials)
+    
     const envCount = Object.keys(linkedEnv).length
     if (envCount > 0) {
       console.log(`\nLoading env from .skedyul/env/${workplaceSubdomain}.env`)
@@ -211,6 +409,35 @@ export async function serveCommand(args: string[]): Promise<void> {
 
   const toolCount = Object.keys(registry).length
   console.log(`\nLoaded ${toolCount} tool(s) from registry`)
+
+  // Build config object to sync with Skedyul
+  let executableConfig: Record<string, unknown> | undefined
+  if (isLinked) {
+    const appConfig = await loadAppConfig()
+    const installConfig = await loadInstallConfig()
+    
+    // Build tool list with metadata
+    const tools = Object.entries(registry).map(([name, tool]) => ({
+      name,
+      description: (tool as { description?: string }).description,
+      inputSchema: (tool as { inputSchema?: unknown }).inputSchema,
+    }))
+
+    executableConfig = {
+      name: appConfig?.name,
+      handle: appConfig?.handle,
+      description: appConfig?.description,
+      tools,
+      install: installConfig ? { env: installConfig.env } : undefined,
+      syncedAt: new Date().toISOString(),
+    }
+    
+    console.log(`\nBuilt config for sync:`)
+    console.log(`  Name: ${appConfig?.name ?? '(not found)'}`)
+    console.log(`  Handle: ${appConfig?.handle ?? '(not found)'}`)
+    console.log(`  Tools: ${tools.length}`)
+    console.log(`  Install env: ${installConfig?.env ? Object.keys(installConfig.env).length : 0} variables`)
+  }
 
   // Create server
   const server = createSkedyulServer(
@@ -262,9 +489,28 @@ export async function serveCommand(args: string[]): Promise<void> {
         process.exit(1)
       }
 
+      // Check for ngrok authtoken, prompt if missing
+      let authToken = getNgrokAuthtoken()
+      if (!authToken) {
+        console.log(`\n⚠ ngrok authtoken not configured.`)
+        console.log(`  Get a free authtoken at: https://dashboard.ngrok.com/get-started/your-authtoken`)
+        console.log('')
+        authToken = await promptInput('Enter your ngrok authtoken: ')
+        
+        if (!authToken) {
+          console.error('Error: ngrok authtoken is required for tunneling.')
+          console.error('Or use --tunnel-url with an existing tunnel.')
+          process.exit(1)
+        }
+
+        // Save for future use
+        setNgrokAuthtoken(authToken)
+        console.log(`  ✓ Authtoken saved to ~/.skedyul/config.json`)
+      }
+
       console.log(`\nStarting ngrok tunnel...`)
       try {
-        tunnel = await startTunnel({ port })
+        tunnel = await startTunnel({ port, authToken })
         invokeEndpoint = tunnel.url
         console.log(`  ✓ Tunnel active: ${invokeEndpoint}`)
       } catch (error) {
@@ -282,21 +528,43 @@ export async function serveCommand(args: string[]): Promise<void> {
         {
           appVersionId: linkConfig.appVersionId,
           invokeEndpoint,
+          config: executableConfig,
         },
       )
       console.log(`  ✓ Registered as invokeEndpoint for ${linkConfig.appVersionHandle}`)
+      console.log(`  ✓ Synced ${toolCount} tools to Skedyul`)
     } catch (error) {
       console.error(`Failed to register endpoint: ${error instanceof Error ? error.message : String(error)}`)
       // Continue anyway, might be a temporary issue
     }
 
-    // Start heartbeat
+    // Start heartbeat (also syncs config on each heartbeat for hot-reload)
     const sendHeartbeat = async () => {
       try {
+        // Reload config on each heartbeat to pick up changes
+        const freshAppConfig = await loadAppConfig()
+        const freshInstallConfig = await loadInstallConfig()
+        const freshTools = Object.entries(registry).map(([name, tool]) => ({
+          name,
+          description: (tool as { description?: string }).description,
+          inputSchema: (tool as { inputSchema?: unknown }).inputSchema,
+        }))
+        const freshConfig = {
+          name: freshAppConfig?.name,
+          handle: freshAppConfig?.handle,
+          description: freshAppConfig?.description,
+          tools: freshTools,
+          install: freshInstallConfig ? { env: freshInstallConfig.env } : undefined,
+          syncedAt: new Date().toISOString(),
+        }
+
         await callCliApi(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
           '/heartbeat',
-          { appVersionId: linkConfig!.appVersionId },
+          { 
+            appVersionId: linkConfig!.appVersionId,
+            config: freshConfig,
+          },
         )
         const timestamp = new Date().toLocaleTimeString()
         console.log(`[${timestamp}] Heartbeat sent ✓`)
@@ -308,30 +576,38 @@ export async function serveCommand(args: string[]): Promise<void> {
 
     heartbeatInterval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS)
 
-    // Print ready message
-    console.log(`\n${'━'.repeat(50)}`)
-    console.log(`Ready to receive tool calls from Skedyul!`)
-    console.log(`Workplace: ${workplaceSubdomain}`)
-    console.log(`Endpoint: ${invokeEndpoint}`)
-    console.log(`Press Ctrl+C to stop`)
-    console.log('━'.repeat(50))
+    // Build install page URL
+    const installPageUrl = `${linkConfig.serverUrl}/${workplaceSubdomain}/settings/apps/${linkConfig.appHandle}/install/${linkConfig.appInstallationId}`
 
-    // Handle graceful shutdown
-    const cleanup = async () => {
-      console.log('\n\nShutting down...')
+    // Print ready message
+    console.log(`\n${'━'.repeat(60)}`)
+    console.log(`✓ Ready to receive tool calls from Skedyul!`)
+    console.log(``)
+    console.log(`  Workplace:    ${workplaceSubdomain}`)
+    console.log(`  App:          ${linkConfig.appHandle}`)
+    console.log(`  Endpoint:     ${invokeEndpoint}`)
+    console.log(`  Install page: ${installPageUrl}`)
+    console.log(``)
+    console.log(`  Ctrl+C        Stop server (keep installation)`)
+    console.log(`  Ctrl+Q        Stop and unlink from workplace`)
+    console.log('━'.repeat(60))
+
+    // Cleanup function - stop server but keep installation
+    const stopServer = async () => {
+      console.log('\n\nStopping server...')
 
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval)
       }
 
-      // Unregister endpoint
+      // Unregister endpoint (mark as offline, but keep installation)
       try {
         await callCliApi(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
           '/unregister-endpoint',
           { appVersionId: linkConfig!.appVersionId },
         )
-        console.log('  ✓ Unregistered endpoint')
+        console.log('  ✓ Endpoint unregistered (installation preserved)')
       } catch {
         // Ignore errors on shutdown
       }
@@ -346,11 +622,93 @@ export async function serveCommand(args: string[]): Promise<void> {
         }
       }
 
+      console.log(`\nTo restart: skedyul dev serve --workplace ${workplaceSubdomain}`)
       process.exit(0)
     }
 
-    process.on('SIGINT', cleanup)
-    process.on('SIGTERM', cleanup)
+    // Cleanup function - stop and unlink completely (runs uninstall workflow)
+    const stopAndUnlink = async () => {
+      console.log('\n\nStopping and unlinking...')
+
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
+      }
+
+      // Unregister endpoint
+      try {
+        await callCliApi(
+          { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
+          '/unregister-endpoint',
+          { appVersionId: linkConfig!.appVersionId },
+        )
+        console.log('  ✓ Endpoint unregistered')
+      } catch {
+        // Ignore errors on shutdown
+      }
+
+      // Run uninstall workflow to clean up server-side resources
+      try {
+        console.log('  Running uninstall workflow...')
+        await callCliApi(
+          { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
+          '/uninstall',
+          { 
+            appInstallationId: linkConfig!.appInstallationId,
+            deleteFields: false, // Preserve custom fields for re-install
+          },
+        )
+        console.log('  ✓ Uninstall workflow started')
+      } catch (error) {
+        console.warn(`  ⚠ Uninstall workflow failed: ${error instanceof Error ? error.message : String(error)}`)
+      }
+
+      // Close tunnel
+      if (tunnel) {
+        try {
+          await tunnel.disconnect()
+          console.log('  ✓ Tunnel closed')
+        } catch {
+          // Ignore errors on shutdown
+        }
+      }
+
+      // Delete local link config
+      try {
+        const { deleteLinkConfig, deleteEnvFile } = await import('../utils/link')
+        deleteLinkConfig(workplaceSubdomain!)
+        deleteEnvFile(workplaceSubdomain!)
+        console.log('  ✓ Local link removed')
+      } catch {
+        // Ignore errors
+      }
+
+      console.log(`\nTo re-link: skedyul dev link --workplace ${workplaceSubdomain}`)
+      process.exit(0)
+    }
+
+    // Handle Ctrl+C (SIGINT) - stop but keep install
+    process.on('SIGINT', stopServer)
+    
+    // Handle SIGTERM - stop but keep install
+    process.on('SIGTERM', stopServer)
+
+    // Handle Ctrl+Q via raw keyboard input
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true)
+      process.stdin.resume()
+      process.stdin.setEncoding('utf8')
+      
+      process.stdin.on('data', (key: string) => {
+        // Ctrl+Q = \x11
+        if (key === '\x11') {
+          stopAndUnlink()
+        }
+        // Ctrl+C = \x03 (backup handler)
+        if (key === '\x03') {
+          stopServer()
+        }
+      })
+    }
   } else {
     // Standalone mode
     console.log(`\nEndpoints:`)

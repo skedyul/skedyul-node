@@ -461,13 +461,24 @@ function createCallToolHandler<T extends ToolRegistry>(
       return {
         output: functionResult.output,
         billing,
+        meta: functionResult.meta ?? {
+          success: true,
+          message: 'OK',
+          toolName,
+        },
         effect: functionResult.effect,
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error ?? '')
       return {
         output: null,
         billing: { credits: 0 },
-        error: error instanceof Error ? error.message : String(error ?? ''),
+        meta: {
+          success: false,
+          message: errorMessage,
+          toolName,
+        },
+        error: errorMessage,
       }
     } finally {
       process.env = originalEnv

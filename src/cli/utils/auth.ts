@@ -19,6 +19,7 @@ export interface StoredCredentials {
 
 export interface AuthConfig {
   defaultServer: string
+  ngrokAuthtoken?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +144,22 @@ export function getServerUrl(override?: string): string {
 
   // 4. Global config
   return getConfig().defaultServer
+}
+
+/**
+ * Get the ngrok authtoken from global config.
+ */
+export function getNgrokAuthtoken(): string | undefined {
+  return getConfig().ngrokAuthtoken
+}
+
+/**
+ * Set the ngrok authtoken in global config.
+ */
+export function setNgrokAuthtoken(authtoken: string): void {
+  const config = getConfig()
+  config.ngrokAuthtoken = authtoken
+  saveConfig(config)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

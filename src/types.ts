@@ -1,5 +1,5 @@
 import type { CoreApiConfig } from './core/types'
-import type { z } from 'zod'
+import { z } from 'zod'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Types
@@ -128,6 +128,25 @@ export interface BillingInfo {
   credits: number
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool Response Meta
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Standardized metadata for tool responses.
+ * Provides consistent structure for AI evaluation, logging, and debugging.
+ */
+export const ToolResponseMetaSchema = z.object({
+  /** Whether the tool execution succeeded */
+  success: z.boolean(),
+  /** Human-readable message describing the result or error */
+  message: z.string(),
+  /** Name of the tool that was executed */
+  toolName: z.string(),
+})
+
+export type ToolResponseMeta = z.infer<typeof ToolResponseMetaSchema>
+
 /**
  * Client-side effects that the tool wants the UI to execute.
  * These are separate from the data output and represent navigation/UI actions.
@@ -138,8 +157,12 @@ export interface ToolEffect {
 }
 
 export interface ToolExecutionResult<Output = unknown> {
-  output: Output
+  /** Tool-specific output data. Null on error. */
+  output: Output | null
+  /** Billing information */
   billing: BillingInfo
+  /** Standardized response metadata for AI evaluation and debugging */
+  meta: ToolResponseMeta
   /** Optional client-side effects to execute */
   effect?: ToolEffect
 }
@@ -303,8 +326,9 @@ export interface APIGatewayProxyResult {
 }
 
 export interface ToolCallResponse {
-  output: unknown
+  output: unknown | null
   billing: BillingInfo
+  meta: ToolResponseMeta
   error?: string
   effect?: ToolEffect
 }

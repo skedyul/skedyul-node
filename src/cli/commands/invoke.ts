@@ -1,4 +1,6 @@
 import * as z from 'zod'
+import * as fs from 'fs'
+import * as path from 'path'
 import {
   parseArgs,
   parseEnvFlags,
@@ -6,10 +8,34 @@ import {
   loadRegistry,
   formatJson,
 } from '../utils'
-import type { ToolRegistryEntry, ToolExecutionContext, AgentToolContext } from '../../types'
+import type {
+  ToolRegistryEntry,
+  ToolExecutionContext,
+  AgentToolContext,
+  ToolExecutionResult,
+} from '../../types'
 import { getCredentials, callCliApi } from '../utils/auth'
 import { getLinkConfig, loadEnvFile as loadLinkedEnvFile } from '../utils/link'
 import { findRegistryPath } from '../utils/config'
+
+/**
+ * Find available linked workplaces from .skedyul/links/
+ */
+function getLinkedWorkplaces(): string[] {
+  const linksDir = path.join(process.cwd(), '.skedyul', 'links')
+  if (!fs.existsSync(linksDir)) {
+    return []
+  }
+  
+  try {
+    const files = fs.readdirSync(linksDir)
+    return files
+      .filter(f => f.endsWith('.json'))
+      .map(f => f.replace('.json', ''))
+  } catch {
+    return []
+  }
+}
 
 function printHelp(): void {
   console.log(`
@@ -22,7 +48,7 @@ Arguments:
   <tool-name>         Name of the tool to invoke (e.g., 'calendar_slots.list')
 
 Options:
-  --registry, -r      Path to the registry file (default: ./dist/registry.js)
+  --registry, -r      Path to the registry file (default: auto-detected)
   --args, -a          JSON string of arguments to pass to the tool
   --env, -e           Set environment variable (can be used multiple times)
                       Format: --env KEY=VALUE
@@ -30,29 +56,27 @@ Options:
   --estimate          Run in estimate mode (billing only, no execution)
   --help, -h          Show this help message
 
-Linked Mode Options:
-  --linked            Use linked credentials and real Core API access
-  --workplace, -w     Workplace subdomain (required with --linked)
+Workplace Options:
+  --workplace, -w     Workplace subdomain (auto-detected if only one is linked)
+                      Loads env vars from .skedyul/env/{workplace}.env
 
 Examples:
-  # Basic invocation
-  skedyul dev invoke my_tool --registry ./dist/registry.js --args '{"key": "value"}'
+  # Basic invocation (auto-detects workspace if only one is linked)
+  skedyul dev invoke appointment_types_list
 
-  # With environment variables
+  # Specify workplace explicitly
+  skedyul dev invoke appointment_types_list --workplace crux
+
+  # With arguments
+  skedyul dev invoke create_booking --args '{"date": "2024-01-15"}'
+
+  # With inline environment variables
   skedyul dev invoke api_call \\
-    --registry ./dist/registry.js \\
     --args '{"endpoint": "/users"}' \\
-    --env API_KEY=secret123 \\
-    --env BASE_URL=https://api.example.com
-
-  # Linked mode with real Core API access
-  skedyul dev invoke my_tool --linked --workplace demo-clinic --args '{"key": "value"}'
+    --env API_KEY=secret123
 
   # Estimate mode (billing only)
-  skedyul dev invoke expensive_tool \\
-    --registry ./dist/registry.js \\
-    --args '{"data": "test"}' \\
-    --estimate
+  skedyul dev invoke expensive_tool --estimate
 `)
 }
 
@@ -91,15 +115,26 @@ export async function invokeCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const isLinked = flags.linked === true
-  const workplaceSubdomain = (flags.workplace || flags.w) as string | undefined
-
-  // Validate linked mode requirements
-  if (isLinked && !workplaceSubdomain) {
-    console.error('Error: --workplace is required with --linked')
-    console.error("Run 'skedyul dev invoke --help' for usage information.")
-    process.exit(1)
+  let workplaceSubdomain = (flags.workplace || flags.w) as string | undefined
+  
+  // Auto-detect workplace if not specified and there's only one linked
+  if (!workplaceSubdomain) {
+    const linkedWorkplaces = getLinkedWorkplaces()
+    if (linkedWorkplaces.length === 1) {
+      workplaceSubdomain = linkedWorkplaces[0]
+      console.error(`Auto-detected workplace: ${workplaceSubdomain}`)
+    } else if (linkedWorkplaces.length > 1) {
+      console.error('Error: Multiple workplaces linked. Please specify one with --workplace:')
+      for (const wp of linkedWorkplaces) {
+        console.error(`  - ${wp}`)
+      }
+      console.error(`\nExample: skedyul dev invoke ${toolName} --workplace ${linkedWorkplaces[0]}`)
+      process.exit(1)
+    }
   }
+  
+  // If workplace is specified, automatically enable linked mode
+  const isLinked = workplaceSubdomain !== undefined
 
   // Get registry path
   // Get registry path - auto-detect if not specified
@@ -273,7 +308,10 @@ export async function invokeCommand(args: string[]): Promise<void> {
   }
 
   try {
-    const handler = tool.handler as (input: unknown, context: ToolExecutionContext) => Promise<{ output: unknown; billing: { credits: number } }>
+    const handler = tool.handler as (
+      input: unknown,
+      context: ToolExecutionContext,
+    ) => Promise<ToolExecutionResult<unknown>>
 
     const result = await handler(validatedArgs, context)
 
@@ -284,6 +322,7 @@ export async function invokeCommand(args: string[]): Promise<void> {
       console.log(formatJson({
         output: result.output,
         billing: result.billing,
+        meta: result.meta,
       }))
     }
   } catch (error) {

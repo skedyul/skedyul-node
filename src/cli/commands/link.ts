@@ -143,7 +143,7 @@ export async function linkCommand(args: string[]): Promise<void> {
     console.log(`\nLink saved to .skedyul/links/${workplaceSubdomain}.json`)
     console.log(`\nNext steps:`)
     console.log(`  1. Run 'skedyul dev install --workplace ${workplaceSubdomain}' to configure env vars`)
-    console.log(`  2. Run 'skedyul dev serve --linked --workplace ${workplaceSubdomain}' to start testing`)
+    console.log(`  2. Run 'skedyul dev serve --workplace ${workplaceSubdomain}' to start testing`)
   } catch (error) {
     console.error(
       `\nFailed to link: ${error instanceof Error ? error.message : String(error)}`,

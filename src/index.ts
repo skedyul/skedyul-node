@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export * from './types'
+export { ToolResponseMetaSchema } from './types'
 export * from './schemas'
 export { server } from './server'
 export { DEFAULT_DOCKERFILE } from './dockerfile'

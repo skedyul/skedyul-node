@@ -1,6 +1,6 @@
 import { parseArgs } from '../utils'
 import { getLinkConfig, loadEnvFile, saveEnvFile } from '../utils/link'
-import { loadAppConfig } from '../utils/config'
+import { loadAppConfig, loadInstallConfig } from '../utils/config'
 import { prompt, confirm } from '../utils/prompt'
 
 function printHelp(): void {
@@ -28,11 +28,11 @@ Examples:
 }
 
 interface EnvConfigField {
-  name: string
-  key: string
-  description?: string
+  label: string
   required?: boolean
-  secret?: boolean
+  visibility?: 'visible' | 'encrypted'
+  placeholder?: string
+  description?: string
 }
 
 export async function installCommand(args: string[]): Promise<void> {
@@ -59,16 +59,28 @@ export async function installCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Load skedyul.config to get env config
+  // Load skedyul.config to get app info
   const appConfig = await loadAppConfig()
   if (!appConfig) {
     console.error('Error: No skedyul.config.ts found in current directory.')
     process.exit(1)
   }
 
-  // Get install config
-  const installConfig = appConfig.install?.config as EnvConfigField[] | undefined
-  if (!installConfig || installConfig.length === 0) {
+  // Load install config directly from config/install.config.ts
+  const debug = flags.debug === true
+  const installConfig = await loadInstallConfig(undefined, debug)
+  
+  // Build list of env fields to prompt for
+  const envFields: Array<{ key: string; field: EnvConfigField }> = []
+  
+  if (installConfig?.env) {
+    // New format: { env: { KEY: { label, required, ... } } }
+    for (const [key, field] of Object.entries(installConfig.env)) {
+      envFields.push({ key, field })
+    }
+  }
+
+  if (envFields.length === 0) {
     console.log('No environment variables defined in install.config.')
     console.log('Your app is ready to use.')
     return
@@ -83,26 +95,30 @@ export async function installCommand(args: string[]): Promise<void> {
 
   const newEnv: Record<string, string> = { ...existingEnv }
 
-  for (const field of installConfig) {
-    const currentValue = existingEnv[field.key]
+  for (const { key, field } of envFields) {
+    const currentValue = existingEnv[key]
     const isSet = currentValue !== undefined && currentValue !== ''
+    const isSecret = field.visibility === 'encrypted'
 
-    console.log(`\n${field.name}`)
+    console.log(`\n${field.label || key}`)
     if (field.description) {
       console.log(`  ${field.description}`)
     }
-    console.log(`  Key: ${field.key}`)
-    console.log(`  Current: ${isSet ? (field.secret ? '(set)' : currentValue) : '(not set)'}`)
+    if (field.placeholder) {
+      console.log(`  Example: ${field.placeholder}`)
+    }
+    console.log(`  Key: ${key}${field.required ? ' (required)' : ''}`)
+    console.log(`  Current: ${isSet ? (isSecret ? '••••••••' : currentValue) : '(not set)'}`)
 
     const value = await prompt({
-      message: `  ${field.key}`,
+      message: `  Enter ${key}`,
       default: currentValue,
       required: field.required ?? false,
-      hidden: field.secret ?? false,
+      hidden: isSecret,
     })
 
     if (value) {
-      newEnv[field.key] = value
+      newEnv[key] = value
     }
   }
 
@@ -113,8 +129,9 @@ export async function installCommand(args: string[]): Promise<void> {
 
   // Ask about validation
   const skipValidation = flags['skip-validation'] === true
+  const hasOnInstall = installConfig?.onInstall
 
-  if (!skipValidation && appConfig.install?.onInstall) {
+  if (!skipValidation && hasOnInstall) {
     const shouldValidate = await confirm({
       message: '\nRun validation handler?',
       default: true,
@@ -130,5 +147,5 @@ export async function installCommand(args: string[]): Promise<void> {
   }
 
   console.log(`\nNext step:`)
-  console.log(`  Run 'skedyul dev serve --linked --workplace ${workplaceSubdomain}' to start testing`)
+  console.log(`  Run 'skedyul dev serve --workplace ${workplaceSubdomain}' to start testing`)
 }
