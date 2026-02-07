@@ -342,6 +342,61 @@ function parseInstallConfigFromSource(content: string): InstallConfigData | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Install Handler Loading
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INSTALL_HANDLER_PATHS = [
+  // Source files (dev mode)
+  'src/install.ts',
+  'src/install.js',
+  // Compiled output (production)
+  'dist/install.js',
+  'build/install.js',
+]
+
+/**
+ * Find and load the install handler from the project directory.
+ * Returns the default export (install handler function) or null if not found.
+ */
+export async function loadInstallHandler(
+  projectDir?: string,
+): Promise<((ctx: unknown) => Promise<unknown>) | null> {
+  const dir = projectDir ?? process.cwd()
+
+  for (const handlerPath of INSTALL_HANDLER_PATHS) {
+    const fullPath = path.join(dir, handlerPath)
+
+    if (!fs.existsSync(fullPath)) {
+      continue
+    }
+
+    try {
+      let module: { default?: unknown }
+
+      if (fullPath.endsWith('.ts')) {
+        // Use tsx loader for TypeScript files
+        const { loadTypeScriptFile } = await import('../utils')
+        module = (await loadTypeScriptFile(fullPath)) as { default?: unknown }
+      } else {
+        module = await import(fullPath)
+      }
+
+      const handler = module.default
+      if (typeof handler === 'function') {
+        return handler as (ctx: unknown) => Promise<unknown>
+      }
+    } catch (error) {
+      console.warn(
+        `[loadInstallHandler] Failed to load ${handlerPath}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      continue
+    }
+  }
+
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Registry Path Detection
 // ─────────────────────────────────────────────────────────────────────────────
 

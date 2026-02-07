@@ -5,13 +5,15 @@ import {
   loadRegistry,
 } from '../utils'
 import { createSkedyulServer } from '../../server'
-import type { DedicatedServerInstance } from '../../types'
+import type { DedicatedServerInstance, ToolRegistry } from '../../types'
 import { getCredentials, callCliApi, getNgrokAuthtoken, setNgrokAuthtoken, getServerUrl } from '../utils/auth'
 import { getLinkConfig, loadEnvFile as loadLinkedEnvFile, saveEnvFile, saveLinkConfig, type LinkConfig } from '../utils/link'
-import { findRegistryPath, loadInstallConfig, loadAppConfig, type InstallEnvField } from '../utils/config'
+import { findRegistryPath, loadInstallConfig, loadInstallHandler, loadAppConfig, type InstallEnvField } from '../utils/config'
 import { startTunnel, isNgrokAvailable } from '../utils/tunnel'
 import type { TunnelConnection } from '../utils/tunnel'
 import * as readline from 'readline'
+import * as z from 'zod'
+import type { InstallHandler } from '../../types'
 
 /**
  * Prompt the user for input
@@ -64,20 +66,26 @@ async function promptInput(question: string, hidden = false): Promise<string> {
   })
 }
 
+interface EnvConfigResult {
+  env: Record<string, string>
+  /** True if new env vars were collected and install workflow should run */
+  needsInstall: boolean
+}
+
 /**
  * Check if required env vars are configured, prompt if missing.
- * After collecting env vars, calls the install API to run the install workflow.
+ * Returns the env and whether the install workflow needs to run.
+ * The install workflow is deferred until the server is up and endpoint is registered,
+ * so the Temporal workflow can reach the app's /install handler.
  */
 async function ensureEnvConfigured(
   workplaceSubdomain: string,
   existingEnv: Record<string, string>,
-  linkConfig: LinkConfig,
-  credentials: { token: string },
-): Promise<Record<string, string>> {
+): Promise<EnvConfigResult> {
   const installConfig = await loadInstallConfig()
   
   if (!installConfig?.env) {
-    return existingEnv
+    return { env: existingEnv, needsInstall: false }
   }
 
   const envFields = Object.entries(installConfig.env)
@@ -91,7 +99,7 @@ async function ensureEnvConfigured(
   }
 
   if (missingRequired.length === 0) {
-    return existingEnv
+    return { env: existingEnv, needsInstall: false }
   }
 
   // Prompt for missing env vars
@@ -127,24 +135,7 @@ async function ensureEnvConfigured(
   saveEnvFile(workplaceSubdomain, newEnv)
   console.log(`\n✓ Saved to .skedyul/env/${workplaceSubdomain}.env`)
 
-  // Call the install API to run the install workflow with the new env vars
-  console.log(`\nRunning installation workflow...`)
-  try {
-    await callCliApi(
-      { serverUrl: linkConfig.serverUrl, token: credentials.token },
-      '/install',
-      {
-        appVersionId: linkConfig.appVersionId,
-        env: newEnv,
-      },
-    )
-    console.log(`  ✓ Installation completed`)
-  } catch (error) {
-    console.error(`  ⚠ Installation workflow failed: ${error instanceof Error ? error.message : String(error)}`)
-    console.error(`  (You can continue with local testing, but some features may not work)`)
-  }
-
-  return newEnv
+  return { env: newEnv, needsInstall: true }
 }
 
 function printHelp(): void {
@@ -198,6 +189,31 @@ Endpoints:
 }
 
 import * as net from 'net'
+
+/**
+ * Convert a Zod schema to a JSON Schema representation for serialization.
+ * Raw Zod instances contain internal properties (functions, symbols) that
+ * can't be stored in the database, so we convert them first.
+ */
+function safeInputSchemaToJson(schema: unknown): unknown {
+  if (!schema) return undefined
+
+  // Check if it's a Zod schema (has _def property or is ZodType instance)
+  if (schema instanceof z.ZodType) {
+    try {
+      return z.toJSONSchema(schema, { unrepresentable: 'any' })
+    } catch {
+      return undefined
+    }
+  }
+
+  // Already a plain object (JSON Schema), return as-is
+  if (typeof schema === 'object') {
+    return schema
+  }
+
+  return undefined
+}
 
 const HEARTBEAT_INTERVAL_MS = 30 * 1000 // 30 seconds
 const DEFAULT_PORT = 60000
@@ -296,6 +312,7 @@ export async function serveCommand(args: string[]): Promise<void> {
   let credentials: ReturnType<typeof getCredentials> = null
   let tunnel: TunnelConnection | null = null
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+  let envResult: EnvConfigResult = { env: {}, needsInstall: false }
 
   if (isLinked && workplaceSubdomain) {
     // Check authentication
@@ -388,7 +405,8 @@ export async function serveCommand(args: string[]): Promise<void> {
 
     // Load env vars for this workplace, prompt for missing required vars
     let linkedEnv = loadLinkedEnvFile(workplaceSubdomain)
-    linkedEnv = await ensureEnvConfigured(workplaceSubdomain, linkedEnv, linkConfig, credentials)
+    envResult = await ensureEnvConfigured(workplaceSubdomain, linkedEnv)
+    linkedEnv = envResult.env
     
     const envCount = Object.keys(linkedEnv).length
     if (envCount > 0) {
@@ -399,7 +417,7 @@ export async function serveCommand(args: string[]): Promise<void> {
   }
 
   // Load registry
-  let registry
+  let registry: ToolRegistry
   try {
     registry = await loadRegistry(registryPath)
   } catch (error) {
@@ -416,11 +434,11 @@ export async function serveCommand(args: string[]): Promise<void> {
     const appConfig = await loadAppConfig()
     const installConfig = await loadInstallConfig()
     
-    // Build tool list with metadata
+    // Build tool list with metadata (convert Zod schemas to JSON Schema for serialization)
     const tools = Object.entries(registry).map(([name, tool]) => ({
       name,
       description: (tool as { description?: string }).description,
-      inputSchema: (tool as { inputSchema?: unknown }).inputSchema,
+      inputSchema: safeInputSchemaToJson((tool as { inputSchema?: unknown }).inputSchema),
     }))
 
     executableConfig = {
@@ -439,6 +457,18 @@ export async function serveCommand(args: string[]): Promise<void> {
     console.log(`  Install env: ${installConfig?.env ? Object.keys(installConfig.env).length : 0} variables`)
   }
 
+  // Load install handler if available
+  let installHandler: InstallHandler | undefined
+  try {
+    const handler = await loadInstallHandler()
+    if (handler) {
+      installHandler = handler as InstallHandler
+      console.log(`\n✓ Loaded install handler`)
+    }
+  } catch (error) {
+    console.warn(`Could not load install handler: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
   // Create server
   const server = createSkedyulServer(
     {
@@ -448,6 +478,7 @@ export async function serveCommand(args: string[]): Promise<void> {
         version: serverVersion,
       },
       defaultPort: port,
+      hooks: installHandler ? { install: installHandler } : undefined,
     },
     registry,
   )
@@ -522,20 +553,55 @@ export async function serveCommand(args: string[]): Promise<void> {
     // Register endpoint with Skedyul
     console.log(`\nRegistering endpoint with Skedyul...`)
     try {
-      await callCliApi(
-        { serverUrl: linkConfig.serverUrl, token: credentials.token },
-        '/register-endpoint',
-        {
+      const registerUrl = `${linkConfig.serverUrl}/api/cli/register-endpoint`
+      const registerBody = {
           appVersionId: linkConfig.appVersionId,
           invokeEndpoint,
           config: executableConfig,
+      }
+
+      const registerResponse = await fetch(registerUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${credentials.token}`,
         },
-      )
+        body: JSON.stringify(registerBody),
+      })
+
+      if (!registerResponse.ok) {
+        const responseText = await registerResponse.text()
+        console.error(`Failed to register endpoint (HTTP ${registerResponse.status}):`)
+        // Show first 500 chars of response body for debugging
+        console.error(`  Response: ${responseText.substring(0, 500)}`)
+      } else {
       console.log(`  ✓ Registered as invokeEndpoint for ${linkConfig.appVersionHandle}`)
       console.log(`  ✓ Synced ${toolCount} tools to Skedyul`)
+      }
     } catch (error) {
       console.error(`Failed to register endpoint: ${error instanceof Error ? error.message : String(error)}`)
       // Continue anyway, might be a temporary issue
+    }
+
+    // Run deferred install workflow now that the server is up and endpoint is registered.
+    // The Temporal workflow calls the app's /install handler via HTTP, so the server
+    // must be reachable first.
+    if (envResult.needsInstall) {
+      console.log(`\nRunning installation workflow...`)
+      try {
+        await callCliApi(
+          { serverUrl: linkConfig.serverUrl, token: credentials.token },
+          '/install',
+          {
+            appVersionId: linkConfig.appVersionId,
+            env: envResult.env,
+          },
+        )
+        console.log(`  ✓ Installation completed`)
+      } catch (error) {
+        console.error(`  ⚠ Installation workflow failed: ${error instanceof Error ? error.message : String(error)}`)
+        console.error(`  (You can continue with local testing, but some features may not work)`)
+      }
     }
 
     // Start heartbeat (also syncs config on each heartbeat for hot-reload)
@@ -547,7 +613,7 @@ export async function serveCommand(args: string[]): Promise<void> {
         const freshTools = Object.entries(registry).map(([name, tool]) => ({
           name,
           description: (tool as { description?: string }).description,
-          inputSchema: (tool as { inputSchema?: unknown }).inputSchema,
+          inputSchema: safeInputSchemaToJson((tool as { inputSchema?: unknown }).inputSchema),
         }))
         const freshConfig = {
           name: freshAppConfig?.name,

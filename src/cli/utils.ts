@@ -128,7 +128,7 @@ export function loadEnvFile(filePath: string): Record<string, string> {
 /**
  * Load a TypeScript file using tsx's require hook
  */
-async function loadTypeScriptFile(absolutePath: string): Promise<unknown> {
+export async function loadTypeScriptFile(absolutePath: string): Promise<unknown> {
   // First, try to find a compiled version
   const altPaths = [
     absolutePath.replace('/src/', '/dist/').replace('.ts', '.js'),
