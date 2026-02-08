@@ -298,13 +298,17 @@ async function handleCoreMethod(
 }
 
 function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
-  return Object.values(registry).map((tool) => ({
-    name: tool.name,
-    displayName: tool.label || tool.name,
-    description: tool.description,
-    inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
-    outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
-  }))
+  return Object.values(registry).map((tool) => {
+    const timeout = typeof tool.timeout === 'number' && tool.timeout > 0 ? tool.timeout : 10000
+    return {
+      name: tool.name,
+      displayName: tool.label || tool.name,
+      description: tool.description,
+      inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
+      outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
+      timeout, // Default to 10 seconds
+    }
+  })
 }
 
 function createRequestState(
@@ -1135,8 +1139,12 @@ function createDedicatedServerInstance(
         }
 
         try {
+          const installHook = config.hooks!.install!
+          const installHandler: InstallHandler = typeof installHook === 'function' 
+            ? installHook 
+            : installHook.handler
           const result = await runWithConfig(installRequestConfig, async () => {
-            return await config.hooks!.install!(installContext)
+            return await installHandler(installContext)
           })
           sendJSON(res, 200, {
             env: result.env ?? {},
@@ -1208,8 +1216,12 @@ function createDedicatedServerInstance(
         }
 
         try {
+          const provisionHook = config.hooks!.provision!
+          const provisionHandler: ProvisionHandler = typeof provisionHook === 'function' 
+            ? provisionHook 
+            : (provisionHook as { handler: ProvisionHandler }).handler
           const result = await runWithConfig(provisionRequestConfig, async () => {
-            return await config.hooks!.provision!(provisionContext)
+            return await provisionHandler(provisionContext)
           })
           sendJSON(res, 200, result)
         } catch (err) {
@@ -1816,8 +1828,12 @@ function createServerlessInstance(
           }
 
           try {
+            const installHook = config.hooks!.install!
+            const installHandler: InstallHandler = typeof installHook === 'function' 
+              ? installHook 
+              : installHook.handler
             const result = await runWithConfig(installRequestConfig, async () => {
-              return await config.hooks!.install!(installContext)
+              return await installHandler(installContext)
             })
             return createResponse(
               200,

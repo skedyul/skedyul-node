@@ -195,6 +195,8 @@ export interface ToolDefinition<
   inputSchema: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
+  /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
+  timeout?: number
   [key: string]: unknown
 }
 
@@ -218,6 +220,8 @@ export interface ToolMetadata {
   description: string
   inputSchema?: Record<string, unknown>
   outputSchema?: Record<string, unknown>
+  /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
+  timeout?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -254,9 +258,21 @@ export interface CorsOptions {
  */
 export interface ServerHooks {
   /** Called during app installation to validate/normalize env and perform setup */
-  install?: InstallHandler
+  install?:
+    | InstallHandler
+    | {
+        handler: InstallHandler
+        /** Timeout in milliseconds. Defaults to 60000 (1 minute) if not specified. */
+        timeout?: number
+      }
   /** Called after app version provisioning to set up version-level resources */
-  provision?: ProvisionHandler
+  provision?:
+    | ProvisionHandler
+    | {
+        handler: ProvisionHandler
+        /** Timeout in milliseconds. Defaults to 300000 (5 minutes) if not specified. */
+        timeout?: number
+      }
 }
 
 export interface SkedyulServerConfig {
