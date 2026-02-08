@@ -1321,6 +1321,17 @@ function createDedicatedServerInstance(
         try {
           const body = await parseJSONBody(req) as { jsonrpc?: string; id?: unknown; method?: string }
 
+          // Handle tools/list directly to include custom metadata (timeout, displayName, outputSchema)
+          // The MCP SDK only returns standard fields, so we intercept and return the full metadata
+          if (body?.method === 'tools/list') {
+            sendJSON(res, 200, {
+              jsonrpc: '2.0',
+              id: body.id ?? null,
+              result: { tools },
+            })
+            return
+          }
+
           // Handle webhooks/list before passing to MCP SDK transport
           if (body?.method === 'webhooks/list') {
             const webhooks = webhookRegistry
@@ -1339,7 +1350,7 @@ function createDedicatedServerInstance(
             return
           }
 
-          // Pass to MCP SDK transport for standard MCP methods
+          // Pass to MCP SDK transport for standard MCP methods (tools/call, etc.)
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
             enableJsonResponse: true,
