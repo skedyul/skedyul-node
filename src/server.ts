@@ -14,6 +14,9 @@ import type {
   InstallHandler,
   InstallHandlerContext,
   InstallHandlerResult,
+  OAuthCallbackHandler,
+  OAuthCallbackContext,
+  OAuthCallbackResult,
   ProvisionHandler,
   ProvisionHandlerContext,
   ProvisionHandlerResult,
@@ -522,6 +525,15 @@ function sendJSON(
 ): void {
   res.writeHead(statusCode, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(data))
+}
+
+function sendHTML(
+  res: http.ServerResponse,
+  statusCode: number,
+  html: string,
+): void {
+  res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' })
+  res.end(html)
 }
 
 function getDefaultHeaders(options?: CorsOptions): Record<string, string> {
@@ -1168,6 +1180,95 @@ function createDedicatedServerInstance(
               },
             })
           }
+        }
+        return
+      }
+
+      // Handle /oauth_callback endpoint for OAuth callbacks
+      if (pathname === '/oauth_callback' && req.method === 'GET') {
+        if (!config.hooks?.oauth_callback) {
+          sendHTML(res, 404, '<html><body><h1>OAuth callback handler not configured</h1></body></html>')
+          return
+        }
+
+        // Parse query parameters
+        const url = new URL(req.url || '', `http://${req.headers.host}`)
+        const query: Record<string, string> = {}
+        url.searchParams.forEach((value, key) => {
+          query[key] = value
+        })
+
+        // Decode state parameter (contains appInstallationId, workplace, app info)
+        let stateData: {
+          appInstallationId?: string
+          workplace?: { id: string; subdomain: string }
+          app?: { id: string; versionId: string }
+        } = {}
+        
+        if (query.state) {
+          try {
+            stateData = JSON.parse(Buffer.from(query.state, 'base64').toString('utf-8'))
+          } catch {
+            sendHTML(res, 400, '<html><body><h1>Invalid state parameter</h1></body></html>')
+            return
+          }
+        }
+
+        if (!stateData.appInstallationId || !stateData.workplace || !stateData.app) {
+          sendHTML(res, 400, '<html><body><h1>Missing required state data</h1></body></html>')
+          return
+        }
+
+        // Get current env vars from request (if any)
+        // For OAuth callbacks, we might not have env vars yet, so use empty object
+        const env = {}
+
+        const oauthCallbackContext: OAuthCallbackContext = {
+          query,
+          env,
+          workplace: stateData.workplace,
+          appInstallationId: stateData.appInstallationId,
+          app: stateData.app,
+        }
+
+        // Build request-scoped config for SDK access
+        // Use env from process or request if available
+        const oauthCallbackRequestConfig = {
+          baseUrl: process.env.SKEDYUL_API_URL ?? '',
+          apiToken: process.env.SKEDYUL_API_TOKEN ?? '',
+        }
+
+        try {
+          const oauthCallbackHook = config.hooks!.oauth_callback!
+          const oauthCallbackHandler: OAuthCallbackHandler = typeof oauthCallbackHook === 'function'
+            ? oauthCallbackHook
+            : oauthCallbackHook.handler
+          const result = await runWithConfig(oauthCallbackRequestConfig, async () => {
+            return await oauthCallbackHandler(oauthCallbackContext)
+          })
+
+          // Return custom HTML if provided, otherwise default success page
+          const html = result.html ?? `
+            <html>
+              <body style="font-family: system-ui; padding: 40px; text-align: center;">
+                <h1 style="color: #38a169;">✓ Authorization Successful</h1>
+                <p>You can close this window and return to the app.</p>
+              </body>
+            </html>
+          `
+          sendHTML(res, 200, html)
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err ?? 'Unknown error')
+          const errorHtml = `
+            <html>
+              <body style="font-family: system-ui; padding: 40px; text-align: center;">
+                <h1 style="color: #e53e3e;">Authorization Failed</h1>
+                <p>${errorMessage}</p>
+                <p>You can close this window.</p>
+              </body>
+            </html>
+          `
+          sendHTML(res, 500, errorHtml)
         }
         return
       }
@@ -1875,6 +1976,112 @@ function createServerlessInstance(
                 },
               },
               headers,
+            )
+          }
+        }
+
+        // Handle /oauth_callback endpoint for OAuth callbacks
+        if (path === '/oauth_callback' && method === 'GET') {
+          if (!config.hooks?.oauth_callback) {
+            return createResponse(
+              404,
+              { error: 'OAuth callback handler not configured' },
+              { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+            )
+          }
+
+          // Parse query parameters from event
+          const query: Record<string, string> = {}
+          if (event.queryStringParameters) {
+            Object.entries(event.queryStringParameters).forEach(([key, value]) => {
+              if (value) query[key] = value
+            })
+          }
+
+          // Decode state parameter (contains appInstallationId, workplace, app info)
+          let stateData: {
+            appInstallationId?: string
+            workplace?: { id: string; subdomain: string }
+            app?: { id: string; versionId: string }
+          } = {}
+          
+          if (query.state) {
+            try {
+              stateData = JSON.parse(Buffer.from(query.state, 'base64').toString('utf-8'))
+            } catch {
+              return createResponse(
+                400,
+                { error: 'Invalid state parameter' },
+                { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+              )
+            }
+          }
+
+          if (!stateData.appInstallationId || !stateData.workplace || !stateData.app) {
+            return createResponse(
+              400,
+              { error: 'Missing required state data' },
+              { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+            )
+          }
+
+          // Get current env vars from request (if any)
+          // For OAuth callbacks, we might not have env vars yet, so use empty object
+          const env = {}
+
+          const oauthCallbackContext: OAuthCallbackContext = {
+            query,
+            env,
+            workplace: stateData.workplace,
+            appInstallationId: stateData.appInstallationId,
+            app: stateData.app,
+          }
+
+          // Build request-scoped config for SDK access
+          // Use env from process or request if available
+          const oauthCallbackRequestConfig = {
+            baseUrl: process.env.SKEDYUL_API_URL ?? '',
+            apiToken: process.env.SKEDYUL_API_TOKEN ?? '',
+          }
+
+          try {
+            const oauthCallbackHook = config.hooks!.oauth_callback!
+            const oauthCallbackHandler: OAuthCallbackHandler = typeof oauthCallbackHook === 'function'
+              ? oauthCallbackHook
+              : oauthCallbackHook.handler
+            const result = await runWithConfig(oauthCallbackRequestConfig, async () => {
+              return await oauthCallbackHandler(oauthCallbackContext)
+            })
+
+            // Return custom HTML if provided, otherwise default success page
+            const html = result.html ?? `
+              <html>
+                <body style="font-family: system-ui; padding: 40px; text-align: center;">
+                  <h1 style="color: #38a169;">✓ Authorization Successful</h1>
+                  <p>You can close this window and return to the app.</p>
+                </body>
+              </html>
+            `
+            return createResponse(
+              200,
+              html,
+              { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+            )
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err ?? 'Unknown error')
+            const errorHtml = `
+              <html>
+                <body style="font-family: system-ui; padding: 40px; text-align: center;">
+                  <h1 style="color: #e53e3e;">Authorization Failed</h1>
+                  <p>${errorMessage}</p>
+                  <p>You can close this window.</p>
+                </body>
+              </html>
+            `
+            return createResponse(
+              500,
+              errorHtml,
+              { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
             )
           }
         }

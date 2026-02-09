@@ -273,6 +273,14 @@ export interface ServerHooks {
         /** Timeout in milliseconds. Defaults to 300000 (5 minutes) if not specified. */
         timeout?: number
       }
+  /** Called when OAuth provider redirects back with authorization code */
+  oauth_callback?:
+    | OAuthCallbackHandler
+    | {
+        handler: OAuthCallbackHandler
+        /** Timeout in milliseconds. Defaults to 60000 (1 minute) if not specified. */
+        timeout?: number
+      }
 }
 
 export interface SkedyulServerConfig {
@@ -306,6 +314,27 @@ export interface InstallHandlerResult {
 export type InstallHandler = (
   ctx: InstallHandlerContext,
 ) => Promise<InstallHandlerResult>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OAuth Callback Handler Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface OAuthCallbackContext {
+  query: Record<string, string>      // URL query params (code, state, error)
+  env: Record<string, string>        // Current installation env vars
+  workplace: { id: string; subdomain: string }
+  appInstallationId: string
+  app: { id: string; versionId: string }
+}
+
+export interface OAuthCallbackResult {
+  env?: Record<string, string>       // Env vars to persist (e.g., access_token)
+  html?: string                      // Custom HTML response for the browser redirect
+}
+
+export type OAuthCallbackHandler = (
+  ctx: OAuthCallbackContext,
+) => Promise<OAuthCallbackResult>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provision Handler Types
