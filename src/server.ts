@@ -1098,93 +1098,7 @@ function createDedicatedServerInstance(
         return
       }
 
-      // Handle /install endpoint for install handlers
-      if (pathname === '/install' && req.method === 'POST') {
-        if (!config.hooks?.install) {
-          sendJSON(res, 404, { error: 'Install handler not configured' })
-          return
-        }
-
-        let installBody: {
-          env?: Record<string, string>
-          context?: {
-            app: { id: string; versionId: string }
-            appInstallationId: string
-            workplace: { id: string; subdomain: string }
-          }
-        }
-
-        try {
-          installBody = (await parseJSONBody(req)) as typeof installBody
-        } catch {
-          sendJSON(res, 400, {
-            error: { code: -32700, message: 'Parse error' },
-          })
-          return
-        }
-
-        if (!installBody.context?.appInstallationId || !installBody.context?.workplace) {
-          sendJSON(res, 400, {
-            error: { code: -32602, message: 'Missing context (appInstallationId and workplace required)' },
-          })
-          return
-        }
-
-        const installContext: InstallHandlerContext = {
-          env: installBody.env ?? {},
-          workplace: installBody.context.workplace,
-          appInstallationId: installBody.context.appInstallationId,
-          app: installBody.context.app,
-        }
-
-        // Build request-scoped config for SDK access
-        // Use env from request body (contains generated token from workflow)
-        const installRequestConfig = {
-          baseUrl:
-            installBody.env?.SKEDYUL_API_URL ??
-            process.env.SKEDYUL_API_URL ??
-            '',
-          apiToken:
-            installBody.env?.SKEDYUL_API_TOKEN ??
-            process.env.SKEDYUL_API_TOKEN ??
-            '',
-        }
-
-        try {
-          const installHook = config.hooks!.install!
-          const installHandler: InstallHandler = typeof installHook === 'function' 
-            ? installHook 
-            : installHook.handler
-          const result = await runWithConfig(installRequestConfig, async () => {
-            return await installHandler(installContext)
-          })
-          sendJSON(res, 200, {
-            env: result.env ?? {},
-            redirect: result.redirect,
-          })
-        } catch (err) {
-          // Check for typed install errors
-          if (err instanceof InstallError) {
-            sendJSON(res, 400, {
-              error: {
-                code: err.code,
-                message: err.message,
-                field: err.field,
-              },
-            })
-          } else {
-            sendJSON(res, 500, {
-              error: {
-                code: -32603,
-                message: err instanceof Error ? err.message : String(err ?? ''),
-              },
-            })
-          }
-        }
-        return
-      }
-
-      // Handle /oauth_callback endpoint for OAuth callbacks
+      // Handle /oauth_callback endpoint for OAuth callbacks (called by platform route)
       if (pathname === '/oauth_callback' && req.method === 'GET') {
         if (!config.hooks?.oauth_callback) {
           sendHTML(res, 404, '<html><body><h1>OAuth callback handler not configured</h1></body></html>')
@@ -1272,6 +1186,93 @@ function createDedicatedServerInstance(
         }
         return
       }
+
+      // Handle /install endpoint for install handlers
+      if (pathname === '/install' && req.method === 'POST') {
+        if (!config.hooks?.install) {
+          sendJSON(res, 404, { error: 'Install handler not configured' })
+          return
+        }
+
+        let installBody: {
+          env?: Record<string, string>
+          context?: {
+            app: { id: string; versionId: string }
+            appInstallationId: string
+            workplace: { id: string; subdomain: string }
+          }
+        }
+
+        try {
+          installBody = (await parseJSONBody(req)) as typeof installBody
+        } catch {
+          sendJSON(res, 400, {
+            error: { code: -32700, message: 'Parse error' },
+          })
+          return
+        }
+
+        if (!installBody.context?.appInstallationId || !installBody.context?.workplace) {
+          sendJSON(res, 400, {
+            error: { code: -32602, message: 'Missing context (appInstallationId and workplace required)' },
+          })
+          return
+        }
+
+        const installContext: InstallHandlerContext = {
+          env: installBody.env ?? {},
+          workplace: installBody.context.workplace,
+          appInstallationId: installBody.context.appInstallationId,
+          app: installBody.context.app,
+        }
+
+        // Build request-scoped config for SDK access
+        // Use env from request body (contains generated token from workflow)
+        const installRequestConfig = {
+          baseUrl:
+            installBody.env?.SKEDYUL_API_URL ??
+            process.env.SKEDYUL_API_URL ??
+            '',
+          apiToken:
+            installBody.env?.SKEDYUL_API_TOKEN ??
+            process.env.SKEDYUL_API_TOKEN ??
+            '',
+        }
+
+        try {
+          const installHook = config.hooks!.install!
+          const installHandler: InstallHandler = typeof installHook === 'function' 
+            ? installHook 
+            : installHook.handler
+          const result = await runWithConfig(installRequestConfig, async () => {
+            return await installHandler(installContext)
+          })
+          sendJSON(res, 200, {
+            env: result.env ?? {},
+            redirect: result.redirect,
+          })
+        } catch (err) {
+          // Check for typed install errors
+          if (err instanceof InstallError) {
+            sendJSON(res, 400, {
+              error: {
+                code: err.code,
+                message: err.message,
+                field: err.field,
+              },
+            })
+          } else {
+            sendJSON(res, 500, {
+              error: {
+                code: -32603,
+                message: err instanceof Error ? err.message : String(err ?? ''),
+              },
+            })
+          }
+        }
+        return
+      }
+
 
       // Handle /provision endpoint for provision handlers
       if (pathname === '/provision' && req.method === 'POST') {
@@ -1980,7 +1981,7 @@ function createServerlessInstance(
           }
         }
 
-        // Handle /oauth_callback endpoint for OAuth callbacks
+        // Handle /oauth_callback endpoint for OAuth callbacks (called by platform route)
         if (path === '/oauth_callback' && method === 'GET') {
           if (!config.hooks?.oauth_callback) {
             return createResponse(

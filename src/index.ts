@@ -70,6 +70,11 @@ export type {
   InstallHandlerContext,
   InstallHandlerResult,
   InstallHandler,
+  InstallHandlerResponseOAuth,
+  InstallHandlerResponseStandard,
+  HasOAuthCallback,
+  ServerHooksWithOAuth,
+  ServerHooksWithoutOAuth,
   // Provision handler types
   ProvisionHandlerContext,
   ProvisionHandlerResult,
