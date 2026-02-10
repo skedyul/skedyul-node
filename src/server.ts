@@ -873,25 +873,44 @@ export function createSkedyulServer(
 function parseHandlerEnvelope(
   parsedBody: unknown,
 ): { env: Record<string, string>; request: HandlerRawRequest; context?: unknown } | null {
-  const isEnvelope =
-    typeof parsedBody === 'object' &&
-    parsedBody !== null &&
-    'env' in parsedBody &&
-    'request' in parsedBody
-
-  if (!isEnvelope) {
+  // Check if parsedBody is an object with env and request properties
+  if (
+    typeof parsedBody !== 'object' ||
+    parsedBody === null ||
+    Array.isArray(parsedBody) ||
+    !('env' in parsedBody) ||
+    !('request' in parsedBody)
+  ) {
     return null
   }
 
   const envelope = parsedBody as {
-    env: Record<string, string>
-    request: HandlerRawRequest
+    env?: unknown
+    request?: unknown
     context?: unknown
   }
 
+  // Validate env is an object (not null, not array)
+  if (
+    typeof envelope.env !== 'object' ||
+    envelope.env === null ||
+    Array.isArray(envelope.env)
+  ) {
+    return null
+  }
+
+  // Validate request is an object (structure validation happens in buildRequestFromRaw)
+  if (
+    typeof envelope.request !== 'object' ||
+    envelope.request === null ||
+    Array.isArray(envelope.request)
+  ) {
+    return null
+  }
+
   return {
-    env: envelope.env ?? {},
-    request: envelope.request,
+    env: envelope.env as Record<string, string>,
+    request: envelope.request as HandlerRawRequest,
     context: envelope.context,
   }
 }
