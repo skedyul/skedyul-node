@@ -371,16 +371,12 @@ export type InstallHandler<Hooks extends ServerHooks = ServerHooks> = (
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface OAuthCallbackContext {
-  query: Record<string, string>      // URL query params (code, state, error)
-  env: Record<string, string>        // Current installation env vars
-  workplace: { id: string; subdomain: string }
-  appInstallationId: string
-  app: { id: string; versionId: string; handle: string; versionHandle: string }
+  query: Record<string, string>      // Raw URL query params from OAuth provider
 }
 
 export interface OAuthCallbackResult {
   env?: Record<string, string>       // Env vars to persist (e.g., access_token)
-  html?: string                      // Custom HTML response for the browser redirect
+  appInstallationId?: string         // App tells platform which installation to complete
 }
 
 export type OAuthCallbackHandler = (
