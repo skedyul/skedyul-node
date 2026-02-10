@@ -382,7 +382,8 @@ export type InstallHandler<Hooks extends ServerHooks = ServerHooks> = (
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface OAuthCallbackContext {
-  query: Record<string, string>      // Raw URL query params from OAuth provider
+  /** Full HTTP request from the OAuth provider */
+  request: WebhookRequest  // Reuse the existing rich request type
 }
 
 export interface OAuthCallbackResult {
@@ -451,6 +452,20 @@ export type SkedyulServerInstance = DedicatedServerInstance | ServerlessServerIn
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook Types
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Raw HTTP request shape sent over the wire in handler envelopes.
+ * This is the wire format used by both webhooks and OAuth callbacks.
+ * It gets converted to the rich WebhookRequest type at parse time.
+ */
+export interface HandlerRawRequest {
+  method: string
+  url: string
+  path: string
+  headers: Record<string, string>
+  query: Record<string, string>
+  body: string  // Raw body as string
+}
 
 /** Raw HTTP request received by webhooks */
 export interface WebhookRequest {

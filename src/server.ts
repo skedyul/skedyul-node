@@ -10,6 +10,7 @@ import type {
   BillingInfo,
   CorsOptions,
   DedicatedServerInstance,
+  HandlerRawRequest,
   HealthStatus,
   InstallHandler,
   InstallHandlerContext,
@@ -860,6 +861,83 @@ export function createSkedyulServer(
   return createServerlessInstance(config, tools, callTool, state, mcpServer, registry, webhookRegistry)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared Handler Helpers (used by both webhooks and OAuth callbacks)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parses a handler envelope from the request body.
+ * Detects envelope format: { env: {...}, request: {...}, context?: {...} }
+ * Returns the extracted env and request, or null if not an envelope.
+ */
+function parseHandlerEnvelope(
+  parsedBody: unknown,
+): { env: Record<string, string>; request: HandlerRawRequest; context?: unknown } | null {
+  const isEnvelope =
+    typeof parsedBody === 'object' &&
+    parsedBody !== null &&
+    'env' in parsedBody &&
+    'request' in parsedBody
+
+  if (!isEnvelope) {
+    return null
+  }
+
+  const envelope = parsedBody as {
+    env: Record<string, string>
+    request: HandlerRawRequest
+    context?: unknown
+  }
+
+  return {
+    env: envelope.env ?? {},
+    request: envelope.request,
+    context: envelope.context,
+  }
+}
+
+/**
+ * Converts a raw HandlerRawRequest (wire format) to a rich WebhookRequest.
+ * Parses JSON body if content-type is application/json, creates Buffer rawBody.
+ */
+function buildRequestFromRaw(raw: HandlerRawRequest): WebhookRequest {
+  // Parse the original request body
+  let parsedBody: unknown = raw.body
+  const contentType = raw.headers['content-type'] ?? ''
+  if (contentType.includes('application/json')) {
+    try {
+      parsedBody = raw.body ? JSON.parse(raw.body) : {}
+    } catch {
+      // Keep as string if JSON parsing fails
+      parsedBody = raw.body
+    }
+  }
+
+  return {
+    method: raw.method,
+    url: raw.url,
+    path: raw.path,
+    headers: raw.headers as Record<string, string | string[] | undefined>,
+    query: raw.query,
+    body: parsedBody,
+    rawBody: raw.body ? Buffer.from(raw.body, 'utf-8') : undefined,
+  }
+}
+
+/**
+ * Builds request-scoped config by merging env from envelope with process.env fallbacks.
+ * Used for SKEDYUL_API_TOKEN and SKEDYUL_API_URL overrides.
+ */
+function buildRequestScopedConfig(env: Record<string, string>): {
+  baseUrl: string
+  apiToken: string
+} {
+  return {
+    baseUrl: env.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+    apiToken: env.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+  }
+}
+
 function createDedicatedServerInstance(
   config: SkedyulServerConfig,
   tools: ToolMetadata[],
@@ -928,73 +1006,38 @@ function createDedicatedServerInstance(
 
         // Check if this is an envelope format from the platform
         // Envelope format: { env: {...}, request: {...}, context: {...} }
-        const isEnvelope = (
-          typeof parsedBody === 'object' &&
-          parsedBody !== null &&
-          'env' in parsedBody &&
-          'request' in parsedBody &&
-          'context' in parsedBody
-        )
+        const envelope = parseHandlerEnvelope(parsedBody)
 
         let webhookRequest: WebhookRequest
         let webhookContext: WebhookContext
         let requestEnv: Record<string, string> = {}
 
-        if (isEnvelope) {
-          // Platform envelope format - extract env, request, and context
-          const envelope = parsedBody as {
-            env: Record<string, string>
-            request: {
-              method: string
-              url: string
-              path: string
-              headers: Record<string, string>
-              query: Record<string, string>
-              body: string
-            }
-            context: {
-              app: { id: string; versionId: string }
-              appInstallationId: string | null
-              workplace: { id: string; subdomain: string } | null
-              registration: Record<string, unknown> | null
-            }
+        if (envelope && 'context' in envelope && envelope.context) {
+          // Platform envelope format - use shared helpers
+          const context = envelope.context as {
+            app: { id: string; versionId: string }
+            appInstallationId: string | null
+            workplace: { id: string; subdomain: string } | null
+            registration: Record<string, unknown> | null
           }
 
-          requestEnv = envelope.env ?? {}
+          requestEnv = envelope.env
 
-          // Parse the original request body
-          let originalParsedBody: unknown = envelope.request.body
-          const originalContentType = envelope.request.headers['content-type'] ?? ''
-          if (originalContentType.includes('application/json')) {
-            try {
-              originalParsedBody = envelope.request.body ? JSON.parse(envelope.request.body) : {}
-            } catch {
-              // Keep as string if JSON parsing fails
-            }
-          }
+          // Convert raw request to rich request using shared helper
+          webhookRequest = buildRequestFromRaw(envelope.request)
 
-          webhookRequest = {
-            method: envelope.request.method,
-            url: envelope.request.url,
-            path: envelope.request.path,
-            headers: envelope.request.headers as Record<string, string | string[] | undefined>,
-            query: envelope.request.query,
-            body: originalParsedBody,
-            rawBody: envelope.request.body ? Buffer.from(envelope.request.body, 'utf-8') : undefined,
-          }
-
-          const envVars = { ...process.env, ...requestEnv } as Record<string, string | undefined>
-          const app = envelope.context.app
+          const envVars = { ...process.env, ...envelope.env } as Record<string, string | undefined>
+          const app = context.app
 
           // Build webhook context based on whether we have installation context
-          if (envelope.context.appInstallationId && envelope.context.workplace) {
+          if (context.appInstallationId && context.workplace) {
             // Runtime webhook context
             webhookContext = {
               env: envVars,
               app,
-              appInstallationId: envelope.context.appInstallationId,
-              workplace: envelope.context.workplace,
-              registration: envelope.context.registration ?? {},
+              appInstallationId: context.appInstallationId,
+              workplace: context.workplace,
+              registration: context.registration ?? {},
             }
           } else {
             // Provision webhook context
@@ -1036,10 +1079,7 @@ function createDedicatedServerInstance(
 
         // Build request-scoped config for the skedyul client
         // This uses AsyncLocalStorage to override the global config (same pattern as tools)
-        const requestConfig = {
-          baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-          apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
-        }
+        const requestConfig = buildRequestScopedConfig(requestEnv)
 
         // Invoke the handler with request-scoped config
         let webhookResponse: WebhookResponse
@@ -1127,13 +1167,9 @@ function createDedicatedServerInstance(
           return
         }
 
-        let oauthCallbackBody: {
-          query?: Record<string, string>
-          env?: Record<string, string>
-        } = {}
-
+        let parsedBody: unknown
         try {
-          oauthCallbackBody = (await parseJSONBody(req)) as typeof oauthCallbackBody
+          parsedBody = await parseJSONBody(req)
         } catch {
           sendJSON(res, 400, {
             error: { code: -32700, message: 'Parse error' },
@@ -1141,22 +1177,23 @@ function createDedicatedServerInstance(
           return
         }
 
-        if (!oauthCallbackBody.query) {
+        // Parse envelope using shared helper
+        const envelope = parseHandlerEnvelope(parsedBody)
+        if (!envelope) {
           sendJSON(res, 400, {
-            error: { code: -32602, message: 'Missing query parameter' },
+            error: { code: -32602, message: 'Missing envelope format: expected { env, request }' },
           })
           return
         }
 
-        // Build request-scoped config for SDK access
-        // Prefer fresh token from request body (generated by workflow), fall back to baked-in env
-        const oauthCallbackRequestConfig = {
-          baseUrl: oauthCallbackBody.env?.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-          apiToken: oauthCallbackBody.env?.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
-        }
+        // Convert raw request to rich request using shared helper
+        const oauthRequest = buildRequestFromRaw(envelope.request)
+
+        // Build request-scoped config using shared helper
+        const oauthCallbackRequestConfig = buildRequestScopedConfig(envelope.env)
 
         const oauthCallbackContext: OAuthCallbackContext = {
-          query: oauthCallbackBody.query,
+          request: oauthRequest,
         }
 
         try {
@@ -1988,13 +2025,9 @@ function createServerlessInstance(
             )
           }
 
-          let oauthCallbackBody: {
-            query?: Record<string, string>
-            env?: Record<string, string>
-          } = {}
-
+          let parsedBody: unknown
           try {
-            oauthCallbackBody = event.body ? JSON.parse(event.body) : {}
+            parsedBody = event.body ? JSON.parse(event.body) : {}
           } catch {
             return createResponse(
               400,
@@ -2003,23 +2036,24 @@ function createServerlessInstance(
             )
           }
 
-          if (!oauthCallbackBody.query) {
+          // Parse envelope using shared helper
+          const envelope = parseHandlerEnvelope(parsedBody)
+          if (!envelope) {
             return createResponse(
               400,
-              { error: { code: -32602, message: 'Missing query parameter' } },
+              { error: { code: -32602, message: 'Missing envelope format: expected { env, request }' } },
               headers,
             )
           }
 
-          // Build request-scoped config for SDK access
-          // Prefer fresh token from request body (generated by workflow), fall back to baked-in env
-          const oauthCallbackRequestConfig = {
-            baseUrl: oauthCallbackBody.env?.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-            apiToken: oauthCallbackBody.env?.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
-          }
+          // Convert raw request to rich request using shared helper
+          const oauthRequest = buildRequestFromRaw(envelope.request)
+
+          // Build request-scoped config using shared helper
+          const oauthCallbackRequestConfig = buildRequestScopedConfig(envelope.env)
 
           const oauthCallbackContext: OAuthCallbackContext = {
-            query: oauthCallbackBody.query,
+            request: oauthRequest,
           }
 
           try {
