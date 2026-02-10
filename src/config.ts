@@ -636,7 +636,7 @@ export type PageContextFilters = Record<
   Record<string, string | number | boolean | (string | number | boolean)[]>
 >
 
-/** Single context item definition */
+/** Single context item definition (model-based) */
 export interface PageContextItemDefinition {
   /** Model handle to fetch data from */
   model: string
@@ -652,8 +652,14 @@ export interface PageContextItemDefinition {
   limit?: number
 }
 
-/** Context definition: variable name -> context item */
-export type PageContextDefinition = Record<string, PageContextItemDefinition>
+/** Single context item definition (tool-based) */
+export interface PageContextToolItemDefinition {
+  /** Tool name to invoke for fetching context data */
+  tool: string
+}
+
+/** Context definition: variable name -> context item (model or tool-based) */
+export type PageContextDefinition = Record<string, PageContextItemDefinition | PageContextToolItemDefinition>
 
 /** @deprecated Use PageContextDefinition instead */
 export interface PageInstanceFilter {

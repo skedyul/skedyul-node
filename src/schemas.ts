@@ -660,7 +660,7 @@ export const PageContextFiltersSchema = z.record(
   ),
 )
 
-/** Single context item definition */
+/** Single context item definition (model-based) */
 export const PageContextItemDefinitionSchema = z.object({
   /** Model handle to fetch data from */
   model: z.string(),
@@ -676,8 +676,17 @@ export const PageContextItemDefinitionSchema = z.object({
   limit: z.number().optional(),
 })
 
-/** Context definition: variable name -> context item */
-export const PageContextDefinitionSchema = z.record(z.string(), PageContextItemDefinitionSchema)
+/** Single context item definition (tool-based) */
+export const PageContextToolItemDefinitionSchema = z.object({
+  /** Tool name to invoke for fetching context data */
+  tool: z.string(),
+})
+
+/** Context definition: variable name -> context item (model or tool-based) */
+export const PageContextDefinitionSchema = z.record(
+  z.string(),
+  z.union([PageContextItemDefinitionSchema, PageContextToolItemDefinitionSchema])
+)
 
 /** @deprecated Use PageContextDefinitionSchema instead */
 export const PageInstanceFilterSchema = z.object({
@@ -857,6 +866,7 @@ export type PageBlockDefinition = z.infer<typeof PageBlockDefinitionSchema>
 export type PageContextMode = z.infer<typeof PageContextModeSchema>
 export type PageContextFilters = z.infer<typeof PageContextFiltersSchema>
 export type PageContextItemDefinition = z.infer<typeof PageContextItemDefinitionSchema>
+export type PageContextToolItemDefinition = z.infer<typeof PageContextToolItemDefinitionSchema>
 export type PageContextDefinition = z.infer<typeof PageContextDefinitionSchema>
 /** @deprecated Use PageContextDefinition instead */
 export type PageInstanceFilter = z.infer<typeof PageInstanceFilterSchema>
