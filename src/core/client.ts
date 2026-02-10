@@ -29,7 +29,7 @@ export interface InstancePagination {
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ClientConfig = {
-  /** Base URL for the Skedyul Core API (e.g., "https://app.skedyul.com/api") */
+  /** Base URL / origin for the Skedyul platform (e.g., "https://app.skedyul.com") */
   baseUrl: string
   /** API token (sk_app_* for App API or sk_wkp_* for Workplace API) */
   apiToken: string
@@ -93,7 +93,7 @@ function getEffectiveConfig(): ClientConfig {
  * import { configure } from 'skedyul';
  *
  * configure({
- *   baseUrl: 'https://app.skedyul.com/api',
+ *   baseUrl: 'https://app.skedyul.com',
  *   apiToken: 'sk_app_xxxxx',
  * });
  * ```
@@ -154,7 +154,7 @@ async function callCore<T>(
     Authorization: `Bearer ${apiToken}`,
   }
 
-  const fetchUrl = `${baseUrl}/core`
+  const fetchUrl = `${baseUrl}/api/core`
 
   const response = await fetch(fetchUrl, {
     method: 'POST',

@@ -72,7 +72,7 @@ Configure the client using environment variables or programmatically:
 
 ```bash
 # Base URL for the Skedyul Core API
-SKEDYUL_API_URL=https://app.skedyul.com/api
+SKEDYUL_API_URL=https://app.skedyul.com
 
 # Your API token (App API or Workplace API)
 SKEDYUL_API_TOKEN=sk_app_xxxxx
@@ -84,7 +84,7 @@ SKEDYUL_API_TOKEN=sk_app_xxxxx
 import { configure } from 'skedyul'
 
 configure({
-  baseUrl: 'https://app.skedyul.com/api',
+  baseUrl: 'https://app.skedyul.com',
   apiToken: 'sk_app_xxxxx',
 })
 ```
