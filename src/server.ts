@@ -35,7 +35,7 @@ import type {
 import type { WebhookResponse, ToolExecutionContext, ToolTrigger, WebhookRequest } from './types'
 import { coreApiService } from './core/service'
 import { runWithConfig } from './core/client'
-import { InstallError } from './errors'
+import { InstallError, AppAuthInvalidError } from './errors'
 import type { CommunicationChannel, Message, WebhookRequest as CoreWebhookRequest } from './core/types'
 
 type ToolCallArgs = {
@@ -476,6 +476,25 @@ function createCallToolHandler<T extends ToolRegistry>(
         effect: functionResult.effect,
       }
     } catch (error) {
+      // Check if it's an AppAuthInvalidError
+      if (error instanceof AppAuthInvalidError) {
+        return {
+          output: null,
+          billing: { credits: 0 },
+          meta: {
+            success: false,
+            message: error.message,
+            toolName,
+          },
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+          // Note: redirect URL will be added by workflow after detecting APP_AUTH_INVALID
+        }
+      }
+      
+      // Generic error handling for other errors
       const errorMessage = error instanceof Error ? error.message : String(error ?? '')
       return {
         output: null,
@@ -485,7 +504,10 @@ function createCallToolHandler<T extends ToolRegistry>(
           message: errorMessage,
           toolName,
         },
-        error: errorMessage,
+        error: {
+          code: 'TOOL_EXECUTION_ERROR',
+          message: errorMessage,
+        },
       }
     } finally {
       process.env = originalEnv

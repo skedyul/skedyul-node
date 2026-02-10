@@ -114,3 +114,31 @@ export class ConnectionError extends InstallError {
     this.name = 'ConnectionError'
   }
 }
+
+/**
+ * Error thrown when app authentication/authorization is invalid and needs re-validation.
+ * 
+ * Any app integration can throw this error to signal that the installation's
+ * auth status should be set to INVALID, triggering re-authorization flow.
+ * 
+ * The error code 'APP_AUTH_INVALID' is used by the workflow to detect and handle
+ * this error generically, regardless of which app throws it.
+ * 
+ * The redirect URL is constructed by the workflow after catching this error,
+ * so apps don't need to provide it.
+ * 
+ * @example
+ * ```typescript
+ * if (tokenExpired) {
+ *   throw new AppAuthInvalidError('Access token has expired. Please re-authorize the app.')
+ * }
+ * ```
+ */
+export class AppAuthInvalidError extends Error {
+  public readonly code = 'APP_AUTH_INVALID'
+  
+  constructor(message: string) {
+    super(message)
+    this.name = 'AppAuthInvalidError'
+  }
+}

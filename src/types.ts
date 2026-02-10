@@ -156,6 +156,15 @@ export interface ToolEffect {
   redirect?: string
 }
 
+/**
+ * Structured error information for tool execution results.
+ * Uses codes for serialization and workflow detection.
+ */
+export interface ToolError {
+  code: string
+  message: string
+}
+
 export interface ToolExecutionResult<Output = unknown> {
   /** Tool-specific output data. Null on error. */
   output: Output | null
@@ -165,6 +174,8 @@ export interface ToolExecutionResult<Output = unknown> {
   meta: ToolResponseMeta
   /** Optional client-side effects to execute */
   effect?: ToolEffect
+  /** Structured error information (null/undefined if no error) */
+  error?: ToolError | null
 }
 
 export interface ToolSchemaWithJson<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -421,7 +432,7 @@ export interface ToolCallResponse {
   output: unknown | null
   billing: BillingInfo
   meta: ToolResponseMeta
-  error?: string
+  error?: ToolError | null
   effect?: ToolEffect
 }
 

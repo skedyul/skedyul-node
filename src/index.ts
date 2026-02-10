@@ -12,6 +12,7 @@ export {
   AuthenticationError,
   InvalidConfigurationError,
   ConnectionError,
+  AppAuthInvalidError,
 } from './errors'
 export type { InstallErrorCode } from './errors'
 // Re-export zod so integrations use the same instance
