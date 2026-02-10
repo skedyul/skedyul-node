@@ -334,7 +334,7 @@ export interface InstallHandlerContext {
   env: Record<string, string>
   workplace: { id: string; subdomain: string }
   appInstallationId: string
-  app: { id: string; versionId: string }
+  app: { id: string; versionId: string; handle: string; versionHandle: string }
 }
 
 // Base response types for install handlers
@@ -375,7 +375,7 @@ export interface OAuthCallbackContext {
   env: Record<string, string>        // Current installation env vars
   workplace: { id: string; subdomain: string }
   appInstallationId: string
-  app: { id: string; versionId: string }
+  app: { id: string; versionId: string; handle: string; versionHandle: string }
 }
 
 export interface OAuthCallbackResult {

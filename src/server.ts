@@ -1116,7 +1116,7 @@ function createDedicatedServerInstance(
         let stateData: {
           appInstallationId?: string
           workplace?: { id: string; subdomain: string }
-          app?: { id: string; versionId: string }
+          app?: { id: string; versionId: string; handle: string; versionHandle: string }
         } = {}
         
         if (query.state) {
@@ -1197,7 +1197,7 @@ function createDedicatedServerInstance(
         let installBody: {
           env?: Record<string, string>
           context?: {
-            app: { id: string; versionId: string }
+            app: { id: string; versionId: string; handle: string; versionHandle: string }
             appInstallationId: string
             workplace: { id: string; subdomain: string }
           }
@@ -1896,7 +1896,7 @@ function createServerlessInstance(
           let installBody: {
             env?: Record<string, string>
             context?: {
-              app: { id: string; versionId: string }
+              app: { id: string; versionId: string; handle: string; versionHandle: string }
               appInstallationId: string
               workplace: { id: string; subdomain: string }
             }
@@ -2003,7 +2003,7 @@ function createServerlessInstance(
           let stateData: {
             appInstallationId?: string
             workplace?: { id: string; subdomain: string }
-            app?: { id: string; versionId: string }
+            app?: { id: string; versionId: string; handle: string; versionHandle: string }
           } = {}
           
           if (query.state) {
