@@ -1189,16 +1189,27 @@ function createDedicatedServerInstance(
         let parsedBody: unknown
         try {
           parsedBody = await parseJSONBody(req)
-        } catch {
+        } catch (err) {
+          console.error('[OAuth Callback] Failed to parse JSON body:', err)
           sendJSON(res, 400, {
             error: { code: -32700, message: 'Parse error' },
           })
           return
         }
 
+        // Debug: Log what we received
+        console.log('[OAuth Callback] Parsed body type:', typeof parsedBody)
+        console.log('[OAuth Callback] Parsed body is array:', Array.isArray(parsedBody))
+        console.log('[OAuth Callback] Parsed body has env:', parsedBody && typeof parsedBody === 'object' && 'env' in parsedBody)
+        console.log('[OAuth Callback] Parsed body has request:', parsedBody && typeof parsedBody === 'object' && 'request' in parsedBody)
+        if (parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)) {
+          console.log('[OAuth Callback] Parsed body keys:', Object.keys(parsedBody))
+        }
+
         // Parse envelope using shared helper
         const envelope = parseHandlerEnvelope(parsedBody)
         if (!envelope) {
+          console.error('[OAuth Callback] Failed to parse envelope. Body:', JSON.stringify(parsedBody, null, 2))
           sendJSON(res, 400, {
             error: { code: -32602, message: 'Missing envelope format: expected { env, request }' },
           })
@@ -2047,7 +2058,8 @@ function createServerlessInstance(
           let parsedBody: unknown
           try {
             parsedBody = event.body ? JSON.parse(event.body) : {}
-          } catch {
+          } catch (err) {
+            console.error('[OAuth Callback] Failed to parse JSON body:', err)
             return createResponse(
               400,
               { error: { code: -32700, message: 'Parse error' } },
@@ -2055,9 +2067,19 @@ function createServerlessInstance(
             )
           }
 
+          // Debug: Log what we received
+          console.log('[OAuth Callback] Parsed body type:', typeof parsedBody)
+          console.log('[OAuth Callback] Parsed body is array:', Array.isArray(parsedBody))
+          console.log('[OAuth Callback] Parsed body has env:', parsedBody && typeof parsedBody === 'object' && 'env' in parsedBody)
+          console.log('[OAuth Callback] Parsed body has request:', parsedBody && typeof parsedBody === 'object' && 'request' in parsedBody)
+          if (parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)) {
+            console.log('[OAuth Callback] Parsed body keys:', Object.keys(parsedBody))
+          }
+
           // Parse envelope using shared helper
           const envelope = parseHandlerEnvelope(parsedBody)
           if (!envelope) {
+            console.error('[OAuth Callback] Failed to parse envelope. Body:', JSON.stringify(parsedBody, null, 2))
             return createResponse(
               400,
               { error: { code: -32602, message: 'Missing envelope format: expected { env, request }' } },
