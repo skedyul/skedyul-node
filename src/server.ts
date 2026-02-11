@@ -432,6 +432,9 @@ function createCallToolHandler<T extends ToolRegistry>(
           executionContext = { trigger: 'form_submit', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, form }
         } else if (trigger === 'workflow') {
           executionContext = { trigger: 'workflow', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
+        } else if (trigger === 'page_context') {
+          // Page context trigger - similar to agent but for page context resolution
+          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
         } else {
           // Default to agent
           executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
@@ -811,7 +814,34 @@ export function createSkedyulServer(
         console.log('   Raw args:', JSON.stringify(rawArgs, null, 2))
         console.log('   Extracted context:', JSON.stringify(toolContext, null, 2))
 
-        const validatedInputs = inputZodSchema ? inputZodSchema.parse(toolInputs) : toolInputs
+        // Validate inputs if schema exists
+        let validatedInputs = toolInputs
+        if (inputZodSchema) {
+          try {
+            validatedInputs = inputZodSchema.parse(toolInputs) as Record<string, unknown>
+          } catch (error) {
+            console.error(
+              `[registerTool] Input validation failed for tool ${toolName}:`,
+              error,
+            )
+            // Return error response instead of throwing
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({
+                    error: `Input validation failed: ${error instanceof Error ? error.message : String(error)}`,
+                  }),
+                },
+              ],
+              structuredContent: {
+                error: `Input validation failed: ${error instanceof Error ? error.message : String(error)}`,
+              },
+              isError: true,
+              billing: { credits: 0 },
+            }
+          }
+        }
         const result = await callTool(toolKey, {
           inputs: validatedInputs,
           context: toolContext,

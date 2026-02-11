@@ -29,7 +29,7 @@ export interface RequestInfo {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Trigger types for tool execution */
-export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow'
+export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow' | 'page_context'
 
 /** Base context shared by all tool executions */
 interface BaseToolContext {
