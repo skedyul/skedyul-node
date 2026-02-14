@@ -1,7 +1,7 @@
 import { parseArgs } from '../utils'
 import { getLinkConfig, loadEnvFile, saveEnvFile } from '../utils/link'
 import { loadAppConfig, loadInstallConfig } from '../utils/config'
-import { prompt, confirm } from '../utils/prompt'
+import { prompt } from '../utils/prompt'
 
 function printHelp(): void {
   console.log(`
@@ -126,25 +126,6 @@ export async function installCommand(args: string[]): Promise<void> {
   saveEnvFile(workplaceSubdomain, newEnv)
 
   console.log(`\n✓ Saved to .skedyul/env/${workplaceSubdomain}.env`)
-
-  // Ask about validation
-  const skipValidation = flags['skip-validation'] === true
-  const hasOnInstall = installConfig?.onInstall
-
-  if (!skipValidation && hasOnInstall) {
-    const shouldValidate = await confirm({
-      message: '\nRun validation handler?',
-      default: true,
-    })
-
-    if (shouldValidate) {
-      console.log('\nValidating configuration...')
-      // TODO: Actually run the onInstall handler with the env vars
-      // This would require loading and executing the handler
-      // For now, just show a message
-      console.log('  (Validation not yet implemented in CLI)')
-    }
-  }
 
   console.log(`\nNext step:`)
   console.log(`  Run 'skedyul dev serve --workplace ${workplaceSubdomain}' to start testing`)

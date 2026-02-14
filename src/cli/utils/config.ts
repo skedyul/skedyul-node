@@ -16,8 +16,6 @@ export interface SkedyulAppConfig {
   tools?: unknown[]
   install?: {
     config?: unknown[]
-    onInstall?: unknown
-    onUninstall?: unknown
   }
 }
 
@@ -190,8 +188,6 @@ export interface InstallEnvField {
 
 export interface InstallConfigData {
   env?: Record<string, InstallEnvField>
-  onInstall?: string
-  onUninstall?: string
 }
 
 export async function loadInstallConfig(

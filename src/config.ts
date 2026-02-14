@@ -804,16 +804,11 @@ export type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Install configuration - defines per-install env vars and lifecycle hooks.
- * Tool names reference tools in the tool registry, enabling agent-invocation.
+ * Install configuration - defines per-install env vars.
  */
 export interface InstallConfig {
   /** Per-install environment variables (collected from user during install, passed at runtime) */
   env?: EnvSchema
-  /** Tool name to invoke when app is installed (for verification/setup) */
-  onInstall?: string
-  /** Tool name to invoke when app is uninstalled (for cleanup) */
-  onUninstall?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

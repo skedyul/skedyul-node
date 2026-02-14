@@ -30,6 +30,8 @@ import type {
   ToolRegistry,
   ToolSchema,
   ToolSchemaWithJson,
+  UninstallHandler,
+  UninstallHandlerContext,
   WebhookRegistry,
   WebhookContext,
 } from './types'
@@ -1367,6 +1369,83 @@ function createDedicatedServerInstance(
         return
       }
 
+      // Handle /uninstall endpoint for uninstall handlers
+      if (pathname === '/uninstall' && req.method === 'POST') {
+        if (!config.hooks?.uninstall) {
+          sendJSON(res, 404, { error: 'Uninstall handler not configured' })
+          return
+        }
+
+        let uninstallBody: {
+          env?: Record<string, string>
+          context?: {
+            app: { id: string; versionId: string; handle: string; versionHandle: string }
+            appInstallationId: string
+            workplace: { id: string; subdomain: string }
+          }
+        }
+
+        try {
+          uninstallBody = (await parseJSONBody(req)) as typeof uninstallBody
+        } catch {
+          sendJSON(res, 400, {
+            error: { code: -32700, message: 'Parse error' },
+          })
+          return
+        }
+
+        if (
+          !uninstallBody.context?.appInstallationId ||
+          !uninstallBody.context?.workplace ||
+          !uninstallBody.context?.app
+        ) {
+          sendJSON(res, 400, {
+            error: {
+              code: -32602,
+              message: 'Missing context (appInstallationId, workplace and app required)',
+            },
+          })
+          return
+        }
+
+        const uninstallContext: UninstallHandlerContext = {
+          env: uninstallBody.env ?? {},
+          workplace: uninstallBody.context.workplace,
+          appInstallationId: uninstallBody.context.appInstallationId,
+          app: uninstallBody.context.app,
+        }
+
+        const uninstallRequestConfig = {
+          baseUrl:
+            uninstallBody.env?.SKEDYUL_API_URL ??
+            process.env.SKEDYUL_API_URL ??
+            '',
+          apiToken:
+            uninstallBody.env?.SKEDYUL_API_TOKEN ??
+            process.env.SKEDYUL_API_TOKEN ??
+            '',
+        }
+
+        try {
+          const uninstallHook = config.hooks!.uninstall!
+          const uninstallHandlerFn: UninstallHandler =
+            typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
+          const result = await runWithConfig(uninstallRequestConfig, async () => {
+            return await uninstallHandlerFn(uninstallContext)
+          })
+          sendJSON(res, 200, {
+            cleanedWebhookIds: result.cleanedWebhookIds ?? [],
+          })
+        } catch (err) {
+          sendJSON(res, 500, {
+            error: {
+              code: -32603,
+              message: err instanceof Error ? err.message : String(err ?? ''),
+            },
+          })
+        }
+        return
+      }
 
       // Handle /provision endpoint for provision handlers
       if (pathname === '/provision' && req.method === 'POST') {
@@ -2062,6 +2141,92 @@ function createServerlessInstance(
                 headers,
               )
             }
+            return createResponse(
+              500,
+              {
+                error: {
+                  code: -32603,
+                  message: err instanceof Error ? err.message : String(err ?? ''),
+                },
+              },
+              headers,
+            )
+          }
+        }
+
+        // Handle /uninstall endpoint for uninstall handlers
+        if (path === '/uninstall' && method === 'POST') {
+          if (!config.hooks?.uninstall) {
+            return createResponse(404, { error: 'Uninstall handler not configured' }, headers)
+          }
+
+          let uninstallBody: {
+            env?: Record<string, string>
+            context?: {
+              app: { id: string; versionId: string; handle: string; versionHandle: string }
+              appInstallationId: string
+              workplace: { id: string; subdomain: string }
+            }
+          }
+
+          try {
+            uninstallBody = event.body ? JSON.parse(event.body) : {}
+          } catch {
+            return createResponse(
+              400,
+              { error: { code: -32700, message: 'Parse error' } },
+              headers,
+            )
+          }
+
+          if (
+            !uninstallBody.context?.appInstallationId ||
+            !uninstallBody.context?.workplace ||
+            !uninstallBody.context?.app
+          ) {
+            return createResponse(
+              400,
+              {
+                error: {
+                  code: -32602,
+                  message: 'Missing context (appInstallationId, workplace and app required)',
+                },
+              },
+              headers,
+            )
+          }
+
+          const uninstallContext: UninstallHandlerContext = {
+            env: uninstallBody.env ?? {},
+            workplace: uninstallBody.context.workplace,
+            appInstallationId: uninstallBody.context.appInstallationId,
+            app: uninstallBody.context.app,
+          }
+
+          const uninstallRequestConfig = {
+            baseUrl:
+              uninstallBody.env?.SKEDYUL_API_URL ??
+              process.env.SKEDYUL_API_URL ??
+              '',
+            apiToken:
+              uninstallBody.env?.SKEDYUL_API_TOKEN ??
+              process.env.SKEDYUL_API_TOKEN ??
+              '',
+          }
+
+          try {
+            const uninstallHook = config.hooks!.uninstall!
+            const uninstallHandlerFn: UninstallHandler =
+              typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
+            const result = await runWithConfig(uninstallRequestConfig, async () => {
+              return await uninstallHandlerFn(uninstallContext)
+            })
+            return createResponse(
+              200,
+              { cleanedWebhookIds: result.cleanedWebhookIds ?? [] },
+              headers,
+            )
+          } catch (err) {
             return createResponse(
               500,
               {
