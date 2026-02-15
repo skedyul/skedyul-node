@@ -1477,17 +1477,28 @@ function createDedicatedServerInstance(
           return
         }
 
+        // SECURITY: Merge process.env (baked-in secrets) with request env (API token).
+        // This ensures secrets like MAILGUN_API_KEY come from the container,
+        // while runtime values like SKEDYUL_API_TOKEN come from the request.
+        const mergedEnv: Record<string, string> = {}
+        for (const [key, value] of Object.entries(process.env)) {
+          if (value !== undefined) {
+            mergedEnv[key] = value
+          }
+        }
+        // Request env overrides process.env (e.g., for SKEDYUL_API_TOKEN)
+        Object.assign(mergedEnv, provisionBody.env ?? {})
+
         const provisionContext: ProvisionHandlerContext = {
-          env: provisionBody.env ?? {},
+          env: mergedEnv,
           app: provisionBody.context.app,
         }
 
         // Build request-scoped config for SDK access
-        // Use env from request body (passed during provisioning) with fallback to process.env
-        const requestEnv = provisionBody.env ?? {}
+        // Use merged env for consistency
         const provisionRequestConfig = {
-          baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-          apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+          baseUrl: mergedEnv.SKEDYUL_API_URL ?? '',
+          apiToken: mergedEnv.SKEDYUL_API_TOKEN ?? '',
         }
 
         try {
