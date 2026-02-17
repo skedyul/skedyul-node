@@ -4,7 +4,11 @@
     "rootDir": "tests",
     "outDir": "dist-tests",
     "noEmit": false,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "composite": false
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts"],
+  "references": [
+    { "path": "./tsconfig.json" }
+  ]
 }
