@@ -20,7 +20,7 @@
   "scripts": {
     "build": "tsc --build tsconfig.json && tsc --project tsconfig.tests.json && node -e \"require('fs').mkdirSync('dist',{recursive:true}); require('fs').writeFileSync('dist/.build-stamp', String(Date.now()))\"",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
-    "test": "npm run build && node --test dist-tests/server.test.js"
+    "test": "npm run build && node --test dist-tests/server.test.js dist-tests/cli.test.js"
   },
   "keywords": [
     "mcp",
