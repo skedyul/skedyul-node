@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { server } from '../src/index'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import type {
   DedicatedServerInstance,
   ServerlessServerInstance,
