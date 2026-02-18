@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsc --build tsconfig.json && node -e \"require('fs').mkdirSync('dist',{recursive:true}); require('fs').writeFileSync('dist/.build-stamp', String(Date.now()))\"",
+    "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
     "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js"
   },
