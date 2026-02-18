@@ -11,6 +11,7 @@ import type {
   ToolCallResponse,
   ToolMetadata,
   ToolRegistry,
+  ToolRegistryEntry,
   UninstallHandler,
   UninstallHandlerContext,
   WebhookRegistry,
@@ -352,7 +353,7 @@ export function createServerlessInstance(
 
             // Find tool by name
             let toolKey: string | null = null
-            let tool = null
+            let tool: ToolRegistryEntry | null = null
 
             for (const [key, t] of Object.entries(registry)) {
               if (t.name === toolName || key === toolName) {
@@ -718,7 +719,7 @@ export function createServerlessInstance(
 
               // Find tool by name (check both registry key and tool.name)
               let toolKey: string | null = null
-              let tool = null
+              let tool: ToolRegistryEntry | null = null
 
               for (const [key, t] of Object.entries(registry)) {
                 if (t.name === toolName || key === toolName) {

@@ -1,14 +1,17 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "tests",
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "rootDir": ".",
     "outDir": "dist-tests",
-    "noEmit": false,
-    "noImplicitAny": false,
-    "composite": false
+    "declaration": false,
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
   },
-  "include": ["tests/**/*.ts"],
-  "references": [
-    { "path": "./tsconfig.json" }
-  ]
+  "include": ["tests/**/*.ts", "src/**/*.ts"]
 }

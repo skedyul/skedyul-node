@@ -1,13 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { server } from '../dist/index.js'
+import { server } from '../src/index'
 import { z } from 'zod'
 import type {
   DedicatedServerInstance,
   ServerlessServerInstance,
   ToolRegistry,
   WebhookRegistry,
-} from '../dist/types'
+} from '../src/types'
 
 function createEchoRegistry() {
   const EchoInputSchema = z.object({
@@ -1457,7 +1457,7 @@ import {
   InvalidConfigurationError,
   ConnectionError,
   AppAuthInvalidError,
-} from '../dist/errors.js'
+} from '../src/errors'
 
 test('InstallError has correct properties', () => {
   const error = new InstallError('Custom message', 'INVALID_CONFIGURATION', 'fieldName')
@@ -1522,7 +1522,7 @@ import {
   parseNumberEnv,
   mergeRuntimeEnv,
   createResponse,
-} from '../dist/server/index.js'
+} from '../src/server/index'
 
 test('normalizeBilling returns default credits when undefined', () => {
   const result = normalizeBilling(undefined)

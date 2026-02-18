@@ -10,6 +10,7 @@ import {
 } from '../utils'
 import type {
   ToolRegistryEntry,
+  ToolRegistry,
   ToolExecutionContext,
   AgentToolContext,
   ToolExecutionResult,
@@ -219,7 +220,7 @@ export async function invokeCommand(args: string[]): Promise<void> {
   const estimateMode = Boolean(flags.estimate)
 
   // Load registry
-  let registry
+  let registry: ToolRegistry
   try {
     registry = await loadRegistry(registryPath)
   } catch (error) {

@@ -1,5 +1,6 @@
 import * as z from 'zod'
 import { parseArgs, loadRegistry, formatJson } from '../utils'
+import type { ToolRegistry } from '../../types'
 
 function printHelp(): void {
   console.log(`
@@ -73,7 +74,7 @@ export async function toolsCommand(args: string[]): Promise<void> {
   const verbose = Boolean(flags.verbose || flags.v)
 
   // Load registry
-  let registry
+  let registry: ToolRegistry
   try {
     registry = await loadRegistry(registryPath)
   } catch (error) {

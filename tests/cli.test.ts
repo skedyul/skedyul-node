@@ -10,12 +10,12 @@ import {
   parseEnvFlags,
   loadEnvFile,
   formatJson,
-} from '../dist/cli/utils.js'
+} from '../src/cli/utils'
 
 import {
   findConfigFile,
   findRegistryPath,
-} from '../dist/cli/utils/config.js'
+} from '../src/cli/utils/config'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // parseArgs Tests
