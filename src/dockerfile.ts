@@ -12,7 +12,7 @@
 export const DEFAULT_DOCKERFILE = `# =============================================================================
 # BUILDER STAGE - Common build for all targets
 # =============================================================================
-FROM node:22-alpine AS builder
+FROM public.ecr.aws/docker/library/node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -34,7 +34,7 @@ RUN pnpm install --no-frozen-lockfile && \\
 # =============================================================================
 # DEDICATED STAGE - For local Docker and ECS deployments (HTTP server)
 # =============================================================================
-FROM node:22-alpine AS dedicated
+FROM public.ecr.aws/docker/library/node:22-alpine AS dedicated
 
 WORKDIR /app
 
