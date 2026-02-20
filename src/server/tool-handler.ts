@@ -6,11 +6,13 @@ import type {
   ToolRegistry,
   ToolExecutionContext,
   ToolTrigger,
+  InvocationContext,
 } from '../types'
 import type { RequestState, ToolCallArgs } from './types'
 import { getJsonSchemaFromToolSchema, normalizeBilling } from './utils'
 import { runWithConfig } from '../core/client'
 import { AppAuthInvalidError } from '../errors'
+import { runWithLogContext } from './context-logger'
 
 /**
  * Builds tool metadata array from a tool registry
@@ -103,6 +105,9 @@ export function createCallToolHandler<T extends ToolRegistry>(
     const originalEnv = { ...process.env }
     Object.assign(process.env, requestEnv)
 
+    // Extract invocation context from args (passed from workflow)
+    const invocation = args.invocation as InvocationContext | undefined
+
     try {
       // Get tool inputs (clean, no context)
       const inputs = (args.inputs ?? {}) as Record<string, unknown>
@@ -126,6 +131,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
           app,
           env: process.env as Record<string, string | undefined>,
           mode: estimateMode ? 'estimate' : 'execute',
+          invocation,
         }
       } else {
         // Runtime context - has installation, workplace, request
@@ -137,21 +143,21 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
         if (trigger === 'field_change') {
           const field = rawContext.field as { handle: string; type: string; pageHandle: string; value: unknown; previousValue?: unknown }
-          executionContext = { trigger: 'field_change', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, field }
+          executionContext = { trigger: 'field_change', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, field, invocation }
         } else if (trigger === 'page_action') {
           const page = rawContext.page as { handle: string; values: Record<string, unknown> }
-          executionContext = { trigger: 'page_action', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, page }
+          executionContext = { trigger: 'page_action', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, page, invocation }
         } else if (trigger === 'form_submit') {
           const form = rawContext.form as { handle: string; values: Record<string, unknown> }
-          executionContext = { trigger: 'form_submit', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, form }
+          executionContext = { trigger: 'form_submit', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, form, invocation }
         } else if (trigger === 'workflow') {
-          executionContext = { trigger: 'workflow', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
+          executionContext = { trigger: 'workflow', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation }
         } else if (trigger === 'page_context') {
           // Page context trigger - similar to agent but for page context resolution
-          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
+          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation }
         } else {
           // Default to agent
-          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue }
+          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation }
         }
       }
 
@@ -163,8 +169,11 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
       // Call handler with two arguments: (input, context)
       // Wrap in runWithConfig for request-scoped SDK configuration
-      const functionResult = await runWithConfig(requestConfig, async () => {
-        return await fn(inputs as never, executionContext as never)
+      // Also wrap in runWithLogContext to inject invocation context into all logs
+      const functionResult = await runWithLogContext({ invocation }, async () => {
+        return await runWithConfig(requestConfig, async () => {
+          return await fn(inputs as never, executionContext as never)
+        })
       })
 
       const billing = normalizeBilling(functionResult.billing)

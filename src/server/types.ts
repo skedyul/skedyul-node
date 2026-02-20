@@ -1,4 +1,4 @@
-import type { HealthStatus } from '../types'
+import type { HealthStatus, InvocationContext } from '../types'
 
 /**
  * Arguments passed to tool call handlers
@@ -8,6 +8,7 @@ export type ToolCallArgs = {
   inputs?: Record<string, unknown>
   context?: Record<string, unknown>
   estimate?: boolean
+  invocation?: InvocationContext
 }
 
 /**

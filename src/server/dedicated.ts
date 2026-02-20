@@ -19,6 +19,7 @@ import type {
   WebhookContext,
   WebhookResponse,
   WebhookRequest,
+  InvocationContext,
 } from '../types'
 import type { WebhookRequest as CoreWebhookRequest } from '../core/types'
 import type { RequestState, CoreMethod } from './types'
@@ -28,6 +29,7 @@ import { InstallError } from '../errors'
 import { handleCoreMethod } from './core-api-handler'
 import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } from './handler-helpers'
 import { printStartupLog } from './startup-logger'
+import { runWithLogContext } from './context-logger'
 import {
   readRawRequestBody,
   parseJSONBody,
@@ -105,12 +107,13 @@ export function createDedicatedServerInstance(
         }
 
         // Check if this is an envelope format from the platform
-        // Envelope format: { env: {...}, request: {...}, context: {...} }
+        // Envelope format: { env: {...}, request: {...}, context: {...}, invocation?: {...} }
         const envelope = parseHandlerEnvelope(parsedBody)
 
         let webhookRequest: WebhookRequest
         let webhookContext: WebhookContext
         let requestEnv: Record<string, string> = {}
+        let invocation: InvocationContext | undefined
 
         if (envelope && 'context' in envelope && envelope.context) {
           // Platform envelope format - use shared helpers
@@ -122,6 +125,9 @@ export function createDedicatedServerInstance(
           }
 
           requestEnv = envelope.env
+          
+          // Extract invocation context from parsed body
+          invocation = (parsedBody as { invocation?: InvocationContext }).invocation
 
           // Convert raw request to rich request using shared helper
           webhookRequest = buildRequestFromRaw(envelope.request)
@@ -138,12 +144,14 @@ export function createDedicatedServerInstance(
               appInstallationId: context.appInstallationId,
               workplace: context.workplace,
               registration: context.registration ?? {},
+              invocation,
             }
           } else {
             // Provision webhook context
             webhookContext = {
               env: envVars,
               app,
+              invocation,
             }
           }
         } else {
@@ -181,11 +189,13 @@ export function createDedicatedServerInstance(
         // This uses AsyncLocalStorage to override the global config (same pattern as tools)
         const requestConfig = buildRequestScopedConfig(requestEnv)
 
-        // Invoke the handler with request-scoped config
+        // Invoke the handler with request-scoped config and log context
         let webhookResponse: WebhookResponse
         try {
-          webhookResponse = await runWithConfig(requestConfig, async () => {
-            return await webhookDef.handler(webhookRequest, webhookContext)
+          webhookResponse = await runWithLogContext({ invocation }, async () => {
+            return await runWithConfig(requestConfig, async () => {
+              return await webhookDef.handler(webhookRequest, webhookContext)
+            })
           })
         } catch (err) {
           console.error(`Webhook handler '${handle}' error:`, err)
@@ -288,6 +298,9 @@ export function createDedicatedServerInstance(
           return
         }
 
+        // Extract invocation context from envelope
+        const invocation = (parsedBody as { invocation?: InvocationContext }).invocation
+
         // Convert raw request to rich request using shared helper
         const oauthRequest = buildRequestFromRaw(envelope.request)
 
@@ -296,6 +309,7 @@ export function createDedicatedServerInstance(
 
         const oauthCallbackContext: OAuthCallbackContext = {
           request: oauthRequest,
+          invocation,
         }
 
         try {
@@ -303,8 +317,10 @@ export function createDedicatedServerInstance(
           const oauthCallbackHandler: OAuthCallbackHandler = typeof oauthCallbackHook === 'function'
             ? oauthCallbackHook
             : oauthCallbackHook.handler
-          const result = await runWithConfig(oauthCallbackRequestConfig, async () => {
-            return await oauthCallbackHandler(oauthCallbackContext)
+          const result = await runWithLogContext({ invocation }, async () => {
+            return await runWithConfig(oauthCallbackRequestConfig, async () => {
+              return await oauthCallbackHandler(oauthCallbackContext)
+            })
           })
 
           sendJSON(res, 200, {
@@ -332,6 +348,7 @@ export function createDedicatedServerInstance(
 
         let installBody: {
           env?: Record<string, string>
+          invocation?: InvocationContext
           context?: {
             app: { id: string; versionId: string; handle: string; versionHandle: string }
             appInstallationId: string
@@ -360,6 +377,7 @@ export function createDedicatedServerInstance(
           workplace: installBody.context.workplace,
           appInstallationId: installBody.context.appInstallationId,
           app: installBody.context.app,
+          invocation: installBody.invocation,
         }
 
         // Build request-scoped config for SDK access
@@ -380,8 +398,10 @@ export function createDedicatedServerInstance(
           const installHandler: InstallHandler = typeof installHook === 'function' 
             ? installHook 
             : installHook.handler
-          const result = await runWithConfig(installRequestConfig, async () => {
-            return await installHandler(installContext)
+          const result = await runWithLogContext({ invocation: installBody.invocation }, async () => {
+            return await runWithConfig(installRequestConfig, async () => {
+              return await installHandler(installContext)
+            })
           })
           sendJSON(res, 200, {
             env: result.env ?? {},
@@ -418,6 +438,7 @@ export function createDedicatedServerInstance(
 
         let uninstallBody: {
           env?: Record<string, string>
+          invocation?: InvocationContext
           context?: {
             app: { id: string; versionId: string; handle: string; versionHandle: string }
             appInstallationId: string
@@ -453,6 +474,7 @@ export function createDedicatedServerInstance(
           workplace: uninstallBody.context.workplace,
           appInstallationId: uninstallBody.context.appInstallationId,
           app: uninstallBody.context.app,
+          invocation: uninstallBody.invocation,
         }
 
         const uninstallRequestConfig = {
@@ -470,8 +492,10 @@ export function createDedicatedServerInstance(
           const uninstallHook = config.hooks!.uninstall!
           const uninstallHandlerFn: UninstallHandler =
             typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
-          const result = await runWithConfig(uninstallRequestConfig, async () => {
-            return await uninstallHandlerFn(uninstallContext)
+          const result = await runWithLogContext({ invocation: uninstallBody.invocation }, async () => {
+            return await runWithConfig(uninstallRequestConfig, async () => {
+              return await uninstallHandlerFn(uninstallContext)
+            })
           })
           sendJSON(res, 200, {
             cleanedWebhookIds: result.cleanedWebhookIds ?? [],
@@ -496,6 +520,7 @@ export function createDedicatedServerInstance(
 
         let provisionBody: {
           env?: Record<string, string>
+          invocation?: InvocationContext
           context?: {
             app: { id: string; versionId: string }
           }
@@ -532,6 +557,7 @@ export function createDedicatedServerInstance(
         const provisionContext: ProvisionHandlerContext = {
           env: mergedEnv,
           app: provisionBody.context.app,
+          invocation: provisionBody.invocation,
         }
 
         // Build request-scoped config for SDK access
@@ -546,8 +572,10 @@ export function createDedicatedServerInstance(
           const provisionHandler: ProvisionHandler = typeof provisionHook === 'function' 
             ? provisionHook 
             : (provisionHook as { handler: ProvisionHandler }).handler
-          const result = await runWithConfig(provisionRequestConfig, async () => {
-            return await provisionHandler(provisionContext)
+          const result = await runWithLogContext({ invocation: provisionBody.invocation }, async () => {
+            return await runWithConfig(provisionRequestConfig, async () => {
+              return await provisionHandler(provisionContext)
+            })
           })
           sendJSON(res, 200, result)
         } catch (err) {

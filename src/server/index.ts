@@ -14,6 +14,10 @@ import { buildToolMetadata, createRequestState, createCallToolHandler } from './
 import { createDedicatedServerInstance } from './dedicated'
 import { createServerlessInstance } from './serverless'
 import { mergeRuntimeEnv, parseNumberEnv, getZodSchema } from './utils'
+import { installContextLogger } from './context-logger'
+
+// Install context-aware logger at module load time
+installContextLogger()
 
 // Re-export types
 export type { RequestState, CoreMethod, ToolCallArgs } from './types'
@@ -44,6 +48,7 @@ export { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } f
 export { printStartupLog, padEnd } from './startup-logger'
 export { createDedicatedServerInstance } from './dedicated'
 export { createServerlessInstance } from './serverless'
+export { runWithLogContext, getLogContext, installContextLogger, uninstallContextLogger } from './context-logger'
 
 // Overload signatures for proper type inference based on computeLayer
 export function createSkedyulServer(

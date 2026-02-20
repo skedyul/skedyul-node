@@ -18,6 +18,7 @@ import type {
   WebhookContext,
   WebhookResponse,
   WebhookRequest,
+  InvocationContext,
 } from '../types'
 import type { WebhookRequest as CoreWebhookRequest } from '../core/types'
 import type { RequestState, CoreMethod } from './types'
@@ -27,6 +28,7 @@ import { InstallError } from '../errors'
 import { handleCoreMethod } from './core-api-handler'
 import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } from './handler-helpers'
 import { printStartupLog } from './startup-logger'
+import { runWithLogContext } from './context-logger'
 import { getZodSchema, getDefaultHeaders, createResponse } from './utils'
 
 /**
@@ -93,7 +95,7 @@ export function createServerlessInstance(
           }
 
           // Check if this is an envelope format from the platform
-          // Envelope format: { env: {...}, request: {...}, context: {...} }
+          // Envelope format: { env: {...}, request: {...}, context: {...}, invocation?: {...} }
           const isEnvelope = (
             typeof parsedBody === 'object' &&
             parsedBody !== null &&
@@ -105,6 +107,7 @@ export function createServerlessInstance(
           let webhookRequest: WebhookRequest
           let webhookContext: WebhookContext
           let requestEnv: Record<string, string> = {}
+          let invocation: InvocationContext | undefined
 
           if (isEnvelope) {
             // Platform envelope format - extract env, request, and context
@@ -124,9 +127,11 @@ export function createServerlessInstance(
                 workplace: { id: string; subdomain: string } | null
                 registration: Record<string, unknown> | null
               }
+              invocation?: InvocationContext
             }
 
             requestEnv = envelope.env ?? {}
+            invocation = envelope.invocation
 
             // Parse the original request body
             let originalParsedBody: unknown = envelope.request.body
@@ -161,12 +166,14 @@ export function createServerlessInstance(
                 appInstallationId: envelope.context.appInstallationId,
                 workplace: envelope.context.workplace,
                 registration: envelope.context.registration ?? {},
+                invocation,
               }
             } else {
               // Provision webhook context
               webhookContext = {
                 env: envVars,
                 app,
+                invocation,
               }
             }
           } else {
@@ -217,11 +224,13 @@ export function createServerlessInstance(
             apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
           }
 
-          // Invoke the handler with request-scoped config
+          // Invoke the handler with request-scoped config and log context
           let webhookResponse: WebhookResponse
           try {
-            webhookResponse = await runWithConfig(requestConfig, async () => {
-              return await webhookDef.handler(webhookRequest, webhookContext)
+            webhookResponse = await runWithLogContext({ invocation }, async () => {
+              return await runWithConfig(requestConfig, async () => {
+                return await webhookDef.handler(webhookRequest, webhookContext)
+              })
             })
           } catch (err) {
             console.error(`Webhook handler '${handle}' error:`, err)
@@ -413,6 +422,7 @@ export function createServerlessInstance(
 
           let installBody: {
             env?: Record<string, string>
+            invocation?: InvocationContext
             context?: {
               app: { id: string; versionId: string; handle: string; versionHandle: string }
               appInstallationId: string
@@ -443,6 +453,7 @@ export function createServerlessInstance(
             workplace: installBody.context.workplace,
             appInstallationId: installBody.context.appInstallationId,
             app: installBody.context.app,
+            invocation: installBody.invocation,
           }
 
           // Build request-scoped config for SDK access
@@ -463,8 +474,10 @@ export function createServerlessInstance(
             const installHandler: InstallHandler = typeof installHook === 'function' 
               ? installHook 
               : installHook.handler
-            const result = await runWithConfig(installRequestConfig, async () => {
-              return await installHandler(installContext)
+            const result = await runWithLogContext({ invocation: installBody.invocation }, async () => {
+              return await runWithConfig(installRequestConfig, async () => {
+                return await installHandler(installContext)
+              })
             })
             return createResponse(
               200,
@@ -507,6 +520,7 @@ export function createServerlessInstance(
 
           let uninstallBody: {
             env?: Record<string, string>
+            invocation?: InvocationContext
             context?: {
               app: { id: string; versionId: string; handle: string; versionHandle: string }
               appInstallationId: string
@@ -546,6 +560,7 @@ export function createServerlessInstance(
             workplace: uninstallBody.context.workplace,
             appInstallationId: uninstallBody.context.appInstallationId,
             app: uninstallBody.context.app,
+            invocation: uninstallBody.invocation,
           }
 
           const uninstallRequestConfig = {
@@ -563,8 +578,10 @@ export function createServerlessInstance(
             const uninstallHook = config.hooks!.uninstall!
             const uninstallHandlerFn: UninstallHandler =
               typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
-            const result = await runWithConfig(uninstallRequestConfig, async () => {
-              return await uninstallHandlerFn(uninstallContext)
+            const result = await runWithLogContext({ invocation: uninstallBody.invocation }, async () => {
+              return await runWithConfig(uninstallRequestConfig, async () => {
+                return await uninstallHandlerFn(uninstallContext)
+              })
             })
             return createResponse(
               200,
@@ -618,6 +635,9 @@ export function createServerlessInstance(
             )
           }
 
+          // Extract invocation context from parsed body
+          const invocation = (parsedBody as { invocation?: InvocationContext }).invocation
+
           // Convert raw request to rich request using shared helper
           const oauthRequest = buildRequestFromRaw(envelope.request)
 
@@ -626,6 +646,7 @@ export function createServerlessInstance(
 
           const oauthCallbackContext: OAuthCallbackContext = {
             request: oauthRequest,
+            invocation,
           }
 
           try {
@@ -633,8 +654,10 @@ export function createServerlessInstance(
             const oauthCallbackHandler: OAuthCallbackHandler = typeof oauthCallbackHook === 'function'
               ? oauthCallbackHook
               : oauthCallbackHook.handler
-            const result = await runWithConfig(oauthCallbackRequestConfig, async () => {
-              return await oauthCallbackHandler(oauthCallbackContext)
+            const result = await runWithLogContext({ invocation }, async () => {
+              return await runWithConfig(oauthCallbackRequestConfig, async () => {
+                return await oauthCallbackHandler(oauthCallbackContext)
+              })
             })
 
             return createResponse(
