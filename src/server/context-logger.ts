@@ -26,7 +26,28 @@ export function getLogContext(): LogContext | undefined {
 }
 
 /**
- * Formats a log message with invocation context prepended as JSON
+ * Safely stringify a value for logging.
+ * Handles circular references and errors gracefully.
+ */
+function safeStringify(value: unknown): string {
+  if (value === undefined) return 'undefined'
+  if (value === null) return 'null'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value instanceof Error) {
+    return `${value.name}: ${value.message}${value.stack ? `\n${value.stack}` : ''}`
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+/**
+ * Formats a log message with invocation context prepended as JSON.
+ * All arguments are stringified into a single line to ensure the context
+ * prefix appears on every line in Docker/CloudWatch logs.
  */
 function formatLogWithContext(args: unknown[]): unknown[] {
   const context = getLogContext()
@@ -45,18 +66,16 @@ function formatLogWithContext(args: unknown[]): unknown[] {
     ...(context.invocation.workflowRunId && { workflowRunId: context.invocation.workflowRunId }),
   }
 
-  // If the first argument is a string, prepend context
-  if (typeof args[0] === 'string') {
-    return [`[${JSON.stringify(contextPrefix)}] ${args[0]}`, ...args.slice(1)]
-  }
+  const prefix = `[${JSON.stringify(contextPrefix)}]`
 
-  // If the first argument is an object, merge context into it
-  if (args[0] && typeof args[0] === 'object' && !Array.isArray(args[0])) {
-    return [{ ...contextPrefix, ...(args[0] as object) }, ...args.slice(1)]
-  }
+  // Stringify all arguments into a single line to ensure context appears on every log line
+  // This prevents multi-line object formatting from splitting logs across lines
+  const messageParts = args.map(arg => {
+    if (typeof arg === 'string') return arg
+    return safeStringify(arg)
+  })
 
-  // Otherwise, prepend context as first argument
-  return [contextPrefix, ...args]
+  return [`${prefix} ${messageParts.join(' ')}`]
 }
 
 // Store original console methods
