@@ -140,11 +140,12 @@ export function createSkedyulServer(
         outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
-        // Args are in Skedyul format: { inputs: {...}, context: {...}, env: {...} }
+        // Args are in Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
         const rawArgs = args as Record<string, unknown>
         const toolInputs = (rawArgs.inputs ?? {}) as Record<string, unknown>
         const toolContext = rawArgs.context as Record<string, unknown> | undefined
         const toolEnv = rawArgs.env as Record<string, string> | undefined
+        const toolInvocation = rawArgs.invocation as Record<string, unknown> | undefined
 
         // Validate inputs if schema exists
         let validatedInputs = toolInputs
@@ -178,6 +179,7 @@ export function createSkedyulServer(
           inputs: validatedInputs,
           context: toolContext,
           env: toolEnv,
+          invocation: toolInvocation,
         })
 
         // Handle error case
