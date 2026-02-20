@@ -13,6 +13,7 @@ import { getJsonSchemaFromToolSchema, normalizeBilling } from './utils'
 import { runWithConfig } from '../core/client'
 import { AppAuthInvalidError } from '../errors'
 import { runWithLogContext } from './context-logger'
+import { createContextLogger } from './logger'
 
 /**
  * Builds tool metadata array from a tool registry
@@ -124,6 +125,9 @@ export function createCallToolHandler<T extends ToolRegistry>(
       // Build execution context based on trigger type
       let executionContext: ToolExecutionContext
 
+      // Create context-aware logger
+      const log = createContextLogger()
+
       if (trigger === 'provision') {
         // Provision context - no installation, no workplace
         executionContext = {
@@ -132,6 +136,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
           env: process.env as Record<string, string | undefined>,
           mode: estimateMode ? 'estimate' : 'execute',
           invocation,
+          log,
         }
       } else {
         // Runtime context - has installation, workplace, request
@@ -143,21 +148,21 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
         if (trigger === 'field_change') {
           const field = rawContext.field as { handle: string; type: string; pageHandle: string; value: unknown; previousValue?: unknown }
-          executionContext = { trigger: 'field_change', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, field, invocation }
+          executionContext = { trigger: 'field_change', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, field, invocation, log }
         } else if (trigger === 'page_action') {
           const page = rawContext.page as { handle: string; values: Record<string, unknown> }
-          executionContext = { trigger: 'page_action', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, page, invocation }
+          executionContext = { trigger: 'page_action', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, page, invocation, log }
         } else if (trigger === 'form_submit') {
           const form = rawContext.form as { handle: string; values: Record<string, unknown> }
-          executionContext = { trigger: 'form_submit', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, form, invocation }
+          executionContext = { trigger: 'form_submit', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, form, invocation, log }
         } else if (trigger === 'workflow') {
-          executionContext = { trigger: 'workflow', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation }
+          executionContext = { trigger: 'workflow', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation, log }
         } else if (trigger === 'page_context') {
           // Page context trigger - similar to agent but for page context resolution
-          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation }
+          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation, log }
         } else {
           // Default to agent
-          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation }
+          executionContext = { trigger: 'agent', app, appInstallationId, workplace, request, env: envVars, mode: modeValue, invocation, log }
         }
       }
 

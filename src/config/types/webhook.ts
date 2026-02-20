@@ -2,6 +2,8 @@
 // Webhook Handler Definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { ContextLogger } from '../../server/logger'
+
 export type WebhookHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 
 export interface WebhookRequest {
@@ -18,6 +20,8 @@ export interface WebhookHandlerContext {
   appInstallationId: string | null
   workplace: { id: string; subdomain: string | null } | null
   registration: Record<string, unknown>
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 export interface WebhookHandlerResponse {

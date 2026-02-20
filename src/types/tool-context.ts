@@ -1,5 +1,6 @@
 import type { AppInfo, WorkplaceInfo, RequestInfo } from './shared'
 import type { InvocationContext } from './invocation'
+import type { ContextLogger } from '../server/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool Execution Context
@@ -18,6 +19,8 @@ interface BaseToolContext {
   app: AppInfo
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 /** Provision context - no installation, no workplace */

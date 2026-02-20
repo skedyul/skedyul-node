@@ -1,5 +1,6 @@
 import type { WebhookRequest } from './webhook'
 import type { InvocationContext } from './invocation'
+import type { ContextLogger } from '../server/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Install Handler Types
@@ -12,6 +13,8 @@ export interface InstallHandlerContext {
   app: { id: string; versionId: string; handle: string; versionHandle: string }
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 // Base response types for install handlers
@@ -54,6 +57,8 @@ export interface UninstallHandlerContext {
   app: { id: string; versionId: string; handle: string; versionHandle: string }
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 export interface UninstallHandlerResult {
@@ -73,6 +78,8 @@ export interface OAuthCallbackContext {
   request: WebhookRequest  // Reuse the existing rich request type
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 export interface OAuthCallbackResult {
@@ -93,6 +100,8 @@ export interface ProvisionHandlerContext {
   app: { id: string; versionId: string }
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 export interface ProvisionHandlerResult {

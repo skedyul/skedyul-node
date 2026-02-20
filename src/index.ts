@@ -49,6 +49,9 @@ export type {
   ContactAssociationLinkCreateParams,
   ContactAssociationLinkCreateResult,
 } from './core/client'
+// Context-aware logger
+export { createContextLogger } from './server/logger'
+export type { ContextLogger } from './server/logger'
 
 // Default export for ESM compatibility when importing from CJS
 export default { z }

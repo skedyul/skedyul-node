@@ -29,6 +29,7 @@ import { handleCoreMethod } from './core-api-handler'
 import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } from './handler-helpers'
 import { printStartupLog } from './startup-logger'
 import { runWithLogContext } from './context-logger'
+import { createContextLogger } from './logger'
 import { getZodSchema, getDefaultHeaders, createResponse } from './utils'
 
 /**
@@ -167,6 +168,7 @@ export function createServerlessInstance(
                 workplace: envelope.context.workplace,
                 registration: envelope.context.registration ?? {},
                 invocation,
+                log: createContextLogger(),
               }
             } else {
               // Provision webhook context
@@ -174,6 +176,7 @@ export function createServerlessInstance(
                 env: envVars,
                 app,
                 invocation,
+                log: createContextLogger(),
               }
             }
           } else {
@@ -209,6 +212,7 @@ export function createServerlessInstance(
             webhookContext = {
               env: process.env as Record<string, string | undefined>,
               app: { id: appId, versionId: appVersionId },
+              log: createContextLogger(),
             }
           }
 
@@ -454,6 +458,7 @@ export function createServerlessInstance(
             appInstallationId: installBody.context.appInstallationId,
             app: installBody.context.app,
             invocation: installBody.invocation,
+            log: createContextLogger(),
           }
 
           // Build request-scoped config for SDK access
@@ -561,6 +566,7 @@ export function createServerlessInstance(
             appInstallationId: uninstallBody.context.appInstallationId,
             app: uninstallBody.context.app,
             invocation: uninstallBody.invocation,
+            log: createContextLogger(),
           }
 
           const uninstallRequestConfig = {
@@ -647,6 +653,7 @@ export function createServerlessInstance(
           const oauthCallbackContext: OAuthCallbackContext = {
             request: oauthRequest,
             invocation,
+            log: createContextLogger(),
           }
 
           try {

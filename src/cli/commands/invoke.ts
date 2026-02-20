@@ -15,6 +15,7 @@ import type {
   AgentToolContext,
   ToolExecutionResult,
 } from '../../types'
+import { createContextLogger } from '../../server/logger'
 import { getCredentials, callCliApi } from '../utils/auth'
 import { getLinkConfig, loadEnvFile as loadLinkedEnvFile } from '../utils/link'
 import { findRegistryPath } from '../utils/config'
@@ -285,6 +286,7 @@ export async function invokeCommand(args: string[]): Promise<void> {
       request: { url: 'cli://invoke', params: {}, query: {} },
       env,
       mode: estimateMode ? 'estimate' : 'execute',
+      log: createContextLogger(),
     }
   } else {
     // Standalone mode: use minimal context
@@ -296,6 +298,7 @@ export async function invokeCommand(args: string[]): Promise<void> {
       request: { url: 'cli://invoke', params: {}, query: {} },
       env,
       mode: estimateMode ? 'estimate' : 'execute',
+      log: createContextLogger(),
     }
   }
 

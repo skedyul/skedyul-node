@@ -30,6 +30,7 @@ import { handleCoreMethod } from './core-api-handler'
 import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } from './handler-helpers'
 import { printStartupLog } from './startup-logger'
 import { runWithLogContext } from './context-logger'
+import { createContextLogger } from './logger'
 import {
   readRawRequestBody,
   parseJSONBody,
@@ -145,6 +146,7 @@ export function createDedicatedServerInstance(
               workplace: context.workplace,
               registration: context.registration ?? {},
               invocation,
+              log: createContextLogger(),
             }
           } else {
             // Provision webhook context
@@ -152,6 +154,7 @@ export function createDedicatedServerInstance(
               env: envVars,
               app,
               invocation,
+              log: createContextLogger(),
             }
           }
         } else {
@@ -177,6 +180,7 @@ export function createDedicatedServerInstance(
           webhookContext = {
             env: process.env as Record<string, string | undefined>,
             app: { id: appId, versionId: appVersionId },
+            log: createContextLogger(),
           }
         }
 
@@ -310,6 +314,7 @@ export function createDedicatedServerInstance(
         const oauthCallbackContext: OAuthCallbackContext = {
           request: oauthRequest,
           invocation,
+          log: createContextLogger(),
         }
 
         try {
@@ -378,6 +383,7 @@ export function createDedicatedServerInstance(
           appInstallationId: installBody.context.appInstallationId,
           app: installBody.context.app,
           invocation: installBody.invocation,
+          log: createContextLogger(),
         }
 
         // Build request-scoped config for SDK access
@@ -475,6 +481,7 @@ export function createDedicatedServerInstance(
           appInstallationId: uninstallBody.context.appInstallationId,
           app: uninstallBody.context.app,
           invocation: uninstallBody.invocation,
+          log: createContextLogger(),
         }
 
         const uninstallRequestConfig = {
@@ -558,6 +565,7 @@ export function createDedicatedServerInstance(
           env: mergedEnv,
           app: provisionBody.context.app,
           invocation: provisionBody.invocation,
+          log: createContextLogger(),
         }
 
         // Build request-scoped config for SDK access

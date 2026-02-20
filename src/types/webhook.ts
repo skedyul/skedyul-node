@@ -1,5 +1,6 @@
 import type { AppInfo, WorkplaceInfo } from './shared'
 import type { InvocationContext } from './invocation'
+import type { ContextLogger } from '../server/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook Types
@@ -46,6 +47,8 @@ interface BaseWebhookContext {
   app: AppInfo
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
 }
 
 /** Provision-level webhook context - no installation or workplace */
