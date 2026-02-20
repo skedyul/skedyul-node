@@ -1,4 +1,5 @@
 import type { WebhookRequest } from './webhook'
+import type { InvocationContext } from './invocation'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Install Handler Types
@@ -9,6 +10,8 @@ export interface InstallHandlerContext {
   workplace: { id: string; subdomain: string }
   appInstallationId: string
   app: { id: string; versionId: string; handle: string; versionHandle: string }
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
 }
 
 // Base response types for install handlers
@@ -49,6 +52,8 @@ export interface UninstallHandlerContext {
   workplace: { id: string; subdomain: string }
   appInstallationId: string
   app: { id: string; versionId: string; handle: string; versionHandle: string }
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
 }
 
 export interface UninstallHandlerResult {
@@ -66,6 +71,8 @@ export type UninstallHandler = (
 export interface OAuthCallbackContext {
   /** Full HTTP request from the OAuth provider */
   request: WebhookRequest  // Reuse the existing rich request type
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
 }
 
 export interface OAuthCallbackResult {
@@ -84,6 +91,8 @@ export type OAuthCallbackHandler = (
 export interface ProvisionHandlerContext {
   env: Record<string, string>
   app: { id: string; versionId: string }
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
 }
 
 export interface ProvisionHandlerResult {

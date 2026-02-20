@@ -1,4 +1,5 @@
 import type { AppInfo, WorkplaceInfo } from './shared'
+import type { InvocationContext } from './invocation'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook Types
@@ -43,6 +44,8 @@ interface BaseWebhookContext {
   env: Record<string, string | undefined>
   /** App info */
   app: AppInfo
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
 }
 
 /** Provision-level webhook context - no installation or workplace */

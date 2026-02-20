@@ -8,6 +8,19 @@
 // Shared types
 export type { AppInfo, WorkplaceInfo, RequestInfo } from './shared'
 
+// Invocation context types
+export type {
+  InvocationType,
+  ServerHookHandle,
+  InvocationContext,
+} from './invocation'
+export {
+  createToolCallContext,
+  createServerHookContext,
+  createWebhookContext,
+  createWorkflowStepContext,
+} from './invocation'
+
 // Tool context types
 export type {
   ToolTrigger,

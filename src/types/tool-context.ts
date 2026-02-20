@@ -1,4 +1,5 @@
 import type { AppInfo, WorkplaceInfo, RequestInfo } from './shared'
+import type { InvocationContext } from './invocation'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool Execution Context
@@ -15,6 +16,8 @@ interface BaseToolContext {
   mode: 'execute' | 'estimate'
   /** App info - always present */
   app: AppInfo
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
 }
 
 /** Provision context - no installation, no workplace */
