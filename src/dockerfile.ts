@@ -41,6 +41,7 @@ WORKDIR /app
 # Copy built artifacts
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
 
 # Allow overriding the baked-in MCP env at runtime
 ARG MCP_ENV_JSON="{}"
@@ -61,6 +62,7 @@ WORKDIR \${LAMBDA_TASK_ROOT}
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
 
 # Allow overriding the baked-in MCP env at runtime
 ARG MCP_ENV_JSON="{}"
