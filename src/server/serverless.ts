@@ -57,8 +57,10 @@ export function createServerlessInstance(
         hasLoggedStartup = true
       }
       try {
-        const path = event.path
-        const method = event.httpMethod
+        // Lambda Function URLs use rawPath instead of path
+        // API Gateway uses path
+        const path = event.path || (event as unknown as { rawPath?: string }).rawPath || '/'
+        const method = event.httpMethod || (event as unknown as { requestContext?: { http?: { method?: string } } }).requestContext?.http?.method || 'POST'
 
         if (method === 'OPTIONS') {
           return createResponse(200, { message: 'OK' }, headers)
@@ -317,7 +319,7 @@ export function createServerlessInstance(
             event.headers?.['X-Forwarded-Proto']
           const protocol = forwardedProto ?? 'https'
           const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
-          const webhookUrl = `${protocol}://${host}${event.path}`
+          const webhookUrl = `${protocol}://${host}${path}`
 
           const coreWebhookRequest: CoreWebhookRequest = {
             method,
@@ -325,7 +327,7 @@ export function createServerlessInstance(
             body: webhookBody,
             query: event.queryStringParameters ?? {},
             url: webhookUrl,
-            path: event.path,
+            path: path,
             rawBody: rawWebhookBody
               ? Buffer.from(rawWebhookBody, 'utf-8')
               : undefined,
