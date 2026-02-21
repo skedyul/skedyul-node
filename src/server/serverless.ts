@@ -614,7 +614,10 @@ export function createServerlessInstance(
 
         // Handle /provision endpoint for provision handlers
         if (path === '/provision' && method === 'POST') {
+          console.log('[serverless] /provision endpoint called')
+          
           if (!config.hooks?.provision) {
+            console.log('[serverless] No provision handler configured')
             return createResponse(404, { error: 'Provision handler not configured' }, headers)
           }
 
@@ -628,7 +631,14 @@ export function createServerlessInstance(
 
           try {
             provisionBody = event.body ? JSON.parse(event.body) : {}
+            console.log('[serverless] Provision body parsed:', {
+              hasEnv: !!provisionBody.env,
+              hasContext: !!provisionBody.context,
+              appId: provisionBody.context?.app?.id,
+              versionId: provisionBody.context?.app?.versionId,
+            })
           } catch {
+            console.log('[serverless] Failed to parse provision body')
             return createResponse(
               400,
               { error: { code: -32700, message: 'Parse error' } },
@@ -637,6 +647,7 @@ export function createServerlessInstance(
           }
 
           if (!provisionBody.context?.app) {
+            console.log('[serverless] Missing app context in provision body')
             return createResponse(
               400,
               { error: { code: -32602, message: 'Missing context (app required)' } },
@@ -669,6 +680,7 @@ export function createServerlessInstance(
             apiToken: mergedEnv.SKEDYUL_API_TOKEN ?? '',
           }
 
+          console.log('[serverless] Calling provision handler...')
           try {
             const provisionHook = config.hooks!.provision!
             const provisionHandler: ProvisionHandler =
@@ -680,8 +692,10 @@ export function createServerlessInstance(
                 return await provisionHandler(provisionContext)
               })
             })
+            console.log('[serverless] Provision handler completed successfully')
             return createResponse(200, result, headers)
           } catch (err) {
+            console.error('[serverless] Provision handler failed:', err instanceof Error ? err.message : String(err))
             return createResponse(
               500,
               {
