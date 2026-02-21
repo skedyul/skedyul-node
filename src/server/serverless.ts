@@ -6,6 +6,8 @@ import type {
   InstallHandlerContext,
   OAuthCallbackHandler,
   OAuthCallbackContext,
+  ProvisionHandler,
+  ProvisionHandlerContext,
   SkedyulServerConfig,
   SkedyulServerInstance,
   ToolCallResponse,
@@ -596,6 +598,89 @@ export function createServerlessInstance(
               { cleanedWebhookIds: result.cleanedWebhookIds ?? [] },
               headers,
             )
+          } catch (err) {
+            return createResponse(
+              500,
+              {
+                error: {
+                  code: -32603,
+                  message: err instanceof Error ? err.message : String(err ?? ''),
+                },
+              },
+              headers,
+            )
+          }
+        }
+
+        // Handle /provision endpoint for provision handlers
+        if (path === '/provision' && method === 'POST') {
+          if (!config.hooks?.provision) {
+            return createResponse(404, { error: 'Provision handler not configured' }, headers)
+          }
+
+          let provisionBody: {
+            env?: Record<string, string>
+            invocation?: InvocationContext
+            context?: {
+              app: { id: string; versionId: string }
+            }
+          }
+
+          try {
+            provisionBody = event.body ? JSON.parse(event.body) : {}
+          } catch {
+            return createResponse(
+              400,
+              { error: { code: -32700, message: 'Parse error' } },
+              headers,
+            )
+          }
+
+          if (!provisionBody.context?.app) {
+            return createResponse(
+              400,
+              { error: { code: -32602, message: 'Missing context (app required)' } },
+              headers,
+            )
+          }
+
+          // SECURITY: Merge process.env (baked-in secrets) with request env (API token).
+          // This ensures secrets like MAILGUN_API_KEY come from the container,
+          // while runtime values like SKEDYUL_API_TOKEN come from the request.
+          const mergedEnv: Record<string, string> = {}
+          for (const [key, value] of Object.entries(process.env)) {
+            if (value !== undefined) {
+              mergedEnv[key] = value
+            }
+          }
+          // Request env overrides process.env (e.g., for SKEDYUL_API_TOKEN)
+          Object.assign(mergedEnv, provisionBody.env ?? {})
+
+          const provisionContext: ProvisionHandlerContext = {
+            env: mergedEnv,
+            app: provisionBody.context.app,
+            invocation: provisionBody.invocation,
+            log: createContextLogger(),
+          }
+
+          // Build request-scoped config for SDK access
+          const provisionRequestConfig = {
+            baseUrl: mergedEnv.SKEDYUL_API_URL ?? '',
+            apiToken: mergedEnv.SKEDYUL_API_TOKEN ?? '',
+          }
+
+          try {
+            const provisionHook = config.hooks!.provision!
+            const provisionHandler: ProvisionHandler =
+              typeof provisionHook === 'function'
+                ? provisionHook
+                : (provisionHook as { handler: ProvisionHandler }).handler
+            const result = await runWithLogContext({ invocation: provisionBody.invocation }, async () => {
+              return await runWithConfig(provisionRequestConfig, async () => {
+                return await provisionHandler(provisionContext)
+              })
+            })
+            return createResponse(200, result, headers)
           } catch (err) {
             return createResponse(
               500,
