@@ -840,13 +840,14 @@ export function createServerlessInstance(
             } else if (rpcMethod === 'tools/call') {
               const toolName = params?.name as string
               // Support both formats:
-              // 1. Skedyul format: { inputs: {...}, context: {...}, env: {...} }
+              // 1. Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
               // 2. Standard MCP format: { ...directArgs }
               const rawArgs = (params?.arguments ?? {}) as Record<string, unknown>
-              const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs || 'context' in rawArgs
+              const hasSkedyulFormat = 'inputs' in rawArgs || 'env' in rawArgs || 'context' in rawArgs || 'invocation' in rawArgs
               const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
               const toolContext = hasSkedyulFormat ? (rawArgs.context as Record<string, unknown> | undefined) : undefined
               const toolEnv = hasSkedyulFormat ? (rawArgs.env as Record<string, string> | undefined) : undefined
+              const toolInvocation = hasSkedyulFormat ? (rawArgs.invocation as InvocationContext | undefined) : undefined
 
               // Find tool by name (check both registry key and tool.name)
               let toolKey: string | null = null
@@ -886,6 +887,7 @@ export function createServerlessInstance(
                   inputs: validatedInputs,
                   context: toolContext,
                   env: toolEnv,
+                  invocation: toolInvocation,
                 })
 
                 // Transform internal format to MCP protocol format
