@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -26,6 +26,7 @@ export {
   webhook,
   resource,
   contactAssociationLink,
+  ai,
   configure,
   getConfig,
   runWithConfig,
@@ -48,6 +49,14 @@ export type {
   ResourceLinkResult,
   ContactAssociationLinkCreateParams,
   ContactAssociationLinkCreateResult,
+  // AI types
+  AITextContent,
+  AIFileContent,
+  AIImageContent,
+  AIMessageContent,
+  AIMessage,
+  GenerateObjectOptions,
+  GenerateObjectResult,
 } from './core/client'
 // Context-aware logger
 export { createContextLogger } from './server/logger'
@@ -90,7 +99,6 @@ export type {
   // Model types
   ModelDefinition,
   ModelFieldDefinition,
-  ResourceScope,
   FieldOwner,
   InternalFieldDataType,
   FieldOption,

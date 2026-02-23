@@ -231,9 +231,9 @@ export async function validateCommand(args: string[]): Promise<void> {
     }
 
     if (provision?.models && provision.models.length > 0) {
-      console.log('Models:')
+      console.log('Models (INTERNAL):')
       for (const model of provision.models) {
-        console.log(`  ${model.handle}: ${model.name} (${model.scope})`)
+        console.log(`  ${model.handle}: ${model.name}`)
       }
       console.log('')
     }

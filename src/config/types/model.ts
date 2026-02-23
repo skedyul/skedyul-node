@@ -1,4 +1,4 @@
-import type { ResourceScope, FieldOwner, ResourceDependency } from './resource'
+import type { FieldOwner, ResourceDependency } from './resource'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Model Definition
@@ -60,7 +60,6 @@ export interface ModelDefinition {
   handle: string
   name: string
   namePlural?: string
-  scope: ResourceScope
   labelTemplate?: string
   description?: string
   fields: ModelFieldDefinition[]

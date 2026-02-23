@@ -32,11 +32,15 @@ export type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Install configuration - defines per-install env vars.
+ * Install configuration - defines per-install env vars and SHARED models.
  */
 export interface InstallConfig {
   /** Per-install environment variables (collected from user during install, passed at runtime) */
   env?: EnvSchema
+  /** SHARED model definitions (mapped to user's existing data during installation) */
+  models?: ModelDefinition[]
+  /** Relationship definitions between SHARED models */
+  relationships?: RelationshipDefinition[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,9 +51,9 @@ export interface InstallConfig {
 export interface ProvisionConfig {
   /** Global environment variables (developer-level, shared across all installs) */
   env?: EnvSchema
-  /** Model definitions (INTERNAL + SHARED) */
+  /** INTERNAL model definitions (app-owned, not visible to users) */
   models?: ModelDefinition[]
-  /** Relationship definitions between models */
+  /** Relationship definitions between INTERNAL models */
   relationships?: RelationshipDefinition[]
   /** Communication channel definitions */
   channels?: ChannelDefinition[]

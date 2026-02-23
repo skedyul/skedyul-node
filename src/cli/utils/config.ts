@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import type { ModelDefinition, RelationshipDefinition } from '../../config/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -188,6 +189,10 @@ export interface InstallEnvField {
 
 export interface InstallConfigData {
   env?: Record<string, InstallEnvField>
+  /** SHARED model definitions (mapped to user's existing data during installation) */
+  models?: ModelDefinition[]
+  /** Relationship definitions between SHARED models */
+  relationships?: RelationshipDefinition[]
 }
 
 export async function loadInstallConfig(
@@ -257,6 +262,8 @@ export async function loadInstallConfig(
 /**
  * Parse install config from TypeScript source when dynamic import fails.
  * This is a fallback that extracts env vars using regex.
+ * Note: This fallback only parses env vars, not models. For full model support,
+ * the compiled dist file should be used.
  */
 function parseInstallConfigFromSource(content: string): InstallConfigData | null {
   try {
@@ -265,6 +272,12 @@ function parseInstallConfigFromSource(content: string): InstallConfigData | null
     // Match env block: env: { ... } - need to handle nested braces
     const envStartMatch = content.match(/\benv\s*:\s*\{/)
     if (!envStartMatch || envStartMatch.index === undefined) {
+      // No env block found - check if there's a models block
+      const hasModels = content.match(/\bmodels\s*:\s*\[/)
+      if (hasModels) {
+        // Return empty config to indicate file exists but needs proper loading
+        return { env: {} }
+      }
       return null
     }
 
@@ -325,10 +338,6 @@ function parseInstallConfigFromSource(content: string): InstallConfigData | null
       if (descMatch) field.description = descMatch[1]
 
       envVars[varName] = field
-    }
-
-    if (Object.keys(envVars).length === 0) {
-      return null
     }
 
     return { env: envVars }

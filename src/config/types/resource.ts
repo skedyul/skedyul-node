@@ -1,9 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Resource Scope and Dependencies
+// Resource Dependencies
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Scope of a model: INTERNAL (app-owned) or SHARED (user-mapped) */
-export type ResourceScope = 'INTERNAL' | 'SHARED'
 
 /**
  * Field-level data ownership.

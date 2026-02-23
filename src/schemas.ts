@@ -24,10 +24,9 @@ export const EnvSchemaSchema = z.record(z.string(), EnvVariableDefinitionSchema)
 export const ComputeLayerTypeSchema = z.enum(['serverless', 'dedicated'])
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Resource Scope and Dependencies
+// Resource Dependencies
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ResourceScopeSchema = z.enum(['INTERNAL', 'SHARED'])
 export const FieldOwnerSchema = z.enum(['APP', 'WORKPLACE', 'BOTH'])
 
 const PrimitiveSchema = z.union([z.string(), z.number(), z.boolean()])
@@ -117,7 +116,6 @@ export const ModelDefinitionSchema = z.object({
   handle: z.string(),
   name: z.string(),
   namePlural: z.string().optional(),
-  scope: ResourceScopeSchema,
   labelTemplate: z.string().optional(),
   description: z.string().optional(),
   fields: z.array(ModelFieldDefinitionSchema),
@@ -632,7 +630,7 @@ export const ListBlockDefinitionSchema = z.object({
 /** Model mapper block definition - for mapping SHARED models to workspace models */
 export const ModelMapperBlockDefinitionSchema = z.object({
   type: z.literal('model-mapper'),
-  /** The SHARED model handle from provision config (e.g., "client", "patient") */
+  /** The SHARED model handle from install config (e.g., "client", "patient") */
   model: z.string(),
 })
 
@@ -810,10 +808,26 @@ export const AgentDefinitionSchema = z.object({
 export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Install Config Schema
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const InstallConfigSchema = z.object({
+  env: EnvSchemaSchema.optional(),
+  /** SHARED model definitions (mapped to user's existing data during installation) */
+  models: z.array(ModelDefinitionSchema).optional(),
+  /** Relationship definitions between SHARED models */
+  relationships: z.array(RelationshipDefinitionSchema).optional(),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provision Config Schema
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
+  /** INTERNAL model definitions (app-owned, not visible to users) */
   models: z.array(ModelDefinitionSchema).optional(),
+  /** Relationship definitions between INTERNAL models */
   relationships: z.array(RelationshipDefinitionSchema).optional(),
   channels: z.array(ChannelDefinitionSchema).optional(),
   workflows: z.array(WorkflowDefinitionSchema).optional(),
@@ -848,7 +862,6 @@ export function safeParseConfig(data: unknown): ParsedSkedyulConfig | null {
 // Exported Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ResourceScope = z.infer<typeof ResourceScopeSchema>
 export type FieldOwner = z.infer<typeof FieldOwnerSchema>
 export type StructuredFilter = z.infer<typeof StructuredFilterSchema>
 export type FieldOption = z.infer<typeof FieldOptionSchema>
@@ -891,6 +904,7 @@ export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>
 export type WebhookHttpMethod = z.infer<typeof WebhookHttpMethodSchema>
 export type WebhookHandlerDefinition = z.infer<typeof WebhookHandlerDefinitionSchema>
 export type Webhooks = z.infer<typeof WebhooksSchema>
+export type InstallConfig = z.infer<typeof InstallConfigSchema>
 export type ProvisionConfig = z.infer<typeof ProvisionConfigSchema>
 
 // FormV2 types

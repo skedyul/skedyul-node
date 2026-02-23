@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'async_hooks'
+import { z } from 'zod/v4'
 import type { CommunicationChannel, Workplace } from './types'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1053,6 +1054,248 @@ export const contactAssociationLink = {
       'contactAssociationLink.delete',
       { id },
     )
+    return data
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Text content part for multimodal messages.
+ */
+export interface AITextContent {
+  type: 'text'
+  text: string
+}
+
+/**
+ * File content part for multimodal messages.
+ * References a file uploaded via file.upload().
+ */
+export interface AIFileContent {
+  type: 'file'
+  fileId: string
+}
+
+/**
+ * Image content part for multimodal messages.
+ * Accepts base64 data URI (e.g., "data:image/png;base64,...").
+ */
+export interface AIImageContent {
+  type: 'image'
+  image: string
+}
+
+/**
+ * Content types for multimodal AI messages.
+ */
+export type AIMessageContent = AITextContent | AIFileContent | AIImageContent
+
+/**
+ * Message in a multi-turn AI conversation.
+ */
+export interface AIMessage {
+  role: 'user' | 'assistant'
+  content: string | AIMessageContent[]
+}
+
+/**
+ * Options for ai.generateObject().
+ */
+export interface GenerateObjectOptions<S extends z.ZodTypeAny> {
+  /**
+   * Model ID in gateway format (e.g., "openai/gpt-4o-mini").
+   * Defaults to system default model if not specified.
+   */
+  model?: string
+
+  /**
+   * System prompt that sets the context for the AI.
+   */
+  system: string
+
+  /**
+   * User prompt for simple text mode.
+   * Use this for single-turn requests without files.
+   */
+  prompt?: string
+
+  /**
+   * Zod schema defining the expected output structure.
+   * The AI will generate an object conforming to this schema.
+   */
+  schema: S
+
+  /**
+   * File IDs to include with the prompt.
+   * A simpler alternative to using `messages` when you just need to attach files.
+   * Files are resolved and sent as multimodal content alongside the prompt.
+   */
+  files?: string[]
+
+  /**
+   * Messages for multi-turn or multimodal conversations.
+   * Use this instead of `prompt` when you need more control over the conversation.
+   */
+  messages?: AIMessage[]
+
+  /**
+   * Maximum number of tokens to generate.
+   */
+  maxTokens?: number
+
+  /**
+   * Temperature for response randomness (0-1).
+   * Lower values are more deterministic.
+   */
+  temperature?: number
+}
+
+/**
+ * Result from ai.generateObject().
+ */
+export interface GenerateObjectResult<T> {
+  /** The generated object conforming to the schema */
+  object: T
+  /** Token usage information */
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
+}
+
+/**
+ * Convert a Zod schema to JSON Schema format for transport.
+ * This is a simplified conversion that handles common Zod types.
+ */
+function zodSchemaToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
+  // Use Zod's built-in JSON Schema conversion if available
+  // For now, we'll pass the schema description and let the server handle it
+  const jsonSchema = (schema as unknown as { _def?: { typeName?: string } })._def
+  
+  // Basic type mapping
+  if (jsonSchema?.typeName === 'ZodString') {
+    return { type: 'string' }
+  }
+  if (jsonSchema?.typeName === 'ZodNumber') {
+    return { type: 'number' }
+  }
+  if (jsonSchema?.typeName === 'ZodBoolean') {
+    return { type: 'boolean' }
+  }
+  if (jsonSchema?.typeName === 'ZodArray') {
+    const arrayDef = jsonSchema as unknown as { type?: z.ZodTypeAny }
+    return {
+      type: 'array',
+      items: arrayDef.type ? zodSchemaToJsonSchema(arrayDef.type) : {},
+    }
+  }
+  if (jsonSchema?.typeName === 'ZodObject') {
+    const objectDef = jsonSchema as unknown as { shape?: () => Record<string, z.ZodTypeAny> }
+    const shape = objectDef.shape?.() ?? {}
+    const properties: Record<string, unknown> = {}
+    const required: string[] = []
+    
+    for (const [key, value] of Object.entries(shape)) {
+      properties[key] = zodSchemaToJsonSchema(value)
+      // Check if field is required (not optional/nullable)
+      const valueDef = (value as unknown as { _def?: { typeName?: string } })._def
+      if (valueDef?.typeName !== 'ZodOptional' && valueDef?.typeName !== 'ZodNullable') {
+        required.push(key)
+      }
+    }
+    
+    return {
+      type: 'object',
+      properties,
+      required: required.length > 0 ? required : undefined,
+    }
+  }
+  if (jsonSchema?.typeName === 'ZodNullable' || jsonSchema?.typeName === 'ZodOptional') {
+    const innerDef = jsonSchema as unknown as { innerType?: z.ZodTypeAny }
+    const inner = innerDef.innerType ? zodSchemaToJsonSchema(innerDef.innerType) : {}
+    return { ...inner, nullable: true }
+  }
+  if (jsonSchema?.typeName === 'ZodEnum') {
+    const enumDef = jsonSchema as unknown as { values?: unknown[] }
+    return { type: 'string', enum: enumDef.values }
+  }
+  
+  // Fallback: return empty object schema
+  return { type: 'object' }
+}
+
+export const ai = {
+  /**
+   * Generate a structured object using AI.
+   *
+   * The AI will generate an object that conforms to the provided Zod schema.
+   * Supports both simple text prompts and multimodal messages with files/images.
+   *
+   * @example
+   * ```ts
+   * // Simple text prompt
+   * const result = await ai.generateObject({
+   *   system: 'Extract patient information from the text.',
+   *   prompt: 'Patient: Max, Species: Canine, DOB: 2020-01-15',
+   *   schema: z.object({
+   *     patientName: z.string(),
+   *     species: z.string(),
+   *     dateOfBirth: z.string().nullable(),
+   *   }),
+   * })
+   *
+   * // With files array (simple multimodal)
+   * const result = await ai.generateObject({
+   *   model: 'openai/gpt-4o',
+   *   system: 'Parse the lab report and extract test results.',
+   *   prompt: 'Extract all test results from this report.',
+   *   files: ['fl_abc123'],
+   *   schema: TestResultsSchema,
+   * })
+   *
+   * // With messages (advanced multimodal)
+   * const result = await ai.generateObject({
+   *   model: 'openai/gpt-4o',
+   *   system: 'Parse the lab report and extract test results.',
+   *   schema: TestResultsSchema,
+   *   messages: [
+   *     {
+   *       role: 'user',
+   *       content: [
+   *         { type: 'text', text: 'Extract all test results from this report.' },
+   *         { type: 'file', fileId: 'fl_abc123' },
+   *       ],
+   *     },
+   *   ],
+   * })
+   * ```
+   */
+  async generateObject<S extends z.ZodTypeAny>(
+    options: GenerateObjectOptions<S>,
+  ): Promise<z.infer<S>> {
+    // Validate that either prompt or messages is provided
+    if (!options.prompt && !options.messages) {
+      throw new Error('Either prompt or messages must be provided')
+    }
+
+    // Convert Zod schema to JSON Schema for transport
+    const jsonSchema = zodSchemaToJsonSchema(options.schema)
+
+    const { data } = await callCore<z.infer<S>>('ai.generateObject', {
+      ...(options.model ? { model: options.model } : {}),
+      system: options.system,
+      ...(options.prompt ? { prompt: options.prompt } : {}),
+      schema: jsonSchema,
+      ...(options.files && options.files.length > 0 ? { files: options.files } : {}),
+      ...(options.messages ? { messages: options.messages } : {}),
+      ...(options.maxTokens !== undefined ? { maxTokens: options.maxTokens } : {}),
+      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    })
+
     return data
   },
 }
