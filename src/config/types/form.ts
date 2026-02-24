@@ -393,7 +393,7 @@ export interface ListBlock {
  * Model mapper block definition - for mapping SHARED models to workspace models.
  */
 export interface ModelMapperBlock {
-  type: 'model-mapper'
+  type: 'model_mapper'
   /** The SHARED model handle from provision config */
   model: string
 }

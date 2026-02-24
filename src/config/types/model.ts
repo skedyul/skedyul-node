@@ -39,7 +39,7 @@ export type FieldType =
 /**
  * Relationship cardinality between models.
  */
-export type Cardinality = 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many'
+export type Cardinality = 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many'
 
 /**
  * Behavior when a related record is deleted.

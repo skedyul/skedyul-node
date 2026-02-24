@@ -4,7 +4,7 @@
  * ## NAMING CONVENTIONS
  *
  * ### Type Literals
- * All type literals use **lowercase** (e.g., 'string', 'internal', 'one-to-many').
+ * All type literals use **lowercase** (e.g., 'string', 'internal', 'one_to_many').
  * This is more modern, aligns with TypeScript conventions, and is easier to type.
  *
  * ### Identifiers

@@ -2,7 +2,7 @@
  * Config module - re-exports all config types and utilities.
  *
  * NAMING CONVENTIONS:
- * - All type literals use lowercase (e.g., 'string', 'internal', 'one-to-many')
+ * - All type literals use lowercase (e.g., 'string', 'internal', 'one_to_many')
  * - Use `handle` for unique identifiers (snake_case)
  * - Use `label` for display names (human-readable)
  * - Use `description` for optional explanatory text
