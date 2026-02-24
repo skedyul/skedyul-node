@@ -1,6 +1,7 @@
 import type { CoreApiConfig } from '../core/types'
 import type { ServerHooks } from './handlers'
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from './aws'
+import type { ComputeLayer } from '../config/types/compute'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Server Types
@@ -17,7 +18,7 @@ export interface HealthStatus {
   tools: string[]
 }
 
-export type ComputeLayer = 'dedicated' | 'serverless'
+export type { ComputeLayer }
 
 export interface ServerMetadata {
   name: string

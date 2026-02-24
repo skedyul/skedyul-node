@@ -233,7 +233,7 @@ export async function validateCommand(args: string[]): Promise<void> {
     if (provision?.models && provision.models.length > 0) {
       console.log('Models (INTERNAL):')
       for (const model of provision.models) {
-        console.log(`  ${model.handle}: ${model.name}`)
+        console.log(`  ${model.handle}: ${model.label}`)
       }
       console.log('')
     }
@@ -241,7 +241,7 @@ export async function validateCommand(args: string[]): Promise<void> {
     if (provision?.channels && provision.channels.length > 0) {
       console.log('Channels:')
       for (const channel of provision.channels) {
-        console.log(`  ${channel.handle}: ${channel.name}`)
+        console.log(`  ${channel.handle}: ${channel.label}`)
       }
       console.log('')
     }

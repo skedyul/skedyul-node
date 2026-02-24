@@ -1,20 +1,11 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Resource Dependencies
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * Field-level data ownership.
- * APP: App exclusively controls this data (e.g., status field set by webhook)
- * WORKPLACE: User/organization provides this data (e.g., file upload)
- * BOTH: Collaborative - either can update
+ * Resource dependency types for declaring relationships between resources.
  */
-export type FieldOwner = 'APP' | 'WORKPLACE' | 'BOTH'
 
-/**
- * StructuredFilter for conditional dependencies.
- * Format: { fieldHandle: { operator: value | value[] } }
- */
-export type StructuredFilter = Record<string, Record<string, string | number | boolean | (string | number | boolean)[]>>
+import type { FieldOwner, StructuredFilter } from './base'
+
+// Re-export from base for backwards compatibility during migration
+export type { FieldOwner, StructuredFilter }
 
 /** Model dependency reference */
 export interface ModelDependency {

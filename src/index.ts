@@ -64,74 +64,63 @@ export type { ContextLogger } from './server/logger'
 
 // Default export for ESM compatibility when importing from CJS
 export default { z }
+
+// Config exports
 export {
   defineConfig,
+  defineModel,
+  defineChannel,
+  definePage,
+  defineWorkflow,
+  defineAgent,
+  defineEnv,
+  defineNavigation,
   loadConfig,
   validateConfig,
   CONFIG_FILE_NAMES,
   getAllEnvKeys,
   getRequiredInstallEnvKeys,
 } from './config'
+
 export type {
+  // App config
   SkedyulConfig,
   SerializableSkedyulConfig,
-  EnvVariableDefinition,
-  EnvSchema,
-  EnvVisibility,
-  ComputeLayerType,
-  // Install handler types
-  InstallHandlerContext,
-  InstallHandlerResult,
-  InstallHandler,
-  InstallHandlerResponseOAuth,
-  InstallHandlerResponseStandard,
-  HasOAuthCallback,
-  ServerHooksWithOAuth,
-  ServerHooksWithoutOAuth,
-  // Provision handler types
-  ProvisionHandlerContext,
-  ProvisionHandlerResult,
-  ProvisionHandler,
-  // Server hooks
-  ServerHooks,
-  // Install config types
   InstallConfig,
-  // Model types
-  ModelDefinition,
-  ModelFieldDefinition,
+  ProvisionConfig,
+  // Base types
+  BaseDefinition,
+  Scope,
   FieldOwner,
-  InternalFieldDataType,
+  Visibility,
+  ComputeLayer,
+  StructuredFilter,
   FieldOption,
-  InlineFieldDefinition,
-  AppFieldVisibility,
-  // Relationship types
-  RelationshipDefinition,
+  // Env types
+  EnvVariable,
+  EnvSchema,
+  // Model types
+  FieldType,
+  Cardinality,
+  OnDelete,
+  FieldConstraints,
+  FieldVisibility,
+  FieldDefinition,
+  ModelDefinition,
   RelationshipLink,
-  RelationshipCardinality,
-  OnDeleteBehavior,
+  RelationshipDefinition,
   // Channel types
-  ChannelDefinition,
+  CapabilityType,
   ChannelCapability,
-  ChannelCapabilityType,
-  ChannelFieldDefinition,
+  ChannelFieldPermissions,
+  ChannelField,
+  ChannelDefinition,
   // Workflow types
-  WorkflowDefinition,
-  WorkflowAction,
   WorkflowActionInput,
-  // Page types
-  PageDefinition,
-  PageBlockDefinition,
-  PageFieldDefinition,
-  PageActionDefinition,
-  PageType,
-  PageBlockType,
-  PageFieldType,
-  PageFieldSource,
-  PageFormHeader,
-  PageContextMode,
-  PageContextItemDefinition,
-  PageContextDefinition,
-  PageInstanceFilter,
+  WorkflowAction,
+  WorkflowDefinition,
+  // Agent types
+  AgentDefinition,
   // Navigation types
   NavigationItem,
   NavigationSection,
@@ -139,8 +128,51 @@ export type {
   BreadcrumbItem,
   NavigationBreadcrumb,
   NavigationConfig,
-  // Webhook handler types
-  WebhookHttpMethod,
+  // Context types
+  ContextMode,
+  ContextItemModel,
+  ContextItemTool,
+  ContextItem,
+  ContextDefinition,
+  // Form types
+  FormStyleProps,
+  ButtonVariant,
+  ButtonSize,
+  ButtonProps,
+  RelationshipExtension,
+  FormHeader,
+  ActionDefinition,
+  ModalFormDefinition,
+  InputComponent,
+  TextareaComponent,
+  SelectComponent,
+  ComboboxComponent,
+  CheckboxComponent,
+  DatePickerComponent,
+  TimePickerComponent,
+  StatusIndicator,
+  FieldSettingComponent,
+  ImageSettingComponent,
+  FileSettingComponent,
+  ListItemTemplate,
+  ListComponent,
+  EmptyFormComponent,
+  AlertComponent,
+  FormComponent,
+  FormLayoutColumn,
+  FormLayoutRow,
+  FormLayoutConfig,
+  FormProps,
+  CardHeader,
+  CardBlock,
+  ListBlock,
+  ModelMapperBlock,
+  BlockDefinition,
+  // Page types
+  PageType,
+  PageDefinition,
+  // Webhook types
+  HttpMethod,
   WebhookRequest,
   WebhookHandlerContext,
   WebhookHandlerResponse,
@@ -148,12 +180,9 @@ export type {
   WebhookHandlerDefinition,
   Webhooks,
   WebhookHandlerMetadata,
-  // Provision config
-  ProvisionConfig,
-  // Dependency types
+  // Resource dependency types
   ModelDependency,
   ChannelDependency,
   WorkflowDependency,
   ResourceDependency,
-  StructuredFilter,
 } from './config'

@@ -111,3 +111,12 @@ export type {
   WebhookMetadata,
 } from './webhook'
 export { isRuntimeWebhookContext } from './webhook'
+
+// MCP Protocol types
+export type {
+  MCPError,
+  MCPContentItem,
+  MCPResult,
+  MCPResponse,
+  MCPRequest,
+} from './mcp-protocol'

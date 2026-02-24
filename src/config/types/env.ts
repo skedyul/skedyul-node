@@ -1,16 +1,25 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Env Variable Definition
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Environment variable definition types.
+ *
+ * Environment variables can have two scopes:
+ * - 'provision': Developer-configured, shared across all installations
+ * - 'install': User-configured during app installation
+ */
 
-export type EnvVisibility = 'visible' | 'encrypted'
+import type { Scope, Visibility } from './base'
 
-export interface EnvVariableDefinition {
+/**
+ * Environment variable definition.
+ */
+export interface EnvVariable {
   /** Human-readable label for the variable */
   label: string
+  /** Scope: 'provision' (developer) or 'install' (user) */
+  scope?: Scope
   /** Whether this variable is required */
   required?: boolean
-  /** Visibility setting (encrypted values are hidden in UI) */
-  visibility?: EnvVisibility
+  /** Visibility setting: 'visible' or 'encrypted' */
+  visibility?: Visibility
   /** Default value if not provided */
   default?: string
   /** Description/help text */
@@ -19,4 +28,8 @@ export interface EnvVariableDefinition {
   placeholder?: string
 }
 
-export type EnvSchema = Record<string, EnvVariableDefinition>
+/**
+ * Environment variable schema.
+ * Keys are variable names (e.g., 'TWILIO_ACCOUNT_SID').
+ */
+export type EnvSchema = Record<string, EnvVariable>

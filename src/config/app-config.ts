@@ -1,7 +1,13 @@
+/**
+ * App configuration types.
+ *
+ * This module defines the main configuration interfaces for Skedyul apps.
+ */
+
 import type { ToolRegistry, WebhookRegistry, ToolMetadata, WebhookMetadata } from '../types'
 import type {
   EnvSchema,
-  ComputeLayerType,
+  ComputeLayer,
   ModelDefinition,
   RelationshipDefinition,
   ChannelDefinition,
@@ -11,31 +17,12 @@ import type {
   AgentDefinition,
 } from './types'
 
-// Re-export handler types from main types
-export type {
-  InstallHandlerContext,
-  InstallHandlerResult,
-  InstallHandler,
-  InstallHandlerResponseOAuth,
-  InstallHandlerResponseStandard,
-  HasOAuthCallback,
-  ServerHooksWithOAuth,
-  ServerHooksWithoutOAuth,
-  ProvisionHandlerContext,
-  ProvisionHandlerResult,
-  ProvisionHandler,
-  ServerHooks,
-} from '../types'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Install Configuration (for install.config.ts in apps)
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Install configuration - defines per-install env vars and SHARED models.
+ * This is configured by users during app installation.
  */
 export interface InstallConfig {
-  /** Per-install environment variables (collected from user during install, passed at runtime) */
+  /** Per-install environment variables (collected from user during install) */
   env?: EnvSchema
   /** SHARED model definitions (mapped to user's existing data during installation) */
   models?: ModelDefinition[]
@@ -43,11 +30,10 @@ export interface InstallConfig {
   relationships?: RelationshipDefinition[]
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Provision Configuration
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Provision-level configuration - auto-synced when app version is deployed */
+/**
+ * Provision configuration - auto-synced when app version is deployed.
+ * This is configured by developers and shared across all installations.
+ */
 export interface ProvisionConfig {
   /** Global environment variables (developer-level, shared across all installs) */
   env?: EnvSchema
@@ -65,10 +51,9 @@ export interface ProvisionConfig {
   pages?: PageDefinition[]
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Configuration
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Main Skedyul app configuration.
+ */
 export interface SkedyulConfig {
   /** App name */
   name: string
@@ -77,7 +62,7 @@ export interface SkedyulConfig {
   /** App description */
   description?: string
   /** Compute layer: 'serverless' (Lambda) or 'dedicated' (ECS/Docker) */
-  computeLayer?: ComputeLayerType
+  computeLayer?: ComputeLayer
 
   /** Tool registry - direct object or dynamic import */
   tools?: ToolRegistry | Promise<{ toolRegistry: ToolRegistry }>
@@ -85,21 +70,21 @@ export interface SkedyulConfig {
   webhooks?: WebhookRegistry | Promise<{ webhookRegistry: WebhookRegistry }>
   /** Provision configuration - direct object or dynamic import */
   provision?: ProvisionConfig | Promise<{ default: ProvisionConfig }>
-  /** Install configuration - hooks for install/uninstall lifecycle */
+  /** Install configuration - direct object or dynamic import */
   install?: InstallConfig | Promise<{ default: InstallConfig }>
   /** Agent definitions - multi-tenant agents with tool bindings */
   agents?: AgentDefinition[]
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Serializable Config (for database storage)
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Serializable config (for database storage).
+ * This is the resolved form of SkedyulConfig without functions or promises.
+ */
 export interface SerializableSkedyulConfig {
   name: string
   version?: string
   description?: string
-  computeLayer?: ComputeLayerType
+  computeLayer?: ComputeLayer
   /** Tool metadata (serialized from ToolRegistry) */
   tools?: ToolMetadata[]
   /** Webhook metadata (serialized from WebhookRegistry) */
@@ -109,10 +94,6 @@ export interface SerializableSkedyulConfig {
   /** Agent definitions (stored as-is) */
   agents?: AgentDefinition[]
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper Function
-// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Define a Skedyul app configuration with full type safety.
