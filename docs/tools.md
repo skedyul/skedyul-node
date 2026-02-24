@@ -5,7 +5,7 @@ Tools are the core building blocks of Skedyul apps. They're functions that AI ag
 ## Overview
 
 A tool consists of:
-- **Name and description** - For AI agent discovery
+- **Name and description** - For AI agent discovery (use `snake_case` for names)
 - **Input schema** - Zod schema defining expected inputs
 - **Handler** - Async function that executes the tool
 - **Output schema** - Optional schema for structured output

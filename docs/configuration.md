@@ -7,21 +7,20 @@ The `skedyul.config.ts` file defines your app's structure, including tools, webh
 ```ts
 // skedyul.config.ts
 import { defineConfig } from 'skedyul'
+import pkg from './package.json'
 
 export default defineConfig({
-  // Required
-  name: 'my-integration',
-  version: '1.0.0',
+  name: 'My Integration',
+  version: pkg.version,
+  description: 'Description of what this app does',
   computeLayer: 'serverless',
-  
+
   // Tool and webhook registries
-  tools: import('./src/tools/registry'),
-  webhooks: import('./src/webhooks/registry'),
-  
-  // Optional configurations
-  provision: import('./config/provision.config'),
-  install: import('./config/install.config'),
-  agents: import('./config/agents.config'),
+  tools: import('./src/registries'),
+  webhooks: import('./src/registries'),
+
+  // Provision configuration (aggregates all modular configs)
+  provision: import('./provision'),
 })
 ```
 
@@ -34,18 +33,19 @@ The top-level configuration interface:
 ```ts
 interface SkedyulConfig {
   // Required
-  name: string                    // App identifier (lowercase, hyphens)
+  name: string                    // App display name
   version: string                 // Semantic version
   computeLayer: 'dedicated' | 'serverless'
-  
+
+  // Optional description
+  description?: string
+
   // Registries (dynamic imports)
   tools?: Promise<{ default: ToolRegistry }>
   webhooks?: Promise<{ default: WebhookRegistry }>
-  
-  // Configuration modules
+
+  // Provision configuration (aggregates modular configs)
   provision?: Promise<{ default: ProvisionConfig }>
-  install?: Promise<{ default: InstallConfig }>
-  agents?: Promise<{ default: AgentDefinition[] }>
 }
 ```
 
@@ -58,222 +58,88 @@ interface SkedyulConfig {
 
 ---
 
-## Provision Config
+## Project Structure
 
-Defines resources created at the app version level (shared across all installations).
+The recommended project structure uses modular, file-based configuration:
 
-```ts
-// config/provision.config.ts
-import type { ProvisionConfig } from 'skedyul'
-
-const config: ProvisionConfig = {
-  // Environment variables (version-level)
-  env: {
-    EXTERNAL_API_URL: {
-      label: 'External API URL',
-      required: true,
-      visibility: 'visible',
-      placeholder: 'https://api.example.com',
-    },
-  },
-  
-  // Data models
-  models: [
-    {
-      handle: 'compliance_record',
-      label: 'Compliance Record',
-      type: 'INTERNAL',
-      fields: [
-        { handle: 'status', label: 'Status', type: 'select', options: ['pending', 'approved', 'rejected'] },
-        { handle: 'document_url', label: 'Document URL', type: 'url' },
-        { handle: 'reviewed_at', label: 'Reviewed At', type: 'datetime' },
-      ],
-    },
-  ],
-  
-  // Communication channels
-  channels: [
-    {
-      handle: 'sms',
-      label: 'SMS',
-      identifierLabel: 'Phone Number',
-      identifierPlaceholder: '+1234567890',
-    },
-  ],
-  
-  // Workflows
-  workflows: [
-    {
-      handle: 'send_reminder',
-      label: 'Send Reminder',
-      description: 'Send appointment reminder via SMS',
-    },
-  ],
-  
-  // UI pages
-  pages: [
-    {
-      handle: 'settings',
-      label: 'Settings',
-      fields: [
-        { handle: 'auto_reply', label: 'Auto Reply', type: 'boolean' },
-        { handle: 'reply_message', label: 'Reply Message', type: 'text' },
-      ],
-    },
-  ],
-  
-  // Navigation
-  navigation: {
-    items: [
-      { label: 'Dashboard', pageHandle: 'dashboard' },
-      { label: 'Settings', pageHandle: 'settings' },
-    ],
-  },
-}
-
-export default config
 ```
-
-### Models
-
-Define data models that your app manages:
-
-```ts
-interface ModelDefinition {
-  handle: string                    // Unique identifier
-  label: string                     // Display name
-  type: 'INTERNAL' | 'SHARED'       // Visibility
-  fields: FieldDefinition[]         // Model fields
-  relationships?: RelationshipDefinition[]
-}
-```
-
-#### Model Types
-
-| Type | Description | Use Case |
-|------|-------------|----------|
-| `INTERNAL` | Only accessible by your app | App-specific data (logs, settings) |
-| `SHARED` | Linked to user's existing models | Contacts, appointments |
-
-#### Field Types
-
-```ts
-interface FieldDefinition {
-  handle: string
-  label: string
-  type: 'text' | 'number' | 'boolean' | 'select' | 'date' | 'datetime' | 'url' | 'email' | 'phone' | 'file' | 'relation'
-  required?: boolean
-  options?: string[]              // For 'select' type
-  relationModel?: string          // For 'relation' type
-  description?: string
-}
-```
-
-### Channels
-
-Define communication channel types:
-
-```ts
-interface ChannelDefinition {
-  handle: string                  // e.g., 'sms', 'email', 'whatsapp'
-  label: string                   // Display name
-  identifierLabel: string         // e.g., 'Phone Number', 'Email Address'
-  identifierPlaceholder?: string  // Input placeholder
-  identifierPattern?: string      // Validation regex
-}
-```
-
-### Workflows
-
-Define automated workflows:
-
-```ts
-interface WorkflowDefinition {
-  handle: string
-  label: string
-  description?: string
-  triggers?: WorkflowTrigger[]
-}
-```
-
-### Pages
-
-Define UI pages for your app:
-
-```ts
-interface PageDefinition {
-  handle: string
-  label: string
-  description?: string
-  fields: PageFieldDefinition[]
-  actions?: PageActionDefinition[]
-}
-
-interface PageFieldDefinition {
-  handle: string
-  label: string
-  type: 'text' | 'number' | 'boolean' | 'select' | 'date' | 'datetime' | 'file'
-  required?: boolean
-  options?: string[]
-  defaultValue?: unknown
-  description?: string
-  onChange?: string              // Tool name to call on change
-}
-
-interface PageActionDefinition {
-  handle: string
-  label: string
-  tool: string                   // Tool name to execute
-  variant?: 'primary' | 'secondary' | 'danger'
-}
+my-app/
+├── skedyul.config.ts          # App metadata + imports
+├── provision.ts               # Aggregates all modular configs
+├── env.ts                     # Environment variables
+├── crm/
+│   ├── index.ts               # Re-exports models + relationships
+│   ├── relationships.ts       # Model relationships
+│   └── models/
+│       ├── index.ts
+│       └── my-model.ts
+├── channels/
+│   ├── index.ts
+│   └── my-channel.ts
+├── pages/
+│   ├── index.ts
+│   ├── navigation.ts          # Root navigation
+│   └── settings/
+│       └── page.ts
+└── src/
+    └── registries.ts          # Tools and webhooks
 ```
 
 ---
 
-## Install Config
+## Provision Config
 
-Defines per-installation configuration (user-provided credentials and settings).
+Aggregates all modular config files for the app:
 
 ```ts
-// config/install.config.ts
-import type { InstallConfig } from 'skedyul'
+// provision.ts
+import type { ProvisionConfig } from 'skedyul'
 
-const config: InstallConfig = {
-  env: {
-    // API credentials
-    API_KEY: {
-      label: 'API Key',
-      required: true,
-      visibility: 'encrypted',
-      description: 'Your API key from the external service',
-    },
-    
-    // Optional settings
-    BASE_URL: {
-      label: 'API Base URL',
-      required: false,
-      visibility: 'visible',
-      placeholder: 'https://api.example.com',
-      defaultValue: 'https://api.example.com',
-    },
-    
-    // OAuth tokens (set by oauth_callback handler)
-    ACCESS_TOKEN: {
-      label: 'Access Token',
-      required: false,
-      visibility: 'encrypted',
-      internal: true,  // Hidden from user
-    },
-    REFRESH_TOKEN: {
-      label: 'Refresh Token',
-      required: false,
-      visibility: 'encrypted',
-      internal: true,
-    },
-  },
+import env from './env'
+import { models, relationships } from './crm'
+import * as channels from './channels'
+import * as pages from './pages'
+import navigation from './pages/navigation'
+
+const config: ProvisionConfig = {
+  env,
+  navigation,
+  models: Object.values(models),
+  channels: Object.values(channels),
+  pages: Object.values(pages),
+  relationships,
 }
 
 export default config
+```
+
+---
+
+## Environment Variables
+
+Define environment variables using `defineEnv`:
+
+```ts
+// env.ts
+import { defineEnv } from 'skedyul'
+
+export default defineEnv({
+  EXTERNAL_API_KEY: {
+    label: 'API Key',
+    scope: 'provision',      // 'provision' or 'install'
+    required: true,
+    visibility: 'encrypted', // 'visible' or 'encrypted'
+    description: 'Your API key from the external service',
+    placeholder: 'sk_live_xxxxx',
+  },
+  BASE_URL: {
+    label: 'API Base URL',
+    scope: 'provision',
+    required: false,
+    visibility: 'visible',
+    placeholder: 'https://api.example.com',
+  },
+})
 ```
 
 ### Environment Variable Definition
@@ -281,15 +147,20 @@ export default config
 ```ts
 interface EnvVariableDefinition {
   label: string                   // Display label
-  required?: boolean              // Is this required for installation?
+  scope: 'provision' | 'install'  // When collected
+  required?: boolean              // Is this required?
   visibility: 'visible' | 'encrypted'
   placeholder?: string            // Input placeholder
-  defaultValue?: string           // Default value
   description?: string            // Help text
-  internal?: boolean              // Hide from user (set programmatically)
-  pattern?: string                // Validation regex
 }
 ```
+
+### Scopes
+
+| Scope | When Collected | Use Case |
+|-------|----------------|----------|
+| `provision` | App version deployment | Shared API keys, service configs |
+| `install` | User installation | Per-user credentials, workspace IDs |
 
 ### Visibility Options
 
@@ -300,71 +171,391 @@ interface EnvVariableDefinition {
 
 ---
 
-## Agents Config
+## Models
 
-Define AI agents that can use your tools:
+Define models using `defineModel` in separate files:
 
 ```ts
-// config/agents.config.ts
-import type { AgentDefinition } from 'skedyul'
+// crm/models/compliance-record.ts
+import { defineModel } from 'skedyul'
 
-const agents: AgentDefinition[] = [
-  {
-    handle: 'appointment_assistant',
-    label: 'Appointment Assistant',
-    description: 'Helps users schedule and manage appointments',
-    systemPrompt: `You are an appointment scheduling assistant. 
-Help users find available times and book appointments.
-Always confirm the date, time, and service before booking.`,
-    tools: ['list_availability', 'create_appointment', 'cancel_appointment'],
-  },
-  {
-    handle: 'support_agent',
-    label: 'Support Agent',
-    description: 'Handles customer support inquiries',
-    systemPrompt: `You are a helpful support agent.
-Answer questions about services and help resolve issues.`,
-    tools: ['search_faq', 'create_ticket', 'get_order_status'],
-  },
-]
+export default defineModel({
+  handle: 'compliance_record',
+  label: 'Compliance Record',
+  labelPlural: 'Compliance Records',
+  labelTemplate: '{{ status }} - {{ created_at }}',
+  description: 'Tracks compliance status',
+  scope: 'internal',           // 'internal' or 'shared'
 
-export default agents
+  fields: [
+    {
+      handle: 'status',
+      label: 'Status',
+      type: 'string',
+      required: true,
+      owner: 'app',
+      constraints: {
+        limitChoices: 1,
+        options: [
+          { label: 'Pending', value: 'pending', color: 'yellow' },
+          { label: 'Approved', value: 'approved', color: 'green' },
+          { label: 'Rejected', value: 'rejected', color: 'red' },
+        ],
+      },
+    },
+    {
+      handle: 'document_url',
+      label: 'Document URL',
+      type: 'string',
+      required: false,
+      owner: 'app',
+    },
+    {
+      handle: 'reviewed_at',
+      label: 'Reviewed At',
+      type: 'date_time',
+      required: false,
+      owner: 'app',
+    },
+  ],
+})
 ```
 
-### Agent Definition
+### Model Scopes
+
+| Scope | Description | Use Case |
+|-------|-------------|----------|
+| `internal` | Only accessible by your app | App-specific data (logs, settings) |
+| `shared` | Linked to user's existing models | Contacts, appointments |
+
+### Field Types
+
+| Type | Description |
+|------|-------------|
+| `string` | Short text |
+| `long_string` | Long text / textarea |
+| `number` | Numeric value |
+| `boolean` | True/false |
+| `date` | Date only |
+| `date_time` | Date and time |
+
+### Field Owner
+
+| Owner | Description |
+|-------|-------------|
+| `app` | App controls this field |
+| `workplace` | User provides this data |
+
+### Models Index
 
 ```ts
-interface AgentDefinition {
-  handle: string                  // Unique identifier
-  label: string                   // Display name
-  description?: string            // Agent description
-  systemPrompt: string            // System prompt for the AI
-  tools: string[]                 // Tool names this agent can use
-  model?: string                  // AI model to use (optional)
-}
+// crm/models/index.ts
+export { default as complianceRecord } from './compliance-record'
+export { default as phoneNumber } from './phone-number'
 ```
 
 ---
 
-## Environment Variable Merging
+## Relationships
 
-Environment variables are merged from multiple sources in order of precedence:
-
-1. **Request-level** - Passed in the tool/webhook request (highest priority)
-2. **Installation-level** - User-provided during installation
-3. **Version-level** - Defined in provision config
-4. **Process environment** - `process.env`
-5. **MCP_ENV** - Container runtime override
-6. **MCP_ENV_JSON** - Build-time configuration (lowest priority)
+Define relationships between models:
 
 ```ts
-// In a tool handler
-const handler: ToolHandler<Input, Output> = async (input, context) => {
-  // context.env contains merged environment variables
-  const apiKey = context.env.API_KEY
-  const baseUrl = context.env.BASE_URL || 'https://api.default.com'
-  // ...
+// crm/relationships.ts
+import type { RelationshipDefinition } from 'skedyul'
+
+const relationships: RelationshipDefinition[] = [
+  {
+    source: {
+      model: 'phone_number',
+      field: 'compliance_record',
+      label: 'Compliance Record',
+      cardinality: 'many_to_one',
+      onDelete: 'restrict',
+    },
+    target: {
+      model: 'compliance_record',
+      field: 'phone_numbers',
+      label: 'Phone Numbers',
+      cardinality: 'one_to_many',
+      onDelete: 'none',
+    },
+  },
+]
+
+export default relationships
+```
+
+### Cardinality Values
+
+| Cardinality | Description |
+|-------------|-------------|
+| `one_to_one` | Single reference on both sides |
+| `one_to_many` | Single to multiple |
+| `many_to_one` | Multiple to single |
+| `many_to_many` | Multiple on both sides |
+
+### CRM Index
+
+```ts
+// crm/index.ts
+export * as models from './models'
+export { default as relationships } from './relationships'
+```
+
+---
+
+## Channels
+
+Define communication channels using `defineChannel`:
+
+```ts
+// channels/phone.ts
+import { defineChannel } from 'skedyul'
+
+export default defineChannel({
+  handle: 'phone',
+  label: 'Phone',
+  icon: 'Phone',
+
+  fields: [
+    {
+      handle: 'phone',
+      label: 'Phone Number',
+      identifier: true,
+      definitionHandle: 'phone',
+      visibility: {
+        data: true,
+        list: true,
+        filters: true,
+      },
+    },
+    {
+      handle: 'opt_in',
+      label: 'Opt In',
+      definitionHandle: 'system/opt_in',
+      required: false,
+      default: ['OPT_IN'],
+      visibility: { data: true, list: true, filters: true },
+      permissions: { read: true, write: true },
+    },
+  ],
+
+  capabilities: {
+    messaging: {
+      label: 'SMS',
+      icon: 'MessageSquare',
+      receive: 'receive_sms',
+      send: 'send_sms',
+    },
+    voice: {
+      label: 'Voice',
+      icon: 'PhoneCall',
+      receive: 'receive_call',
+      send: 'make_call',
+    },
+  },
+})
+```
+
+### Channels Index
+
+```ts
+// channels/index.ts
+export { default as phone } from './phone'
+```
+
+---
+
+## Pages
+
+Define pages using Next.js-style file-based routing:
+
+```ts
+// pages/settings/page.ts
+import { definePage } from 'skedyul'
+
+export default definePage({
+  handle: 'settings',
+  label: 'Settings',
+  type: 'instance',           // 'instance' or 'list'
+  path: '/settings',
+  default: true,              // Is this the default page?
+  navigation: true,           // Show in navigation?
+
+  context: {
+    config: {
+      model: 'app_config',
+      mode: 'first',
+    },
+  },
+
+  blocks: [
+    {
+      type: 'card',
+      header: {
+        title: 'App Settings',
+        description: 'Configure your app settings.',
+      },
+      form: {
+        id: 'settings-form',
+        fields: [
+          {
+            component: 'input',
+            id: 'api_url',
+            row: 0,
+            col: 0,
+            label: 'API URL',
+            value: '{{ config.api_url }}',
+            placeholder: 'https://api.example.com',
+          },
+          {
+            component: 'select',
+            id: 'mode',
+            row: 1,
+            col: 0,
+            label: 'Mode',
+            value: '{{ config.mode }}',
+            options: [
+              { label: 'Production', value: 'production' },
+              { label: 'Sandbox', value: 'sandbox' },
+            ],
+          },
+        ],
+        layout: {
+          type: 'form',
+          rows: [
+            { columns: [{ field: 'api_url', colSpan: 12 }] },
+            { columns: [{ field: 'mode', colSpan: 12 }] },
+          ],
+        },
+        actions: [
+          {
+            handle: 'save_settings',
+            label: 'Save',
+            handler: 'update_settings',
+            variant: 'primary',
+          },
+        ],
+      },
+    },
+  ],
+})
+```
+
+### Page Types
+
+| Type | Description |
+|------|-------------|
+| `instance` | Single record view |
+| `list` | List of records |
+
+### Block Types
+
+| Type | Description |
+|------|-------------|
+| `card` | Card with optional header and form |
+| `model_mapper` | UI for mapping shared models |
+
+### Form Components
+
+| Component | Description |
+|-----------|-------------|
+| `input` | Text input |
+| `select` | Dropdown select |
+| `fieldsetting` | Field with modal form button |
+| `list` | Iterable list |
+| `alert` | Alert/info message |
+
+### Pages Index
+
+```ts
+// pages/index.ts
+export { default as settings } from './settings/page'
+export { default as phoneNumbers } from './phone-numbers/page'
+```
+
+---
+
+## Navigation
+
+Define base navigation using `defineNavigation`:
+
+```ts
+// pages/navigation.ts
+import { defineNavigation } from 'skedyul'
+
+export default defineNavigation({
+  sidebar: {
+    sections: [
+      {
+        items: [
+          { label: 'Settings', href: '/settings', icon: 'Settings' },
+          { label: 'Phone Numbers', href: '/phone-numbers', icon: 'Phone' },
+        ],
+      },
+    ],
+  },
+})
+```
+
+### Page-Level Navigation Override
+
+Individual pages can override navigation:
+
+```ts
+// pages/phone-numbers/[phone_id]/overview/navigation.ts
+import type { NavigationConfig } from 'skedyul'
+
+const navigation: NavigationConfig = {
+  sidebar: {
+    sections: [
+      {
+        title: '{{ phone_number.phone }}',
+        items: [
+          { label: 'Overview', href: '/phone-numbers/{{ path_params.phone_id }}/overview', icon: 'Phone' },
+          { label: 'Messaging', href: '/phone-numbers/{{ path_params.phone_id }}/messaging', icon: 'MessageSquare' },
+        ],
+      },
+    ],
+  },
+  breadcrumb: {
+    items: [
+      { label: 'Phone Numbers', href: '/phone-numbers' },
+      { label: '{{ phone_number.phone }}' },
+    ],
+  },
 }
+
+export default navigation
+```
+
+---
+
+## Agents
+
+Define AI agents using `defineAgent`:
+
+```ts
+// agents/booking.ts
+import { defineAgent } from 'skedyul'
+
+export default defineAgent({
+  handle: 'booking_assistant',
+  label: 'Booking Assistant',
+  description: 'Helps users schedule and manage appointments',
+  systemPrompt: `You are an appointment scheduling assistant.
+Help users find available times and book appointments.
+Always confirm the date, time, and service before booking.`,
+  tools: ['list_availability', 'create_appointment', 'cancel_appointment'],
+})
+```
+
+### Agents Index
+
+```ts
+// agents/index.ts
+export { default as bookingAssistant } from './booking'
 ```
 
 ---
@@ -374,106 +565,64 @@ const handler: ToolHandler<Input, Output> = async (input, context) => {
 ```ts
 // skedyul.config.ts
 import { defineConfig } from 'skedyul'
+import pkg from './package.json'
 
 export default defineConfig({
-  name: 'acme-integration',
-  version: '2.1.0',
+  name: 'Phone',
+  version: pkg.version,
+  description: 'SMS and voice communication via Twilio',
   computeLayer: 'serverless',
-  
-  tools: import('./src/tools/registry'),
-  webhooks: import('./src/webhooks/registry'),
-  provision: import('./config/provision.config'),
-  install: import('./config/install.config'),
-  agents: import('./config/agents.config'),
+
+  tools: import('./src/registries'),
+  webhooks: import('./src/registries'),
+
+  provision: import('./provision'),
 })
 ```
 
 ```ts
-// config/provision.config.ts
+// provision.ts
 import type { ProvisionConfig } from 'skedyul'
 
+import env from './env'
+import { models, relationships } from './crm'
+import * as channels from './channels'
+import * as pages from './pages'
+import * as workflows from './workflows'
+import navigation from './pages/navigation'
+
 const config: ProvisionConfig = {
-  env: {
-    ACME_API_URL: {
-      label: 'ACME API URL',
-      required: true,
-      visibility: 'visible',
-      defaultValue: 'https://api.acme.com',
-    },
-  },
-  
-  models: [
-    {
-      handle: 'sync_log',
-      label: 'Sync Log',
-      type: 'INTERNAL',
-      fields: [
-        { handle: 'synced_at', label: 'Synced At', type: 'datetime' },
-        { handle: 'records_synced', label: 'Records Synced', type: 'number' },
-        { handle: 'status', label: 'Status', type: 'select', options: ['success', 'partial', 'failed'] },
-      ],
-    },
-    {
-      handle: 'contact',
-      label: 'Contact',
-      type: 'SHARED',
-      fields: [
-        { handle: 'external_id', label: 'ACME ID', type: 'text' },
-        { handle: 'last_synced', label: 'Last Synced', type: 'datetime' },
-      ],
-    },
-  ],
-  
-  channels: [
-    {
-      handle: 'email',
-      label: 'Email',
-      identifierLabel: 'Email Address',
-      identifierPlaceholder: 'user@example.com',
-      identifierPattern: '^[^@]+@[^@]+\\.[^@]+$',
-    },
-  ],
-  
-  pages: [
-    {
-      handle: 'sync_settings',
-      label: 'Sync Settings',
-      fields: [
-        { handle: 'auto_sync', label: 'Enable Auto Sync', type: 'boolean', defaultValue: true },
-        { handle: 'sync_interval', label: 'Sync Interval (hours)', type: 'number', defaultValue: 24 },
-      ],
-      actions: [
-        { handle: 'sync_now', label: 'Sync Now', tool: 'trigger_sync', variant: 'primary' },
-      ],
-    },
-  ],
+  env,
+  navigation,
+  models: Object.values(models),
+  channels: Object.values(channels),
+  pages: Object.values(pages),
+  workflows: Object.values(workflows),
+  relationships,
 }
 
 export default config
 ```
 
 ```ts
-// config/install.config.ts
-import type { InstallConfig } from 'skedyul'
+// env.ts
+import { defineEnv } from 'skedyul'
 
-const config: InstallConfig = {
-  env: {
-    ACME_API_KEY: {
-      label: 'ACME API Key',
-      required: true,
-      visibility: 'encrypted',
-      description: 'Find this in your ACME dashboard under Settings > API',
-    },
-    ACME_WORKSPACE_ID: {
-      label: 'ACME Workspace ID',
-      required: true,
-      visibility: 'visible',
-      placeholder: 'ws_xxxxxxxx',
-    },
+export default defineEnv({
+  TWILIO_ACCOUNT_SID: {
+    label: 'Twilio Account SID',
+    scope: 'provision',
+    required: true,
+    visibility: 'encrypted',
+    placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   },
-}
-
-export default config
+  TWILIO_AUTH_TOKEN: {
+    label: 'Twilio Auth Token',
+    scope: 'provision',
+    required: true,
+    visibility: 'encrypted',
+  },
+})
 ```
 
 ---
@@ -509,50 +658,60 @@ handle: 'ar'
 handle: 'cc1'
 ```
 
-### 2. Provide Help Text
+### 2. Use snake_case for Type Literals
 
 ```ts
-env: {
+// Good
+cardinality: 'many_to_one'
+type: 'date_time'
+
+// Bad
+cardinality: 'MANY_TO_ONE'
+type: 'DATE_TIME'
+```
+
+### 3. Provide Help Text
+
+```ts
+defineEnv({
   API_KEY: {
     label: 'API Key',
+    scope: 'install',
     required: true,
     visibility: 'encrypted',
     description: 'Find this in Settings > API Keys in your dashboard',
     placeholder: 'sk_live_xxxxxxxx',
   },
-}
+})
 ```
 
-### 3. Use SHARED Models for User Data
+### 4. Use scope: 'shared' for User Data
 
 ```ts
-// Link to user's existing contacts
-models: [
-  {
-    handle: 'contact',
-    label: 'Contact',
-    type: 'SHARED',  // User selects which model to link
-    fields: [
-      { handle: 'external_id', label: 'External ID', type: 'text' },
-    ],
-  },
-]
+defineModel({
+  handle: 'contact',
+  label: 'Contact',
+  scope: 'shared',  // User selects which model to link
+  // ...
+})
 ```
 
-### 4. Group Related Pages
+### 5. Organize Files by Domain
 
-```ts
-navigation: {
-  items: [
-    { label: 'Overview', pageHandle: 'dashboard' },
-    { 
-      label: 'Settings',
-      children: [
-        { label: 'General', pageHandle: 'settings_general' },
-        { label: 'Notifications', pageHandle: 'settings_notifications' },
-        { label: 'Advanced', pageHandle: 'settings_advanced' },
-      ],
-    },
-  ],
-}
+```
+crm/
+├── models/
+│   ├── client.ts
+│   ├── patient.ts
+│   └── appointment.ts
+└── relationships.ts
+
+channels/
+└── phone.ts
+
+pages/
+├── clients/
+│   └── page.ts
+└── appointments/
+    └── page.ts
 ```

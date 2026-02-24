@@ -2,6 +2,10 @@
 
 The official Node.js SDK for building Skedyul integration apps. This package provides everything you need to create MCP (Model Context Protocol) servers, handle webhooks, manage lifecycle events, and interact with the Skedyul platform.
 
+## Version 1.0.0
+
+This release introduces a modular, file-based configuration system with improved type safety and developer experience.
+
 ## Features
 
 - **MCP Server**: Build tools that AI agents can invoke via the Model Context Protocol
@@ -9,6 +13,7 @@ The official Node.js SDK for building Skedyul integration apps. This package pro
 - **Lifecycle Hooks**: Handle app installation, provisioning, and cleanup
 - **Core API Client**: Interact with Skedyul resources (workplaces, channels, instances)
 - **CLI**: Develop and test locally with hot-reload and tunneling
+- **Modular Config**: File-based configuration with auto-discovery patterns
 
 ## Installation
 
@@ -25,17 +30,76 @@ pnpm add skedyul
 ```ts
 // skedyul.config.ts
 import { defineConfig } from 'skedyul'
+import pkg from './package.json'
 
 export default defineConfig({
-  name: 'my-integration',
-  version: '1.0.0',
+  name: 'My Integration',
+  version: pkg.version,
+  description: 'Description of what this app does',
   computeLayer: 'serverless',
-  tools: import('./src/tools/registry'),
-  webhooks: import('./src/webhooks/registry'),
+
+  tools: import('./src/registries'),
+  webhooks: import('./src/registries'),
+  provision: import('./provision'),
 })
 ```
 
-### 2. Define a tool
+### 2. Define your provision config
+
+```ts
+// provision.ts
+import type { ProvisionConfig } from 'skedyul'
+
+import env from './env'
+import { models, relationships } from './crm'
+import * as channels from './channels'
+import * as pages from './pages'
+import navigation from './pages/navigation'
+
+const config: ProvisionConfig = {
+  env,
+  navigation,
+  models: Object.values(models),
+  channels: Object.values(channels),
+  pages: Object.values(pages),
+  relationships,
+}
+
+export default config
+```
+
+### 3. Define a model
+
+```ts
+// crm/models/contact.ts
+import { defineModel } from 'skedyul'
+
+export default defineModel({
+  handle: 'contact',
+  label: 'Contact',
+  labelPlural: 'Contacts',
+  scope: 'shared',
+
+  fields: [
+    {
+      handle: 'name',
+      label: 'Name',
+      type: 'string',
+      required: true,
+      owner: 'workplace',
+    },
+    {
+      handle: 'email',
+      label: 'Email',
+      type: 'string',
+      required: false,
+      owner: 'workplace',
+    },
+  ],
+})
+```
+
+### 4. Define a tool
 
 ```ts
 // src/tools/hello.ts
@@ -65,7 +129,7 @@ export const helloTool: ToolDefinition<Input, Output> = {
 }
 ```
 
-### 3. Start the server
+### 5. Start the server
 
 ```ts
 // src/server.ts
@@ -94,6 +158,33 @@ await mcpServer.listen(3000)
 | [Core API](./docs/core-api.md) | Client for Skedyul platform resources |
 | [Configuration](./docs/configuration.md) | skedyul.config.ts reference |
 | [Errors](./docs/errors.md) | Error types and handling patterns |
+
+## Project Structure
+
+The recommended project structure uses modular, file-based configuration:
+
+```
+my-app/
+├── skedyul.config.ts          # App metadata + imports
+├── provision.ts               # Aggregates all modular configs
+├── env.ts                     # Environment variables
+├── crm/
+│   ├── index.ts               # Re-exports models + relationships
+│   ├── relationships.ts       # Model relationships
+│   └── models/
+│       ├── index.ts
+│       └── contact.ts
+├── channels/
+│   ├── index.ts
+│   └── phone.ts
+├── pages/
+│   ├── index.ts
+│   ├── navigation.ts          # Root navigation
+│   └── settings/
+│       └── page.ts
+└── src/
+    └── registries.ts          # Tools and webhooks
+```
 
 ## Server Modes
 
