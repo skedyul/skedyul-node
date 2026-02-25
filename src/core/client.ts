@@ -661,6 +661,22 @@ export interface FileUrlResponse {
 }
 
 /**
+ * Response from file.get
+ */
+export interface FileInfo {
+  /** File ID (fl_xxx format) */
+  id: string
+  /** Original filename */
+  name: string
+  /** MIME type of the file */
+  mimeType: string
+  /** File size in bytes */
+  size: number
+  /** ISO timestamp when the file was created */
+  createdAt: string
+}
+
+/**
  * Parameters for file.upload
  */
 export interface FileUploadParams {
@@ -685,6 +701,28 @@ export interface FileUploadResult {
 }
 
 export const file = {
+  /**
+   * Get file metadata by ID.
+   *
+   * Returns file information including name, mimeType, and size.
+   * Files are validated to ensure they belong to the requesting app installation.
+   *
+   * @example
+   * ```ts
+   * // Get file info
+   * const fileInfo = await file.get('fl_abc123')
+   * console.log(fileInfo.name) // 'document.pdf'
+   * console.log(fileInfo.mimeType) // 'application/pdf'
+   * console.log(fileInfo.size) // 12345
+   * ```
+   */
+  async get(fileId: string): Promise<FileInfo> {
+    const { data } = await callCore<FileInfo>('file.get', {
+      fileId,
+    })
+    return data
+  },
+
   /**
    * Get a temporary download URL for an app-scoped file.
    *
@@ -1168,64 +1206,11 @@ export interface GenerateObjectResult<T> {
 }
 
 /**
- * Convert a Zod schema to JSON Schema format for transport.
- * This is a simplified conversion that handles common Zod types.
+ * Convert a Zod schema to JSON Schema format for transport using Zod's built-in conversion.
+ * Uses z.toJSONSchema() from Zod 4 for accurate schema conversion.
  */
 function zodSchemaToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-  // Use Zod's built-in JSON Schema conversion if available
-  // For now, we'll pass the schema description and let the server handle it
-  const jsonSchema = (schema as unknown as { _def?: { typeName?: string } })._def
-  
-  // Basic type mapping
-  if (jsonSchema?.typeName === 'ZodString') {
-    return { type: 'string' }
-  }
-  if (jsonSchema?.typeName === 'ZodNumber') {
-    return { type: 'number' }
-  }
-  if (jsonSchema?.typeName === 'ZodBoolean') {
-    return { type: 'boolean' }
-  }
-  if (jsonSchema?.typeName === 'ZodArray') {
-    const arrayDef = jsonSchema as unknown as { type?: z.ZodTypeAny }
-    return {
-      type: 'array',
-      items: arrayDef.type ? zodSchemaToJsonSchema(arrayDef.type) : {},
-    }
-  }
-  if (jsonSchema?.typeName === 'ZodObject') {
-    const objectDef = jsonSchema as unknown as { shape?: () => Record<string, z.ZodTypeAny> }
-    const shape = objectDef.shape?.() ?? {}
-    const properties: Record<string, unknown> = {}
-    const required: string[] = []
-    
-    for (const [key, value] of Object.entries(shape)) {
-      properties[key] = zodSchemaToJsonSchema(value)
-      // Check if field is required (not optional/nullable)
-      const valueDef = (value as unknown as { _def?: { typeName?: string } })._def
-      if (valueDef?.typeName !== 'ZodOptional' && valueDef?.typeName !== 'ZodNullable') {
-        required.push(key)
-      }
-    }
-    
-    return {
-      type: 'object',
-      properties,
-      required: required.length > 0 ? required : undefined,
-    }
-  }
-  if (jsonSchema?.typeName === 'ZodNullable' || jsonSchema?.typeName === 'ZodOptional') {
-    const innerDef = jsonSchema as unknown as { innerType?: z.ZodTypeAny }
-    const inner = innerDef.innerType ? zodSchemaToJsonSchema(innerDef.innerType) : {}
-    return { ...inner, nullable: true }
-  }
-  if (jsonSchema?.typeName === 'ZodEnum') {
-    const enumDef = jsonSchema as unknown as { values?: unknown[] }
-    return { type: 'string', enum: enumDef.values }
-  }
-  
-  // Fallback: return empty object schema
-  return { type: 'object' }
+  return z.toJSONSchema(schema) as Record<string, unknown>
 }
 
 export const ai = {

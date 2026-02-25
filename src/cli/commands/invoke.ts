@@ -19,6 +19,110 @@ import { createContextLogger } from '../../server/logger'
 import { getCredentials, callCliApi } from '../utils/auth'
 import { getLinkConfig, loadEnvFile as loadLinkedEnvFile } from '../utils/link'
 import { findRegistryPath } from '../utils/config'
+import { file, configure } from '../../core/client'
+
+/**
+ * Simple MIME type lookup based on file extension.
+ */
+function getMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase()
+  const mimeTypes: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.txt': 'text/plain',
+    '.html': 'text/html',
+    '.htm': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.xml': 'application/xml',
+    '.csv': 'text/csv',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.zip': 'application/zip',
+    '.mp3': 'audio/mpeg',
+    '.mp4': 'video/mp4',
+    '.wav': 'audio/wav',
+  }
+  return mimeTypes[ext] || 'application/octet-stream'
+}
+
+/**
+ * Upload a local file and return its file ID.
+ */
+async function uploadLocalFile(filePath: string): Promise<string> {
+  const absolutePath = path.resolve(filePath)
+  
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error(`File not found: ${absolutePath}`)
+  }
+  
+  const content = fs.readFileSync(absolutePath)
+  const fileName = path.basename(absolutePath)
+  const mimeType = getMimeType(absolutePath)
+  
+  console.error(`Uploading file: ${fileName} (${mimeType}, ${content.length} bytes)...`)
+  
+  const result = await file.upload({
+    content,
+    name: fileName,
+    mimeType,
+  })
+  
+  console.error(`Uploaded: ${fileName} -> ${result.id}`)
+  return result.id
+}
+
+/**
+ * Process upload templates in args object.
+ * Recursively scans all string values and replaces {{upload:/path/to/file}} patterns
+ * with the uploaded file ID.
+ */
+async function processUploadTemplates(
+  args: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const result: Record<string, unknown> = {}
+  
+  for (const [key, value] of Object.entries(args)) {
+    if (typeof value === 'string') {
+      const match = value.match(/^\{\{upload:(.+)\}\}$/)
+      if (match) {
+        const filePath = match[1]
+        const fileId = await uploadLocalFile(filePath)
+        result[key] = fileId
+      } else {
+        result[key] = value
+      }
+    } else if (Array.isArray(value)) {
+      result[key] = await Promise.all(
+        value.map(async (item) => {
+          if (typeof item === 'string') {
+            const match = item.match(/^\{\{upload:(.+)\}\}$/)
+            if (match) {
+              return await uploadLocalFile(match[1])
+            }
+          } else if (item && typeof item === 'object') {
+            return await processUploadTemplates(item as Record<string, unknown>)
+          }
+          return item
+        })
+      )
+    } else if (value && typeof value === 'object') {
+      result[key] = await processUploadTemplates(value as Record<string, unknown>)
+    } else {
+      result[key] = value
+    }
+  }
+  
+  return result
+}
 
 /**
  * Find available linked workplaces from .skedyul/links/
@@ -52,6 +156,7 @@ Arguments:
 Options:
   --registry, -r      Path to the registry file (default: auto-detected)
   --args, -a          JSON string of arguments to pass to the tool
+                      Supports {{upload:/path/to/file}} syntax for file uploads
   --env, -e           Set environment variable (can be used multiple times)
                       Format: --env KEY=VALUE
   --env-file          Load environment variables from a file (e.g., .env.local)
@@ -62,6 +167,10 @@ Workplace Options:
   --workplace, -w     Workplace subdomain (auto-detected if only one is linked)
                       Loads env vars from .skedyul/env/{workplace}.env
 
+File Upload Syntax:
+  Use {{upload:/path/to/file}} in any string field within --args to automatically
+  upload a local file and replace the template with the uploaded file ID.
+
 Examples:
   # Basic invocation (auto-detects workspace if only one is linked)
   skedyul dev invoke appointment_types_list
@@ -71,6 +180,14 @@ Examples:
 
   # With arguments
   skedyul dev invoke create_booking --args '{"date": "2024-01-15"}'
+
+  # With file upload (uploads file and injects file_id)
+  skedyul dev invoke parse_lab_report \\
+    --args '{"file_id": "{{upload:/path/to/report.pdf}}"}'
+
+  # Multiple file uploads in one command
+  skedyul dev invoke process_documents \\
+    --args '{"doc": "{{upload:./doc.pdf}}", "image": "{{upload:./photo.jpg}}"}'
 
   # With inline environment variables
   skedyul dev invoke api_call \\
@@ -211,8 +328,24 @@ export async function invokeCommand(args: string[]): Promise<void> {
       )
       workplaceToken = tokenResponse.token
       env.SKEDYUL_API_TOKEN = workplaceToken
+      
+      // Configure the skedyul client for file uploads
+      configure({
+        baseUrl: linkConfig.serverUrl,
+        apiToken: workplaceToken,
+      })
     } catch (error) {
       console.error(`Failed to get API token: ${error instanceof Error ? error.message : String(error)}`)
+      process.exit(1)
+    }
+  }
+
+  // Process upload templates in args (e.g., {{upload:/path/to/file}})
+  if (isLinked) {
+    try {
+      toolArgs = await processUploadTemplates(toolArgs)
+    } catch (error) {
+      console.error(`Error processing file uploads: ${error instanceof Error ? error.message : String(error)}`)
       process.exit(1)
     }
   }

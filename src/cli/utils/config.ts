@@ -79,8 +79,14 @@ function parseConfigFromSource(configPath: string): SkedyulAppConfig | null {
 
     // Fallback: try to extract handle from config file (top-level only)
     if (!handle) {
-      const handleMatch = content.match(/^\s*handle\s*:\s*['"`]([^'"`]+)['"`]/m)
+      const handleMatch = content.match(/^\s{0,2}handle\s*:\s*['"`]([^'"`]+)['"`]/m)
       handle = handleMatch?.[1] ?? null
+    }
+
+    // If handle was found in config, prefer it over package.json derived handle
+    const configHandleMatch = content.match(/^\s{0,2}handle\s*:\s*['"`]([^'"`]+)['"`]/m)
+    if (configHandleMatch?.[1]) {
+      handle = configHandleMatch[1]
     }
 
     if (!handle && !nameMatch) {

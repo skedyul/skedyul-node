@@ -629,7 +629,7 @@ export const ListBlockDefinitionSchema = z.object({
 
 /** Model mapper block definition - for mapping SHARED models to workspace models */
 export const ModelMapperBlockDefinitionSchema = z.object({
-  type: z.literal('model-mapper'),
+  type: z.literal('model_mapper'),
   /** The SHARED model handle from install config (e.g., "client", "patient") */
   model: z.string(),
 })

@@ -5,7 +5,7 @@
  * layout, data context, and navigation.
  */
 
-import type { BaseDefinition } from './base'
+import type { BaseDefinition, StructuredFilter } from './base'
 import type { ContextDefinition } from './context'
 import type { ActionDefinition, BlockDefinition } from './form'
 import type { NavigationConfig } from './navigation'
@@ -16,6 +16,17 @@ import type { NavigationConfig } from './navigation'
  * - 'list': Shows multiple records (e.g., /phone-numbers)
  */
 export type PageType = 'instance' | 'list'
+
+/**
+ * Page filter for list pages.
+ * Defines which model and optional filter criteria to use.
+ */
+export interface PageFilter {
+  /** Model handle to filter */
+  model: string
+  /** Optional filter criteria */
+  where?: StructuredFilter
+}
 
 /**
  * Page definition.
@@ -40,4 +51,6 @@ export interface PageDefinition extends BaseDefinition {
   actions?: ActionDefinition[]
   /** Context data to load for Liquid templates */
   context?: ContextDefinition
+  /** Filter for list pages - defines which model instances to show */
+  filter?: PageFilter
 }

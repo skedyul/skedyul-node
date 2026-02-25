@@ -12,7 +12,8 @@ import type { ResourceDependency } from './resource'
 /**
  * Field data types (lowercase).
  * - 'string': Short text (single line)
- * - 'text': Long text (multi-line)
+ * - 'long_string': Long text (multi-line, stored as text in DB)
+ * - 'text': Alias for long_string
  * - 'number': Numeric value
  * - 'boolean': True/false
  * - 'date': Date only (no time)
@@ -25,6 +26,7 @@ import type { ResourceDependency } from './resource'
  */
 export type FieldType =
   | 'string'
+  | 'long_string'
   | 'text'
   | 'number'
   | 'boolean'

@@ -38,6 +38,7 @@ export type {
   InstancePagination,
   InstanceListResult,
   InstanceListArgs,
+  FileInfo,
   FileUrlResponse,
   FileUploadParams,
   FileUploadResult,
