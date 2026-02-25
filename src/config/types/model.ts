@@ -39,11 +39,6 @@ export type FieldType =
   | 'object'
 
 /**
- * Relationship cardinality between models.
- */
-export type Cardinality = 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many'
-
-/**
  * Behavior when a related record is deleted.
  * - 'none': No action (orphan the reference)
  * - 'cascade': Delete related records
@@ -143,18 +138,28 @@ export interface RelationshipLink {
   field: string
   /** Display label for this side of the relationship */
   label: string
-  /** Cardinality from this side's perspective */
-  cardinality: Cardinality
-  /** Behavior when this record is deleted */
-  onDelete?: OnDelete
 }
 
 /**
+ * Relationship cardinality from source (one) to target (many or one).
+ * - 'one_to_one': One source record relates to one target record
+ * - 'one_to_many': One source record relates to many target records
+ * 
+ * Note: For many-to-one relationships, swap source and target and use 'one_to_many'.
+ */
+export type Cardinality = 'one_to_one' | 'one_to_many'
+
+/**
  * Relationship definition between two models.
+ * Source is always the "one" side, target is the "many" side (for one_to_many).
  */
 export interface RelationshipDefinition {
-  /** Source side of the relationship */
+  /** Source side of the relationship (the "one" side) */
   source: RelationshipLink
-  /** Target side of the relationship */
+  /** Target side of the relationship (the "many" side for one_to_many) */
   target: RelationshipLink
+  /** Cardinality: 'one_to_one' or 'one_to_many' */
+  cardinality: Cardinality
+  /** Behavior when a related record is deleted */
+  onDelete?: OnDelete
 }

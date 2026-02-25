@@ -129,8 +129,6 @@ export const ModelDefinitionSchema = z.object({
 export const RelationshipCardinalitySchema = z.enum([
   'ONE_TO_ONE',
   'ONE_TO_MANY',
-  'MANY_TO_ONE',
-  'MANY_TO_MANY',
 ])
 
 export const OnDeleteBehaviorSchema = z.enum(['NONE', 'CASCADE', 'RESTRICT'])
@@ -139,13 +137,13 @@ export const RelationshipLinkSchema = z.object({
   model: z.string(),
   field: z.string(),
   label: z.string(),
-  cardinality: RelationshipCardinalitySchema,
-  onDelete: OnDeleteBehaviorSchema.default('NONE'),
 })
 
 export const RelationshipDefinitionSchema = z.object({
   source: RelationshipLinkSchema,
   target: RelationshipLinkSchema,
+  cardinality: RelationshipCardinalitySchema,
+  onDelete: OnDeleteBehaviorSchema.default('NONE'),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
