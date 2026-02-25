@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { invokeCommand } from './commands/invoke'
+import { invokeRemoteCommand } from './commands/invoke-remote'
 import { toolsCommand } from './commands/tools'
 import { serveCommand } from './commands/serve'
 import { validateCommand } from './commands/validate'
@@ -34,6 +35,7 @@ USAGE
 COMMANDS
   auth    Authenticate with Skedyul (login, logout, status)
   config  Manage global CLI configuration (ngrok, server URL)
+  invoke  Invoke a tool on a hosted app version
   dev     Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -64,6 +66,7 @@ CONFIGURATION
 MORE HELP
   $ skedyul auth --help      Show authentication commands
   $ skedyul config --help    Show configuration commands
+  $ skedyul invoke --help    Show invoke command options
   $ skedyul dev --help       Show development commands
   $ skedyul <cmd> --help     Show help for specific command
 
@@ -169,6 +172,11 @@ async function main(): Promise<void> {
 
   if (command === 'config') {
     await configCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'invoke') {
+    await invokeRemoteCommand(args.slice(1))
     return
   }
 

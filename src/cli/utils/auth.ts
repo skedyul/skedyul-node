@@ -7,6 +7,27 @@ import * as http from 'http'
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface Profile {
+  serverUrl: string
+  token: string
+  userId: string
+  username: string
+  email: string
+  expiresAt: string | null
+  createdAt: string
+}
+
+export interface ProfilesFile {
+  profiles: Record<string, Profile>
+}
+
+export interface AuthConfig {
+  activeProfile?: string
+  defaultServer: string
+  ngrokAuthtoken?: string
+}
+
+/** @deprecated Use Profile instead - kept for migration */
 export interface StoredCredentials {
   token: string
   userId: string
@@ -17,20 +38,15 @@ export interface StoredCredentials {
   createdAt: string
 }
 
-export interface AuthConfig {
-  defaultServer: string
-  ngrokAuthtoken?: string
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Paths
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SKEDYUL_HOME_DIR = path.join(os.homedir(), '.skedyul')
-const CREDENTIALS_FILE = path.join(SKEDYUL_HOME_DIR, 'credentials.json')
+const PROFILES_FILE = path.join(SKEDYUL_HOME_DIR, 'profiles.json')
 const CONFIG_FILE = path.join(SKEDYUL_HOME_DIR, 'config.json')
+const LEGACY_CREDENTIALS_FILE = path.join(SKEDYUL_HOME_DIR, 'credentials.json')
 
-// Local project config (for development overrides)
 const LOCAL_CONFIG_FILE = '.skedyul.local.json'
 
 const DEFAULT_SERVER_URL = 'https://admin.skedyul.it'
@@ -46,42 +62,295 @@ function ensureHomeDir(): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Credentials Management
+// Profile Name Generation
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function getCredentials(): StoredCredentials | null {
-  if (!fs.existsSync(CREDENTIALS_FILE)) {
-    return null
+/**
+ * Generate a sensible profile name from a server URL.
+ */
+export function generateProfileName(serverUrl: string): string {
+  try {
+    const url = new URL(serverUrl)
+    const hostname = url.hostname.toLowerCase()
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'local'
+    }
+
+    if (hostname.includes('staging')) {
+      return 'staging'
+    }
+
+    if (hostname === 'admin.skedyul.it' || hostname === 'app.skedyul.com') {
+      return 'production'
+    }
+
+    const parts = hostname.split('.')
+    if (parts.length > 0) {
+      return parts[0].replace(/[^a-z0-9-]/g, '')
+    }
+
+    return 'default'
+  } catch {
+    return 'default'
+  }
+}
+
+/**
+ * Ensure a profile name is unique by appending a number if needed.
+ */
+export function ensureUniqueProfileName(
+  baseName: string,
+  existingProfiles: Record<string, Profile>,
+): string {
+  if (!existingProfiles[baseName]) {
+    return baseName
+  }
+
+  let counter = 2
+  while (existingProfiles[`${baseName}-${counter}`]) {
+    counter++
+  }
+  return `${baseName}-${counter}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Migration from Legacy credentials.json
+// ─────────────────────────────────────────────────────────────────────────────
+
+function migrateLegacyCredentials(): void {
+  if (!fs.existsSync(LEGACY_CREDENTIALS_FILE)) {
+    return
+  }
+
+  if (fs.existsSync(PROFILES_FILE)) {
+    return
   }
 
   try {
-    const content = fs.readFileSync(CREDENTIALS_FILE, 'utf-8')
-    const credentials = JSON.parse(content) as StoredCredentials
+    const content = fs.readFileSync(LEGACY_CREDENTIALS_FILE, 'utf-8')
+    const legacy = JSON.parse(content) as StoredCredentials
 
-    // Check if expired
-    if (credentials.expiresAt) {
-      const expiresAt = new Date(credentials.expiresAt)
-      if (expiresAt < new Date()) {
-        return null
-      }
+    const profileName = generateProfileName(legacy.serverUrl)
+
+    const profile: Profile = {
+      serverUrl: legacy.serverUrl,
+      token: legacy.token,
+      userId: legacy.userId,
+      username: legacy.username,
+      email: legacy.email,
+      expiresAt: legacy.expiresAt,
+      createdAt: legacy.createdAt,
     }
 
-    return credentials
-  } catch {
-    return null
+    const profilesFile: ProfilesFile = {
+      profiles: {
+        [profileName]: profile,
+      },
+    }
+
+    ensureHomeDir()
+    fs.writeFileSync(PROFILES_FILE, JSON.stringify(profilesFile, null, 2), {
+      mode: 0o600,
+    })
+
+    const config = getConfig()
+    config.activeProfile = profileName
+    saveConfig(config)
+
+    fs.unlinkSync(LEGACY_CREDENTIALS_FILE)
+
+    console.error(`Migrated credentials to profile: ${profileName}`)
+  } catch (error) {
+    console.error('Failed to migrate legacy credentials:', error)
   }
 }
 
-export function saveCredentials(credentials: StoredCredentials): void {
+// ─────────────────────────────────────────────────────────────────────────────
+// Profiles Management
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function getProfiles(): ProfilesFile {
+  migrateLegacyCredentials()
+
+  if (!fs.existsSync(PROFILES_FILE)) {
+    return { profiles: {} }
+  }
+
+  try {
+    const content = fs.readFileSync(PROFILES_FILE, 'utf-8')
+    return JSON.parse(content) as ProfilesFile
+  } catch {
+    return { profiles: {} }
+  }
+}
+
+export function saveProfiles(profilesFile: ProfilesFile): void {
   ensureHomeDir()
-  fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(credentials, null, 2), {
-    mode: 0o600, // Read/write for owner only
+  fs.writeFileSync(PROFILES_FILE, JSON.stringify(profilesFile, null, 2), {
+    mode: 0o600,
   })
 }
 
+export function getProfile(name: string): Profile | null {
+  const profilesFile = getProfiles()
+  const profile = profilesFile.profiles[name]
+
+  if (!profile) {
+    return null
+  }
+
+  if (profile.expiresAt) {
+    const expiresAt = new Date(profile.expiresAt)
+    if (expiresAt < new Date()) {
+      return null
+    }
+  }
+
+  return profile
+}
+
+export function saveProfile(name: string, profile: Profile): void {
+  const profilesFile = getProfiles()
+  profilesFile.profiles[name] = profile
+  saveProfiles(profilesFile)
+}
+
+export function deleteProfile(name: string): boolean {
+  const profilesFile = getProfiles()
+  if (!profilesFile.profiles[name]) {
+    return false
+  }
+
+  delete profilesFile.profiles[name]
+  saveProfiles(profilesFile)
+
+  const config = getConfig()
+  if (config.activeProfile === name) {
+    const remainingProfiles = Object.keys(profilesFile.profiles)
+    config.activeProfile = remainingProfiles[0] ?? undefined
+    saveConfig(config)
+  }
+
+  return true
+}
+
+export function listProfiles(): Array<{
+  name: string
+  profile: Profile
+  isActive: boolean
+  isExpired: boolean
+}> {
+  const profilesFile = getProfiles()
+  const config = getConfig()
+  const activeProfile = config.activeProfile
+
+  return Object.entries(profilesFile.profiles).map(([name, profile]) => {
+    let isExpired = false
+    if (profile.expiresAt) {
+      isExpired = new Date(profile.expiresAt) < new Date()
+    }
+
+    return {
+      name,
+      profile,
+      isActive: name === activeProfile,
+      isExpired,
+    }
+  })
+}
+
+export function clearAllProfiles(): void {
+  if (fs.existsSync(PROFILES_FILE)) {
+    fs.unlinkSync(PROFILES_FILE)
+  }
+
+  const config = getConfig()
+  delete config.activeProfile
+  saveConfig(config)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Profile Management
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function getActiveProfileName(): string | null {
+  const config = getConfig()
+  return config.activeProfile ?? null
+}
+
+export function setActiveProfile(name: string): boolean {
+  const profilesFile = getProfiles()
+  if (!profilesFile.profiles[name]) {
+    return false
+  }
+
+  const config = getConfig()
+  config.activeProfile = name
+  saveConfig(config)
+  return true
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Credentials Management (uses active profile)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function getCredentials(): StoredCredentials | null {
+  const activeProfileName = getActiveProfileName()
+  if (!activeProfileName) {
+    return null
+  }
+
+  const profile = getProfile(activeProfileName)
+  if (!profile) {
+    return null
+  }
+
+  return {
+    token: profile.token,
+    userId: profile.userId,
+    username: profile.username,
+    email: profile.email,
+    serverUrl: profile.serverUrl,
+    expiresAt: profile.expiresAt,
+    createdAt: profile.createdAt,
+  }
+}
+
+export function saveCredentials(
+  credentials: StoredCredentials,
+  profileName?: string,
+): string {
+  const name =
+    profileName ?? generateProfileName(credentials.serverUrl)
+  const profilesFile = getProfiles()
+  const finalName = profileName
+    ? name
+    : ensureUniqueProfileName(name, profilesFile.profiles)
+
+  const profile: Profile = {
+    serverUrl: credentials.serverUrl,
+    token: credentials.token,
+    userId: credentials.userId,
+    username: credentials.username,
+    email: credentials.email,
+    expiresAt: credentials.expiresAt,
+    createdAt: credentials.createdAt,
+  }
+
+  saveProfile(finalName, profile)
+
+  const config = getConfig()
+  config.activeProfile = finalName
+  saveConfig(config)
+
+  return finalName
+}
+
 export function clearCredentials(): void {
-  if (fs.existsSync(CREDENTIALS_FILE)) {
-    fs.unlinkSync(CREDENTIALS_FILE)
+  const activeProfileName = getActiveProfileName()
+  if (activeProfileName) {
+    deleteProfile(activeProfileName)
   }
 }
 
@@ -128,21 +397,17 @@ export function getLocalConfig(): { serverUrl?: string } {
 
 /**
  * Get the server URL to use.
- * Priority: CLI flag > local config > credentials > global config > default
+ * Priority: CLI flag > local config > active profile > global config > default
  */
 export function getServerUrl(override?: string): string {
-  // 1. CLI flag takes precedence
   if (override) return override
 
-  // 2. Local project config (for development)
   const localConfig = getLocalConfig()
   if (localConfig.serverUrl) return localConfig.serverUrl
 
-  // 3. Stored credentials
   const credentials = getCredentials()
   if (credentials?.serverUrl) return credentials.serverUrl
 
-  // 4. Global config
   return getConfig().defaultServer
 }
 
@@ -194,7 +459,6 @@ export async function startOAuthCallback(
       const url = new URL(req.url ?? '/', `http://localhost`)
       const searchParams = url.searchParams
 
-      // Handle callback
       if (url.pathname === '/callback') {
         const token = searchParams.get('token')
         const userId = searchParams.get('userId')
@@ -241,7 +505,7 @@ export async function startOAuthCallback(
         res.end(`
           <html>
             <body style="font-family: system-ui; padding: 40px; text-align: center;">
-              <h1 style="color: #38a169;">✓ Authentication Successful</h1>
+              <h1 style="color: #38a169;">Authentication Successful</h1>
               <p>Logged in as <strong>${email}</strong></p>
               <p>You can close this window and return to the terminal.</p>
             </body>
@@ -263,7 +527,6 @@ export async function startOAuthCallback(
       }
     })
 
-    // Find an available port
     server.listen(0, '127.0.0.1', () => {
       const address = server.address()
       if (!address || typeof address === 'string') {
@@ -280,7 +543,6 @@ export async function startOAuthCallback(
       console.log(`If browser doesn't open, visit: ${authUrl}`)
       console.log(`Waiting for callback on ${callbackUrl}...`)
 
-      // Try to open browser
       openBrowser(authUrl).catch(() => {
         console.log(`(Could not open browser automatically)`)
       })
@@ -291,7 +553,6 @@ export async function startOAuthCallback(
       reject(err)
     })
 
-    // Timeout after 5 minutes
     timeoutId = setTimeout(() => {
       server.close()
       reject(new Error('Authentication timed out'))
@@ -303,12 +564,10 @@ export async function startOAuthCallback(
  * Open a URL in the default browser
  */
 async function openBrowser(url: string): Promise<void> {
-  // Try to dynamically import 'open' package
   try {
     const open = await import('open')
     await open.default(url)
   } catch {
-    // Fallback to platform-specific commands
     const { exec } = await import('child_process')
     const platform = process.platform
 
