@@ -126,6 +126,10 @@ export interface ModelDefinition extends BaseDefinition {
   fields: FieldDefinition[]
   /** Resource dependencies that must exist before this model can be used */
   requires?: ResourceDependency[]
+  /** Whether to create default LIST and INSTANCE pages for this model (default: false for provisioning) */
+  addDefaultPages?: boolean
+  /** Whether to create a navigation item for this model (default: false for provisioning) */
+  addNavigation?: boolean
 }
 
 /**

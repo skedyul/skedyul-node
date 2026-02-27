@@ -120,6 +120,8 @@ export const ModelDefinitionSchema = z.object({
   description: z.string().optional(),
   fields: z.array(ModelFieldDefinitionSchema),
   requires: z.array(ResourceDependencySchema).optional(),
+  addDefaultPages: z.boolean().optional(),
+  addNavigation: z.boolean().optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

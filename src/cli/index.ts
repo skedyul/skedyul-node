@@ -6,6 +6,7 @@ import { toolsCommand } from './commands/tools'
 import { serveCommand } from './commands/serve'
 import { validateCommand } from './commands/validate'
 import { diffCommand } from './commands/diff'
+import { deployCommand } from './commands/deploy'
 import { authCommand } from './commands/auth'
 import { configCommand } from './commands/config'
 import { linkCommand } from './commands/link'
@@ -102,6 +103,7 @@ COMMANDS
   Deployment
   ──────────
   diff              Show what would change on deploy
+  deploy            Deploy your app to Skedyul
 
 STANDALONE MODE
   Test tools locally without connecting to Skedyul:
@@ -210,6 +212,9 @@ async function main(): Promise<void> {
       break
     case 'diff':
       await diffCommand(subArgs)
+      break
+    case 'deploy':
+      await deployCommand(subArgs)
       break
     case 'link':
       await linkCommand(subArgs)
