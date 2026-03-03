@@ -104,7 +104,7 @@ export type {
   FieldType,
   Cardinality,
   OnDelete,
-  FieldConstraints,
+  InlineFieldDefinition,
   FieldVisibility,
   FieldDefinition,
   ModelDefinition,

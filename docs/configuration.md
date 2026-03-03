@@ -194,7 +194,7 @@ export default defineModel({
       type: 'string',
       required: true,
       owner: 'app',
-      constraints: {
+      definition: {
         limitChoices: 1,
         options: [
           { label: 'Pending', value: 'pending', color: 'yellow' },

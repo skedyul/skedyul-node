@@ -47,10 +47,9 @@ export type FieldType =
 export type OnDelete = 'none' | 'cascade' | 'restrict'
 
 /**
- * Inline field definition for constraints and options.
- * @deprecated Use InlineFieldDefinition instead
+ * Inline field definition for options and validation constraints.
  */
-export interface FieldConstraints {
+export interface InlineFieldDefinition {
   /** Limit number of selections for select fields */
   limitChoices?: number
   /** Options for select/dropdown fields */
@@ -68,12 +67,6 @@ export interface FieldConstraints {
   /** Regex pattern for validation */
   pattern?: string
 }
-
-/**
- * Inline field definition for options and validation constraints.
- * This is the preferred name - aligns with Zod schema and skedyul-core.
- */
-export type InlineFieldDefinition = FieldConstraints
 
 /**
  * Field visibility settings in the UI.
@@ -99,10 +92,8 @@ export interface FieldDefinition {
   type?: FieldType
   /** Reference to a shared field definition by handle */
   definitionHandle?: string
-  /** Inline definition with options and constraints (preferred name) */
+  /** Inline definition with options and constraints */
   definition?: InlineFieldDefinition
-  /** @deprecated Use 'definition' instead. Inline constraints and options */
-  constraints?: FieldConstraints
   /** Whether this field is required */
   required?: boolean
   /** Whether this field must be unique across all records */

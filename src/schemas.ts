@@ -102,7 +102,6 @@ export const ModelFieldDefinitionSchema = z.object({
   type: FieldDataTypeSchema.optional(),
   definitionHandle: z.string().optional(),
   definition: InlineFieldDefinitionSchema.optional(),
-  constraints: InlineFieldDefinitionSchema.optional(), // Legacy alias for definition
   required: z.boolean().optional(),
   unique: z.boolean().optional(),
   system: z.boolean().optional(),
