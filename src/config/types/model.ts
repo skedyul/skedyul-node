@@ -90,8 +90,6 @@ export interface FieldDefinition {
   label: string
   /** Field data type */
   type?: FieldType
-  /** Reference to a shared field definition by handle */
-  definitionHandle?: string
   /**
    * Inline definition with options/constraints, OR string reference to global definition.
    * - String: References global definition (e.g., 'phone', 'email')

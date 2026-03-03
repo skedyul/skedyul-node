@@ -100,7 +100,6 @@ export const ModelFieldDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
   type: FieldDataTypeSchema.optional(),
-  definitionHandle: z.string().optional(),
   definition: z.union([InlineFieldDefinitionSchema, z.string()]).optional(),
   required: z.boolean().optional(),
   unique: z.boolean().optional(),
@@ -175,9 +174,8 @@ export const ChannelCapabilitySchema = z.object({
 export const ChannelFieldDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
-  definition: z.object({
-    handle: z.string(),
-  }).passthrough(),
+  /** Field definition reference or inline definition */
+  definition: z.union([InlineFieldDefinitionSchema, z.string()]).optional(),
   /** Marks this field as the identifier field for the channel */
   identifier: z.boolean().optional(),
   /** Whether this field is required */

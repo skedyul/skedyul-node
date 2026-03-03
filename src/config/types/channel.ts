@@ -6,7 +6,7 @@
  */
 
 import type { BaseDefinition, FieldOwner } from './base'
-import type { FieldVisibility } from './model'
+import type { FieldVisibility, InlineFieldDefinition } from './model'
 
 /**
  * Channel capability types.
@@ -46,8 +46,12 @@ export interface ChannelField {
   handle: string
   /** Human-readable display name */
   label: string
-  /** Reference to a field definition by handle */
-  definitionHandle: string
+  /**
+   * Field definition reference or inline definition.
+   * - String: References global definition (e.g., 'phone', 'email', 'system/opt_in')
+   * - Object: Inline definition with options
+   */
+  definition?: InlineFieldDefinition | string
   /** Marks this field as the identifier field for the channel */
   identifier?: boolean
   /** Whether this field is required */
