@@ -25,7 +25,6 @@ export {
   file,
   webhook,
   resource,
-  contactAssociationLink,
   ai,
   configure,
   getConfig,
@@ -48,8 +47,6 @@ export type {
   WebhookListOptions,
   ResourceLinkParams,
   ResourceLinkResult,
-  ContactAssociationLinkCreateParams,
-  ContactAssociationLinkCreateResult,
   // AI types
   AITextContent,
   AIFileContent,

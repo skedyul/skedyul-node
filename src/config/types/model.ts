@@ -92,8 +92,13 @@ export interface FieldDefinition {
   type?: FieldType
   /** Reference to a shared field definition by handle */
   definitionHandle?: string
-  /** Inline definition with options and constraints */
-  definition?: InlineFieldDefinition
+  /**
+   * Inline definition with options/constraints, OR string reference to global definition.
+   * - String: References global definition (e.g., 'phone', 'email')
+   * - Object: Inline definition with options
+   * - Omitted: Auto-creates workplace definition as <subdomain>/<model>/<field>
+   */
+  definition?: InlineFieldDefinition | string
   /** Whether this field is required */
   required?: boolean
   /** Whether this field must be unique across all records */
@@ -108,7 +113,7 @@ export interface FieldDefinition {
   description?: string
   /** Visibility settings */
   visibility?: FieldVisibility
-  /** Who can modify this field */
+  /** Who controls the field definition: 'app' or 'shared' */
   owner?: FieldOwner
 }
 

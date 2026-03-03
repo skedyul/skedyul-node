@@ -65,12 +65,11 @@ export interface BaseDefinition {
 export type Scope = 'internal' | 'shared'
 
 /**
- * Field owner determines who can modify a field's value.
- * - 'app': Only the app can modify (via tools/webhooks)
- * - 'workplace': Only the user can modify (via UI)
- * - 'both': Either can modify
+ * Field owner determines who controls the field definition.
+ * - 'app': App controls the definition (options, validation). Creates app-scoped definitions.
+ * - 'shared': Workplace controls the definition. Field can be shared across apps.
  */
-export type FieldOwner = 'app' | 'workplace' | 'both'
+export type FieldOwner = 'app' | 'shared'
 
 /**
  * Visibility setting for environment variables.

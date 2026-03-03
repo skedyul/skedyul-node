@@ -27,7 +27,7 @@ export const ComputeLayerTypeSchema = z.enum(['serverless', 'dedicated'])
 // Resource Dependencies
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const FieldOwnerSchema = z.enum(['APP', 'WORKPLACE', 'BOTH'])
+export const FieldOwnerSchema = z.enum(['APP', 'SHARED'])
 
 const PrimitiveSchema = z.union([z.string(), z.number(), z.boolean()])
 export const StructuredFilterSchema = z.record(
@@ -101,7 +101,7 @@ export const ModelFieldDefinitionSchema = z.object({
   label: z.string(),
   type: FieldDataTypeSchema.optional(),
   definitionHandle: z.string().optional(),
-  definition: InlineFieldDefinitionSchema.optional(),
+  definition: z.union([InlineFieldDefinitionSchema, z.string()]).optional(),
   required: z.boolean().optional(),
   unique: z.boolean().optional(),
   system: z.boolean().optional(),
