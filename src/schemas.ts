@@ -197,7 +197,7 @@ export const ChannelFieldDefinitionSchema = z.object({
 
 export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
-  name: z.string(),
+  label: z.string(),
   icon: z.string().optional(),
   /** Array of field definitions for this channel. One field must have identifier: true. */
   fields: z.array(ChannelFieldDefinitionSchema),
