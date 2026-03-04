@@ -102,6 +102,7 @@ export interface InputComponent extends FormStyleProps {
   label?: string
   placeholder?: string
   helpText?: string
+  leftIcon?: string
   type?: 'text' | 'number' | 'email' | 'password' | 'tel' | 'url' | 'hidden'
   required?: boolean
   disabled?: boolean
