@@ -160,7 +160,7 @@ export const ChannelCapabilityTypeSchema = z.enum([
 
 /** Capability definition with display info and handler references */
 export const ChannelCapabilitySchema = z.object({
-  name: z.string(), // Display name: "SMS", "WhatsApp Messages"
+  label: z.string(), // Display name: "SMS", "WhatsApp Messages"
   icon: z.string().optional(), // Lucide icon name
   receive: z.string().optional(), // Inbound webhook handler
   send: z.string().optional(), // Outbound tool handle
@@ -201,8 +201,12 @@ export const ChannelDefinitionSchema = z.object({
   icon: z.string().optional(),
   /** Array of field definitions for this channel. One field must have identifier: true. */
   fields: z.array(ChannelFieldDefinitionSchema),
-  // Capabilities keyed by standard type (messaging, voice, video)
-  capabilities: z.record(ChannelCapabilityTypeSchema, ChannelCapabilitySchema),
+  // Capabilities keyed by standard type (messaging, voice, video) - all optional
+  capabilities: z.object({
+    messaging: ChannelCapabilitySchema.optional(),
+    voice: ChannelCapabilitySchema.optional(),
+    video: ChannelCapabilitySchema.optional(),
+  }),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
