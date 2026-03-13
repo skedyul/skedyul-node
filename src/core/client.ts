@@ -685,6 +685,48 @@ export const instance = {
   },
 
   /**
+   * Upsert multiple instances of an internal model in a single batch operation.
+   *
+   * Creates instances if they don't exist, updates them if they do (based on matchField).
+   * This is more efficient than calling upsert() multiple times as it reduces
+   * API overhead and executes all upserts in a single transaction.
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param modelHandle - The model handle from provision config
+   * @param items - Array of data objects to upsert as instances
+   * @param matchField - The field handle to match existing instances (e.g., 'vetnostics_id')
+   * @returns Object containing upserted instances with mode and any errors that occurred
+   *
+   * @example
+   * ```ts
+   * const { results, errors } = await instance.upsertMany('panel_result', [
+   *   { vetnostics_id: '25-54966975/622/glucose', test_name: 'Glucose', value_string: '5.2' },
+   *   { vetnostics_id: '25-54966975/622/creatinine', test_name: 'Creatinine', value_string: '80' },
+   * ], 'vetnostics_id')
+   *
+   * if (errors.length > 0) {
+   *   console.log('Some items failed:', errors)
+   * }
+   * const created = results.filter(r => r.mode === 'created')
+   * const updated = results.filter(r => r.mode === 'updated')
+   * console.log('Created:', created.length, 'Updated:', updated.length)
+   * ```
+   */
+  async upsertMany(
+    modelHandle: string,
+    items: Record<string, unknown>[],
+    matchField: string,
+  ): Promise<{ results: Array<InstanceData & { mode: 'created' | 'updated' }>; errors: Array<{ index: number; error: string }> }> {
+    const { data } = await callCore<{ results: Array<InstanceData & { mode: 'created' | 'updated' }>; errors: Array<{ index: number; error: string }> }>('instance.upsertMany', {
+      modelHandle,
+      items,
+      matchField,
+    })
+    return data
+  },
+
+  /**
    * Check if a model is configured (linked) for the current app installation.
    *
    * This is useful for best-effort sync scenarios where you want to check
