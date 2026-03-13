@@ -95,6 +95,8 @@ export interface ToolDefinition<
   outputSchema?: ToolSchema<OutputSchema>
   /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
   timeout?: number
+  /** Maximum retry attempts. Defaults to 1 (no retries) if not specified. */
+  retries?: number
   [key: string]: unknown
 }
 
@@ -120,6 +122,8 @@ export interface ToolMetadata {
   outputSchema?: Record<string, unknown>
   /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
   timeout?: number
+  /** Maximum retry attempts. Defaults to 1 (no retries) if not specified. */
+  retries?: number
 }
 
 export interface ToolCallResponse {

@@ -611,6 +611,140 @@ export const instance = {
     })
     return data
   },
+
+  /**
+   * Create multiple instances of an internal model in a single batch operation.
+   *
+   * This is more efficient than calling create() multiple times as it reduces
+   * API overhead and executes all creates in a single transaction.
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param modelHandle - The model handle from provision config
+   * @param items - Array of data objects to create as instances
+   * @returns Object containing created instances and any errors that occurred
+   *
+   * @example
+   * ```ts
+   * const { created, errors } = await instance.createMany('panel_result', [
+   *   { test_name: 'Glucose', value_string: '5.2', unit: 'mmol/L' },
+   *   { test_name: 'Creatinine', value_string: '80', unit: 'umol/L' },
+   * ])
+   *
+   * if (errors.length > 0) {
+   *   console.log('Some items failed:', errors)
+   * }
+   * console.log('Created:', created.length, 'instances')
+   * ```
+   */
+  async createMany(
+    modelHandle: string,
+    items: Record<string, unknown>[],
+  ): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
+    const { data } = await callCore<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.createMany', {
+      modelHandle,
+      items,
+    })
+    return data
+  },
+
+  /**
+   * Update multiple instances of an internal model in a single batch operation.
+   *
+   * This is more efficient than calling update() multiple times as it reduces
+   * API overhead and executes all updates in a single transaction.
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param modelHandle - The model handle from provision config
+   * @param items - Array of objects containing id and data to update
+   * @returns Object containing updated instances and any errors that occurred
+   *
+   * @example
+   * ```ts
+   * const { updated, errors } = await instance.updateMany('panel_result', [
+   *   { id: 'ins_abc123', data: { value_string: '5.5' } },
+   *   { id: 'ins_def456', data: { value_string: '85' } },
+   * ])
+   *
+   * if (errors.length > 0) {
+   *   console.log('Some items failed:', errors)
+   * }
+   * console.log('Updated:', updated.length, 'instances')
+   * ```
+   */
+  async updateMany(
+    modelHandle: string,
+    items: Array<{ id: string; data: Record<string, unknown> }>,
+  ): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
+    const { data } = await callCore<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.updateMany', {
+      modelHandle,
+      items,
+    })
+    return data
+  },
+
+  /**
+   * Check if a model is configured (linked) for the current app installation.
+   *
+   * This is useful for best-effort sync scenarios where you want to check
+   * which models are available before attempting to create instances.
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param modelHandle - The model handle from provision config
+   * @returns true if the model is configured and has a valid targetId, false otherwise
+   *
+   * @example
+   * ```ts
+   * // Check if models are configured before syncing
+   * const isTestOrderConfigured = await instance.isConfigured('test_order')
+   * const isTestReportConfigured = await instance.isConfigured('test_report')
+   *
+   * if (isTestOrderConfigured) {
+   *   await instance.create('test_order', orderData)
+   * }
+   * ```
+   */
+  async isConfigured(modelHandle: string): Promise<boolean> {
+    const { data } = await callCore<{ configured: boolean }>('instance.isConfigured', {
+      modelHandle,
+    })
+    return data.configured
+  },
+
+  /**
+   * Check which models from a list are configured for the current app installation.
+   *
+   * This is more efficient than calling isConfigured() multiple times as it
+   * makes a single API call to check all models at once.
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param modelHandles - Array of model handles from provision config
+   * @returns Map of model handle to configuration status
+   *
+   * @example
+   * ```ts
+   * // Check multiple models at once
+   * const configStatus = await instance.getConfiguredModels([
+   *   'test_order',
+   *   'test_report',
+   *   'panel_result',
+   *   'culture_result',
+   * ])
+   *
+   * if (configStatus.get('test_order')) {
+   *   // test_order is configured
+   * }
+   * ```
+   */
+  async getConfiguredModels(modelHandles: string[]): Promise<Map<string, boolean>> {
+    const { data } = await callCore<Record<string, boolean>>('instance.getConfiguredModels', {
+      modelHandles,
+    })
+    return new Map(Object.entries(data))
+  },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

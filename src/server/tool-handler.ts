@@ -21,13 +21,15 @@ import { createContextLogger } from './logger'
 export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
   return Object.values(registry).map((tool) => {
     const timeout = typeof tool.timeout === 'number' && tool.timeout > 0 ? tool.timeout : 10000
+    const retries = typeof tool.retries === 'number' && tool.retries >= 1 ? tool.retries : 1
     return {
       name: tool.name,
       displayName: tool.label || tool.name,
       description: tool.description,
       inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
       outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
-      timeout, // Default to 10 seconds
+      timeout,
+      retries,
     }
   })
 }
