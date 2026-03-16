@@ -12,6 +12,7 @@ import { configCommand } from './commands/config'
 import { linkCommand } from './commands/link'
 import { unlinkCommand } from './commands/unlink'
 import { installCommand } from './commands/install'
+import { instancesCommand } from './commands/instances'
 
 const args = process.argv.slice(2)
 
@@ -34,10 +35,11 @@ USAGE
   $ skedyul <command> [options]
 
 COMMANDS
-  auth    Authenticate with Skedyul (login, logout, status)
-  config  Manage global CLI configuration (ngrok, server URL)
-  invoke  Invoke a tool on a hosted app version
-  dev     Development tools for building and testing apps locally
+  auth       Authenticate with Skedyul (login, logout, status)
+  config     Manage global CLI configuration (ngrok, server URL)
+  invoke     Invoke a tool on a hosted app version
+  instances  Manage CRM instances (list, get, create, update, delete)
+  dev        Development tools for building and testing apps locally
 
 GETTING STARTED
   1. Authenticate with Skedyul:
@@ -52,6 +54,15 @@ GETTING STARTED
   4. Start local development server:
      $ skedyul dev serve --workplace <subdomain>
 
+CRM INSTANCES
+  Manage CRM data directly from the command line:
+
+  $ skedyul instances list <model> --workplace <subdomain>
+  $ skedyul instances get <model> <id> --workplace <subdomain>
+  $ skedyul instances create <model> --data '{}' --workplace <subdomain>
+  $ skedyul instances update <model> <id> --data '{}' --workplace <subdomain>
+  $ skedyul instances delete <model> <id> --workplace <subdomain>
+
 CONFIGURATION
   Global credentials:     ~/.skedyul/credentials.json
   Global config:          ~/.skedyul/config.json
@@ -65,11 +76,12 @@ CONFIGURATION
   }
 
 MORE HELP
-  $ skedyul auth --help      Show authentication commands
-  $ skedyul config --help    Show configuration commands
-  $ skedyul invoke --help    Show invoke command options
-  $ skedyul dev --help       Show development commands
-  $ skedyul <cmd> --help     Show help for specific command
+  $ skedyul auth --help       Show authentication commands
+  $ skedyul config --help     Show configuration commands
+  $ skedyul invoke --help     Show invoke command options
+  $ skedyul instances --help  Show instances command options
+  $ skedyul dev --help        Show development commands
+  $ skedyul <cmd> --help      Show help for specific command
 
 DOCUMENTATION
   https://docs.skedyul.com/cli
@@ -179,6 +191,11 @@ async function main(): Promise<void> {
 
   if (command === 'invoke') {
     await invokeRemoteCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'instances') {
+    await instancesCommand(args.slice(1))
     return
   }
 
