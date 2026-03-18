@@ -1372,3 +1372,225 @@ export const ai = {
     return data
   },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Report Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parameters for report.generate().
+ */
+export interface ReportGenerateParams {
+  /** Report template handle (e.g., 'lab-results', 'patient-summary') */
+  templateHandle: string
+  /** Arguments to pass to the report template */
+  arguments?: Record<string, unknown>
+  /** Set to 'html' to return HTML content instead of URL */
+  mode?: 'html'
+}
+
+/**
+ * Result from report.generate().
+ */
+export interface ReportGenerateResult {
+  /** Report URL (when mode is not specified) */
+  url?: string
+  /** Report HTML content (when mode is 'html') */
+  html?: string
+}
+
+/**
+ * Parameters for report.define().
+ */
+export interface ReportDefineParams {
+  /** YAML template content */
+  yaml: string
+}
+
+/**
+ * Result from report.define().
+ */
+export interface ReportDefineResult {
+  /** Created/updated definition ID */
+  definitionId: string
+  /** Report handle from template */
+  handle: string
+  /** Current version number */
+  version: number
+}
+
+/**
+ * Parameters for report.list().
+ */
+export interface ReportListParams {
+  /** Page number (default: 1) */
+  page?: number
+  /** Items per page (default: 50) */
+  limit?: number
+}
+
+/**
+ * Report definition item in list results.
+ */
+export interface ReportListItem {
+  /** Definition ID */
+  id: string
+  /** Report handle */
+  handle: string
+  /** Report name */
+  name: string
+  /** Report description */
+  description: string | null
+  /** Version number */
+  version: number
+  /** Status (active, archived) */
+  status: string
+  /** ISO timestamp when created */
+  createdAt: string
+  /** ISO timestamp when last updated */
+  updatedAt: string
+}
+
+/**
+ * Result from report.list().
+ */
+export interface ReportListResult {
+  data: ReportListItem[]
+  pagination: InstancePagination
+}
+
+/**
+ * Full report definition details.
+ */
+export interface ReportDefinition {
+  /** Definition ID */
+  id: string
+  /** Report handle */
+  handle: string
+  /** Report name */
+  name: string
+  /** Report description */
+  description: string | null
+  /** YAML template content */
+  templateYaml: string
+  /** Global arguments configuration */
+  globalArguments: Record<string, unknown> | null
+  /** Version number */
+  version: number
+  /** Status (active, archived) */
+  status: string
+  /** ISO timestamp when created */
+  createdAt: string
+  /** ISO timestamp when last updated */
+  updatedAt: string
+}
+
+export const report = {
+  /**
+   * Generate a report from a template.
+   *
+   * By default, returns a URL to view the report. Set `mode: 'html'` to get
+   * the rendered HTML content directly.
+   *
+   * **Requires sk_wkp_ token** - reports are scoped to workplaces.
+   *
+   * @example
+   * ```ts
+   * // Get report URL (default)
+   * const { url } = await report.generate({
+   *   templateHandle: 'lab-results',
+   *   arguments: { patient_id: 'ins_abc123' },
+   * })
+   * console.log(url) // https://app.skedyul.com/crux/reports/lab-results/generate?patient_id=ins_abc123
+   *
+   * // Get HTML content
+   * const { html } = await report.generate({
+   *   templateHandle: 'lab-results',
+   *   arguments: { patient_id: 'ins_abc123' },
+   *   mode: 'html',
+   * })
+   * // Use html for email, PDF generation, etc.
+   * ```
+   */
+  async generate(params: ReportGenerateParams): Promise<ReportGenerateResult> {
+    const { data } = await callCore<ReportGenerateResult>('report.generate', {
+      templateHandle: params.templateHandle,
+      ...(params.arguments ? { arguments: params.arguments } : {}),
+      ...(params.mode ? { mode: params.mode } : {}),
+    })
+    return data
+  },
+
+  /**
+   * Define (create or update) a report from a YAML template.
+   *
+   * If a report with the same handle already exists, it will be updated
+   * and the version number incremented.
+   *
+   * **Requires sk_wkp_ token** - reports are scoped to workplaces.
+   *
+   * @example
+   * ```ts
+   * const { definitionId, handle, version } = await report.define({
+   *   yaml: `
+   *     handle: patient-summary
+   *     name: Patient Summary
+   *     sections:
+   *       - type: header
+   *         title: "{{ patient.name }}"
+   *   `,
+   * })
+   * console.log(`Created report ${handle} v${version}`)
+   * ```
+   */
+  async define(params: ReportDefineParams): Promise<ReportDefineResult> {
+    const { data } = await callCore<ReportDefineResult>('report.define', {
+      yaml: params.yaml,
+    })
+    return data
+  },
+
+  /**
+   * List report definitions in the workplace.
+   *
+   * **Requires sk_wkp_ token** - reports are scoped to workplaces.
+   *
+   * @example
+   * ```ts
+   * const { data, pagination } = await report.list({ page: 1, limit: 10 })
+   * for (const def of data) {
+   *   console.log(`${def.handle}: ${def.name} (v${def.version})`)
+   * }
+   * ```
+   */
+  async list(params?: ReportListParams): Promise<ReportListResult> {
+    const { data, pagination } = await callCore<ReportListItem[]>('report.list', {
+      ...(params?.page !== undefined ? { page: params.page } : {}),
+      ...(params?.limit !== undefined ? { limit: params.limit } : {}),
+    })
+    return {
+      data,
+      pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: params?.limit ?? 50 },
+    }
+  },
+
+  /**
+   * Get a report definition by handle.
+   *
+   * **Requires sk_wkp_ token** - reports are scoped to workplaces.
+   *
+   * @example
+   * ```ts
+   * const definition = await report.get('lab-results')
+   * if (definition) {
+   *   console.log(definition.templateYaml)
+   * }
+   * ```
+   */
+  async get(handle: string): Promise<ReportDefinition | null> {
+    const { data } = await callCore<ReportDefinition | null>('report.get', {
+      handle,
+    })
+    return data
+  },
+}

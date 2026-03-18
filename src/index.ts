@@ -26,6 +26,7 @@ export {
   webhook,
   resource,
   ai,
+  report,
   configure,
   getConfig,
   runWithConfig,
@@ -55,6 +56,15 @@ export type {
   AIMessage,
   GenerateObjectOptions,
   GenerateObjectResult,
+  // Report types
+  ReportGenerateParams,
+  ReportGenerateResult,
+  ReportDefineParams,
+  ReportDefineResult,
+  ReportListParams,
+  ReportListItem,
+  ReportListResult,
+  ReportDefinition,
 } from './core/client'
 // Context-aware logger
 export { createContextLogger } from './server/logger'
