@@ -87,13 +87,11 @@ export type ComputeLayer = 'serverless' | 'dedicated'
 
 /**
  * Standard filter type used for querying data.
+ * Re-exported from schemas for backwards compatibility.
  * Format: { fieldHandle: { operator: value } }
- * Operators: eq, ne, gt, gte, lt, lte, in, contains, etc.
+ * Operators: eq, neq, gt, gte, lt, lte, in, contains, etc.
  */
-export type StructuredFilter = Record<
-  string,
-  Record<string, string | number | boolean | (string | number | boolean)[]>
->
+export type { StructuredFilter, FilterOperator, FilterCondition } from '../../schemas'
 
 /**
  * Option for select/dropdown fields.

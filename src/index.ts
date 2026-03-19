@@ -103,6 +103,8 @@ export type {
   Visibility,
   ComputeLayer,
   StructuredFilter,
+  FilterOperator,
+  FilterCondition,
   FieldOption,
   // Env types
   EnvVariable,

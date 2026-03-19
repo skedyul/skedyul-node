@@ -30,10 +30,42 @@ export const ComputeLayerTypeSchema = z.enum(['serverless', 'dedicated'])
 export const FieldOwnerSchema = z.enum(['APP', 'SHARED'])
 
 const PrimitiveSchema = z.union([z.string(), z.number(), z.boolean()])
+const PrimitiveOrArraySchema = z.union([PrimitiveSchema, z.array(PrimitiveSchema)])
+
+export const FilterOperatorSchema = z.enum([
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'contains',
+  'notContains',
+  'not_contains',
+  'startsWith',
+  'starts_with',
+  'endsWith',
+  'ends_with',
+  'isEmpty',
+  'isNotEmpty',
+])
+
+export type FilterOperator = z.infer<typeof FilterOperatorSchema>
+
+export const FilterConditionSchema = z.record(
+  FilterOperatorSchema,
+  PrimitiveOrArraySchema,
+)
+
+export type FilterCondition = z.infer<typeof FilterConditionSchema>
+
 export const StructuredFilterSchema = z.record(
   z.string(),
-  z.record(z.string(), z.union([PrimitiveSchema, z.array(PrimitiveSchema)])),
+  FilterConditionSchema,
 )
+
+export type StructuredFilter = z.infer<typeof StructuredFilterSchema>
 
 export const ModelDependencySchema = z.object({
   model: z.string(),
@@ -865,7 +897,6 @@ export function safeParseConfig(data: unknown): ParsedSkedyulConfig | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type FieldOwner = z.infer<typeof FieldOwnerSchema>
-export type StructuredFilter = z.infer<typeof StructuredFilterSchema>
 export type FieldOption = z.infer<typeof FieldOptionSchema>
 export type InlineFieldDefinition = z.infer<typeof InlineFieldDefinitionSchema>
 export type RelationshipCardinality = z.infer<typeof RelationshipCardinalitySchema>

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'async_hooks'
 import { z } from 'zod/v4'
 import type { CommunicationChannel, Workplace } from './types'
+import type { StructuredFilter } from '../schemas'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Normalized Response Types
@@ -480,8 +481,8 @@ export interface InstanceListResult {
 export interface InstanceListArgs {
   page?: number
   limit?: number
-  /** Filter conditions. Simple format { field: value } or structured { field: { eq: value } } */
-  filter?: Record<string, unknown>
+  /** Filter conditions using StructuredFilter format: { field: { operator: value } } */
+  filter?: StructuredFilter
 }
 
 export const instance = {
@@ -608,6 +609,51 @@ export const instance = {
     const { data } = await callCore<{ deleted: boolean }>('instance.delete', {
       modelHandle,
       id,
+    })
+    return data
+  },
+
+  /**
+   * Delete multiple instances of an internal model in a single batch operation.
+   *
+   * This is more efficient than calling delete() multiple times as it reduces
+   * API overhead and executes all deletes in a single transaction.
+   *
+   * Supports two modes:
+   * - **By IDs**: Delete specific instances by their IDs
+   * - **By Filter**: Delete instances matching a StructuredFilter
+   *
+   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
+   *
+   * @param modelHandle - The model handle from provision config
+   * @param options - Either { ids: string[] } or { filter: StructuredFilter }
+   * @returns Object containing deleted instance IDs and any errors that occurred
+   *
+   * @example
+   * ```ts
+   * // Delete by IDs
+   * const { deleted, errors } = await instance.deleteMany('panel_result', {
+   *   ids: ['ins_abc123', 'ins_def456'],
+   * })
+   *
+   * // Delete by filter
+   * const { deleted, errors } = await instance.deleteMany('panel_result', {
+   *   filter: { status: { eq: 'pending' } },
+   * })
+   *
+   * if (errors.length > 0) {
+   *   console.log('Some items failed:', errors)
+   * }
+   * console.log('Deleted:', deleted.length, 'instances')
+   * ```
+   */
+  async deleteMany(
+    modelHandle: string,
+    options: { ids: string[] } | { filter: StructuredFilter },
+  ): Promise<{ deleted: string[]; errors: Array<{ index: number; error: string }> }> {
+    const { data } = await callCore<{ deleted: string[]; errors: Array<{ index: number; error: string }> }>('instance.deleteMany', {
+      modelHandle,
+      ...options,
     })
     return data
   },
