@@ -897,7 +897,9 @@ export function createServerlessInstance(
                   const errorOutput = { error: toolResult.error }
                   result = {
                     content: [{ type: 'text', text: JSON.stringify(errorOutput) }],
-                    structuredContent: errorOutput,
+                    // Don't provide structuredContent for error responses when tool has outputSchema
+                    // because the error response won't match the success schema and MCP SDK validates it
+                    structuredContent: hasOutputSchema ? undefined : errorOutput,
                     isError: true,
                     billing: toolResult.billing,
                   }

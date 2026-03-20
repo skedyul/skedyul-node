@@ -207,11 +207,14 @@ export function createSkedyulServer(
         })
 
         // Handle error case
+        const hasOutputSchema = Boolean(outputZodSchema)
         if (result.error) {
           const errorOutput = { error: result.error }
           return {
             content: [{ type: 'text' as const, text: JSON.stringify(errorOutput) }],
-            structuredContent: errorOutput,
+            // Don't provide structuredContent for error responses when tool has outputSchema
+            // because the error response won't match the success schema and MCP SDK validates it
+            structuredContent: hasOutputSchema ? undefined : errorOutput,
             isError: true,
             billing: result.billing,
           }
@@ -221,7 +224,6 @@ export function createSkedyulServer(
         // Note: effect is embedded in structuredContent because the MCP SDK
         // transport strips custom top-level fields in dedicated mode
         const outputData = result.output as Record<string, unknown> | null
-        const hasOutputSchema = Boolean(outputZodSchema)
         // MCP SDK requires structuredContent when outputSchema is defined
         // Always provide it (even as empty object) to satisfy validation
         let structuredContent: Record<string, unknown> | undefined
