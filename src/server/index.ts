@@ -161,7 +161,9 @@ export function createSkedyulServer(
         title: toolDisplayName,
         description: tool.description,
         inputSchema: wrappedInputSchema,
-        outputSchema: outputZodSchema,
+        // Don't pass outputSchema to MCP SDK - it validates structuredContent against it
+        // which fails for error responses. We handle output formatting ourselves.
+        // outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
         // Args are in Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
