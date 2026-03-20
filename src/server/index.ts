@@ -221,11 +221,19 @@ export function createSkedyulServer(
         // Note: effect is embedded in structuredContent because the MCP SDK
         // transport strips custom top-level fields in dedicated mode
         const outputData = result.output as Record<string, unknown> | null
-        const structuredContent = outputData
-          ? { ...outputData, __effect: result.effect }
-          : result.effect
-            ? { __effect: result.effect }
-            : undefined
+        const hasOutputSchema = Boolean(outputZodSchema)
+        // MCP SDK requires structuredContent when outputSchema is defined
+        // Always provide it (even as empty object) to satisfy validation
+        let structuredContent: Record<string, unknown> | undefined
+        if (outputData) {
+          structuredContent = { ...outputData, __effect: result.effect }
+        } else if (result.effect) {
+          structuredContent = { __effect: result.effect }
+        } else if (hasOutputSchema) {
+          // Tool has outputSchema but returned null/undefined output
+          // Provide empty object to satisfy MCP SDK validation
+          structuredContent = {}
+        }
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result.output) }],
           structuredContent,

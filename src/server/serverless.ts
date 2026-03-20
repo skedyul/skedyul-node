@@ -903,11 +903,18 @@ export function createServerlessInstance(
                   }
                 } else {
                   const outputData = toolResult.output as Record<string, unknown> | null
-                  const structuredContent = outputData
-                    ? { ...outputData, __effect: toolResult.effect }
-                    : toolResult.effect
-                      ? { __effect: toolResult.effect }
-                      : undefined
+                  // MCP SDK requires structuredContent when outputSchema is defined
+                  // Always provide it (even as empty object) to satisfy validation
+                  let structuredContent: Record<string, unknown> | undefined
+                  if (outputData) {
+                    structuredContent = { ...outputData, __effect: toolResult.effect }
+                  } else if (toolResult.effect) {
+                    structuredContent = { __effect: toolResult.effect }
+                  } else if (hasOutputSchema) {
+                    // Tool has outputSchema but returned null/undefined output
+                    // Provide empty object to satisfy MCP SDK validation
+                    structuredContent = {}
+                  }
                   result = {
                     content: [{ type: 'text', text: JSON.stringify(toolResult.output) }],
                     structuredContent,
