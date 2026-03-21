@@ -4,6 +4,17 @@ import { builtinModules } from 'module'
 // CLI-only dependencies (ngrok for tunneling, open for browser, tsx/esbuild for dev)
 const cliExternals = ['@ngrok/ngrok', 'open', 'tsx', 'esbuild']
 
+// Common externals for ESM builds to avoid bundling issues
+const esmExternals = [
+  ...builtinModules,
+  ...builtinModules.map((m) => `node:${m}`),
+  '@modelcontextprotocol/sdk',
+  '@modelcontextprotocol/sdk/server/mcp.js',
+  '@modelcontextprotocol/sdk/server/streamableHttp.js',
+  'zod',
+  'zod/v4',
+]
+
 export default defineConfig([
   // Main CJS build (CLI, types, config definitions, core API)
   // This is what worker-compute, skedyul-workflows, skedyul-core use
@@ -18,15 +29,29 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, ...cliExternals],
   },
+  // Main ESM build for integrations that use "type": "module"
+  // This prevents double-loading when serverless integrations import from 'skedyul'
+  {
+    entry: { index: 'src/index.ts' },
+    format: ['esm'],
+    outDir: 'dist/esm',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...esmExternals, ...cliExternals],
+    banner: {
+      js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+    },
+  },
   // Serverless ESM server build (for Lambda containers)
-  // No CLI dependencies needed here
+  // Externalize MCP SDK and zod to avoid bundling issues in ESM
   {
     entry: { server: 'src/server.ts' },
     format: ['esm'],
     outDir: 'dist/serverless',
     dts: false,
     clean: false,
-    external: [...builtinModules, ...builtinModules.map((m) => `node:${m}`)],
+    external: esmExternals,
     banner: {
       js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
     },
