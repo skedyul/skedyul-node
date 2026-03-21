@@ -13,6 +13,7 @@ import { linkCommand } from './commands/link'
 import { unlinkCommand } from './commands/unlink'
 import { installCommand } from './commands/install'
 import { instancesCommand } from './commands/instances'
+import { buildCommand } from './commands/build'
 
 const args = process.argv.slice(2)
 
@@ -37,6 +38,7 @@ USAGE
 COMMANDS
   auth       Authenticate with Skedyul (login, logout, status)
   config     Manage global CLI configuration (ngrok, server URL)
+  build      Build your integration using skedyul.config.ts
   invoke     Invoke a tool on a hosted app version
   instances  Manage CRM instances (list, get, create, update, delete)
   dev        Development tools for building and testing apps locally
@@ -99,6 +101,10 @@ USAGE
   $ skedyul dev <command> [options]
 
 COMMANDS
+  Building
+  ────────
+  build             Build your integration using skedyul.config.ts
+
   Testing & Debugging
   ───────────────────
   invoke <tool>     Invoke a single tool from your registry
@@ -116,6 +122,15 @@ COMMANDS
   ──────────
   diff              Show what would change on deploy
   deploy            Deploy your app to Skedyul
+
+BUILD COMMAND
+  Build your integration with configuration from skedyul.config.ts:
+
+  $ skedyul build                # Build once
+  $ skedyul build --watch        # Build and watch for changes
+
+  The build command reads computeLayer and build.external from your config
+  and runs tsup with the correct options automatically.
 
 STANDALONE MODE
   Test tools locally without connecting to Skedyul:
@@ -138,6 +153,9 @@ LINKED MODE (Sidecar)
   Now Skedyul will route tool calls to your local machine!
 
 EXAMPLES
+  # Build your integration
+  $ skedyul build
+
   # List tools in your registry
   $ skedyul dev tools --registry ./dist/registry.js
 
@@ -164,6 +182,7 @@ OPTIONS
   --help, -h    Show help for any command
 
 RUN COMMAND HELP
+  $ skedyul build --help
   $ skedyul dev invoke --help
   $ skedyul dev serve --help
   $ skedyul dev link --help
@@ -196,6 +215,11 @@ async function main(): Promise<void> {
 
   if (command === 'instances') {
     await instancesCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'build') {
+    await buildCommand(args.slice(1))
     return
   }
 
@@ -241,6 +265,9 @@ async function main(): Promise<void> {
       break
     case 'install':
       await installCommand(subArgs)
+      break
+    case 'build':
+      await buildCommand(subArgs)
       break
     default:
       console.error(`Unknown dev command: ${subCommand}`)

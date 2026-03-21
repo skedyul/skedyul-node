@@ -16,6 +16,8 @@ export const CONFIG_FILE_NAMES = [
 
 async function transpileTypeScript(filePath: string): Promise<string> {
   const content = fs.readFileSync(filePath, 'utf-8')
+  const configDir = path.dirname(path.resolve(filePath))
+
   let transpiled = content
     .replace(/import\s+type\s+\{[^}]+\}\s+from\s+['"][^'"]+['"]\s*;?\n?/g, '')
     .replace(/import\s+\{\s*defineConfig\s*\}\s+from\s+['"]skedyul['"]\s*;?\n?/g, '')
@@ -23,6 +25,21 @@ async function transpileTypeScript(filePath: string): Promise<string> {
     .replace(/export\s+default\s+/, 'module.exports = ')
     .replace(/defineConfig\s*\(\s*\{/, '{')
     .replace(/\}\s*\)\s*;?\s*$/, '}')
+
+  // Convert relative imports to absolute paths so they work from temp directory
+  // Match: import X from './path' or import X from '../path'
+  transpiled = transpiled.replace(
+    /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"]/g,
+    (match, varName, relativePath) => {
+      const absolutePath = path.resolve(configDir, relativePath)
+      return `const ${varName} = require('${absolutePath.replace(/\\/g, '/')}')`
+    },
+  )
+
+  // Replace dynamic imports with null - they're not needed for config extraction
+  // Match: import('./path') or import("./path")
+  transpiled = transpiled.replace(/import\s*\(\s*['"][^'"]+['"]\s*\)/g, 'null')
+
   return transpiled
 }
 
