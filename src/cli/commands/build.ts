@@ -74,12 +74,8 @@ export async function buildCommand(args: string[]): Promise<void> {
   try {
     const config = await loadConfig(configPath)
 
-    // Determine format based on computeLayer
-    // COMPUTE_LAYER env var (from Docker build) takes precedence over config
-    const computeLayer =
-      (process.env.COMPUTE_LAYER as 'serverless' | 'dedicated') ??
-      config.computeLayer ??
-      'serverless'
+    // Determine format based on computeLayer from config
+    const computeLayer = config.computeLayer ?? 'serverless'
     const format = computeLayer === 'serverless' ? 'esm' : 'cjs'
 
     // Build externals list

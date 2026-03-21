@@ -53,10 +53,10 @@ RUN if [ ! -f tsup.config.ts ]; then \\
 
 # Install dependencies (including dev deps for build), compile, smoke test, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist
-# COMPUTE_LAYER env var tells skedyul build which format to use
+# skedyul build reads computeLayer from skedyul.config.ts
 # Smoke test runs before pruning since skedyul CLI is a dev dependency
 RUN pnpm install --no-frozen-lockfile && \\
-    COMPUTE_LAYER=$COMPUTE_LAYER pnpm run build && \\
+    pnpm run build && \\
     skedyul smoke-test && \\
     pnpm prune --prod && \\
     pnpm store prune && \\
