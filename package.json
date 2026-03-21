@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "1.0.24",
+  "version": "1.1.1",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,6 +12,14 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./serverless": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/serverless/server.js"
+    },
+    "./dedicated": {
+      "types": "./dist/server.d.ts",
+      "require": "./dist/dedicated/server.js"
     },
     "./cli/utils/auth": {
       "types": "./dist/cli/utils/auth.d.ts",
@@ -28,7 +36,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc --build tsconfig.json && node -e \"require('fs').mkdirSync('dist',{recursive:true}); require('fs').writeFileSync('dist/.build-stamp', String(Date.now()))\"",
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && tsup",
     "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
     "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js"
@@ -54,6 +62,7 @@
     "@ngrok/ngrok": "^1.4.1",
     "@types/node": "^24.10.1",
     "open": "^10.1.0",
+    "tsup": "^8.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }

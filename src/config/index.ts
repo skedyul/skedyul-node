@@ -16,6 +16,7 @@ export * from './types'
 export type {
   InstallConfig,
   ProvisionConfig,
+  BuildConfig,
   SkedyulConfig,
   SerializableSkedyulConfig,
 } from './app-config'

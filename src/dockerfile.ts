@@ -7,6 +7,11 @@
  *   - .ts/.js/.mjs/.cjs → skedyul-node → this Dockerfile
  *
  * Supports both dedicated (Docker/ECS) and serverless (Lambda) deployments.
+ *
+ * Build args:
+ *   - COMPUTE_LAYER: 'serverless' or 'dedicated' - determines the tsup config format
+ *   - BUILD_EXTERNAL: comma-separated list of external dependencies (e.g., 'twilio,stripe')
+ *   - MCP_ENV_JSON: JSON string of environment variables to bake into the image
  */
 
 export const DEFAULT_DOCKERFILE = `# =============================================================================
@@ -14,14 +19,37 @@ export const DEFAULT_DOCKERFILE = `# ===========================================
 # =============================================================================
 FROM public.ecr.aws/docker/library/node:22-alpine AS builder
 
+ARG COMPUTE_LAYER=serverless
+ARG BUILD_EXTERNAL=""
 WORKDIR /app
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy package files (lockfile is optional)
-COPY package.json tsconfig.json tsup.config.ts ./
+COPY package.json tsconfig.json ./
 COPY src ./src
+
+# Copy tsup.config.ts if it exists, otherwise generate based on COMPUTE_LAYER
+# BUILD_EXTERNAL is a comma-separated list of additional externals (e.g., "twilio,stripe")
+COPY tsup.config.t[s] ./
+RUN if [ ! -f tsup.config.ts ]; then \\
+      BASE_EXT="skedyul,zod"; \\
+      if [ "$COMPUTE_LAYER" = "serverless" ]; then \\
+        BASE_EXT="skedyul,skedyul/serverless,zod"; \\
+        FORMAT="esm"; \\
+      else \\
+        BASE_EXT="skedyul,skedyul/dedicated,zod"; \\
+        FORMAT="cjs"; \\
+      fi; \\
+      if [ -n "$BUILD_EXTERNAL" ]; then \\
+        ALL_EXT="$BASE_EXT,$BUILD_EXTERNAL"; \\
+      else \\
+        ALL_EXT="$BASE_EXT"; \\
+      fi; \\
+      EXT_ARRAY=$(echo "$ALL_EXT" | sed 's/,/","/g'); \\
+      printf 'import{defineConfig}from"tsup";export default defineConfig({entry:["src/server/mcp_server.ts"],format:["%s"],target:"node22",outDir:"dist/server",clean:true,splitting:false,dts:false,external:["%s"]})' "$FORMAT" "$EXT_ARRAY" > tsup.config.ts; \\
+    fi
 
 # Install dependencies (including dev deps for build), compile, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist

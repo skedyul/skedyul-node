@@ -52,6 +52,14 @@ export interface ProvisionConfig {
 }
 
 /**
+ * Build configuration - controls how the integration is bundled.
+ */
+export interface BuildConfig {
+  /** External dependencies to exclude from bundling (e.g., ['twilio', 'stripe']) */
+  external?: string[]
+}
+
+/**
  * Main Skedyul app configuration.
  */
 export interface SkedyulConfig {
@@ -63,6 +71,8 @@ export interface SkedyulConfig {
   description?: string
   /** Compute layer: 'serverless' (Lambda) or 'dedicated' (ECS/Docker) */
   computeLayer?: ComputeLayer
+  /** Build configuration for the integration */
+  build?: BuildConfig
 
   /** Tool registry - direct object or dynamic import */
   tools?: ToolRegistry | Promise<{ toolRegistry: ToolRegistry }>
