@@ -21,12 +21,12 @@ export default defineConfig([
   // Serverless ESM server build (for Lambda containers)
   // No CLI dependencies needed here
   {
-    entry: { 'server': 'src/server.ts' },
+    entry: { server: 'src/server.ts' },
     format: ['esm'],
     outDir: 'dist/serverless',
     dts: false,
     clean: false,
-    external: [...builtinModules, ...builtinModules.map(m => `node:${m}`)],
+    external: [...builtinModules, ...builtinModules.map((m) => `node:${m}`)],
     banner: {
       js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
     },
@@ -34,7 +34,7 @@ export default defineConfig([
   // Dedicated CJS server build (for ECS/Docker containers)
   // No CLI dependencies needed here
   {
-    entry: { 'server': 'src/server.ts' },
+    entry: { server: 'src/server.ts' },
     format: ['cjs'],
     outDir: 'dist/dedicated',
     dts: false,
