@@ -27,7 +27,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy package files (lockfile is optional)
-COPY package.json tsconfig.json ./
+COPY package.json tsconfig.json skedyul.config.ts ./
 COPY src ./src
 
 # Copy tsup.config.ts if it exists, otherwise generate based on COMPUTE_LAYER
