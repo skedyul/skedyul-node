@@ -30,26 +30,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json tsconfig.json skedyul.config.ts ./
 COPY src ./src
 
-# Copy tsup.config.ts if it exists, otherwise generate based on COMPUTE_LAYER
-# BUILD_EXTERNAL is a comma-separated list of additional externals (e.g., "twilio,stripe")
+# Copy tsup.config.ts if it exists (optional - skedyul build will generate one if needed)
 COPY tsup.config.t[s] ./
-RUN if [ ! -f tsup.config.ts ]; then \\
-      BASE_EXT="skedyul,zod"; \\
-      if [ "$COMPUTE_LAYER" = "serverless" ]; then \\
-        BASE_EXT="skedyul,skedyul/serverless,zod"; \\
-        FORMAT="esm"; \\
-      else \\
-        BASE_EXT="skedyul,skedyul/dedicated,zod"; \\
-        FORMAT="cjs"; \\
-      fi; \\
-      if [ -n "$BUILD_EXTERNAL" ]; then \\
-        ALL_EXT="$BASE_EXT,$BUILD_EXTERNAL"; \\
-      else \\
-        ALL_EXT="$BASE_EXT"; \\
-      fi; \\
-      EXT_ARRAY=$(echo "$ALL_EXT" | sed 's/,/","/g'); \\
-      printf 'import{defineConfig}from"tsup";export default defineConfig({entry:["src/server/mcp_server.ts"],format:["%s"],target:"node22",outDir:"dist/server",clean:true,splitting:false,dts:false,external:["%s"]})' "$FORMAT" "$EXT_ARRAY" > tsup.config.ts; \\
-    fi
 
 # Install dependencies (including dev deps for build), compile, smoke test, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist

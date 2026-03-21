@@ -1,6 +1,8 @@
 import { spawn, ChildProcess } from 'child_process'
 import * as http from 'http'
 import * as fs from 'fs'
+import * as path from 'path'
+import { loadConfig, CONFIG_FILE_NAMES } from '../../config/loader'
 
 const SMOKE_TEST_PORT = 3456
 const SMOKE_TEST_TIMEOUT_MS = 30000
@@ -26,11 +28,12 @@ EXAMPLES
   $ skedyul build && skedyul smoke-test
 
 WHAT IT DOES
-  1. Spawns node dist/server/mcp_server.js as a child process
-  2. Waits for the /health endpoint to respond
-  3. Calls POST /mcp with tools/list JSON-RPC request
-  4. Validates the response contains at least one tool
-  5. Exits with code 0 (success) or 1 (failure)
+  1. Reads skedyul.config.ts to determine compute layer
+  2. Spawns node dist/server/mcp_server.{mjs|js} based on compute layer
+  3. Waits for the /health endpoint to respond
+  4. Calls POST /mcp with tools/list JSON-RPC request
+  5. Validates the response contains at least one tool
+  6. Exits with code 0 (success) or 1 (failure)
 `)
 }
 
@@ -149,16 +152,52 @@ export async function smokeTestCommand(args: string[]): Promise<void> {
     process.exit(0)
   }
 
-  const serverPath = 'dist/server/mcp_server.js'
+  // Find and load skedyul.config.ts to determine compute layer
+  const cwd = process.cwd()
+  let configPath: string | null = null
+
+  for (const name of CONFIG_FILE_NAMES) {
+    const testPath = path.join(cwd, name)
+    if (fs.existsSync(testPath)) {
+      configPath = testPath
+      break
+    }
+  }
+
+  // Determine compute layer and file extension
+  let computeLayer: 'serverless' | 'dedicated' = 'serverless'
+  if (configPath) {
+    try {
+      const config = await loadConfig(configPath)
+      computeLayer = config.computeLayer ?? 'serverless'
+    } catch (err) {
+      console.warn(`[SmokeTest] Warning: Could not load config, defaulting to serverless mode`)
+    }
+  }
+
+  // Determine server file based on compute layer
+  // serverless uses .mjs (ESM), dedicated uses .js (CJS)
+  const serverExt = computeLayer === 'serverless' ? 'mjs' : 'js'
+  let serverPath = `dist/server/mcp_server.${serverExt}`
 
   // Check if built server exists
   if (!fs.existsSync(serverPath)) {
-    console.error('[SmokeTest] ERROR: dist/server/mcp_server.js not found')
-    console.error('[SmokeTest] Run "skedyul build" first')
-    process.exit(1)
+    // Try the other extension as fallback (for backward compatibility)
+    const fallbackExt = serverExt === 'mjs' ? 'js' : 'mjs'
+    const fallbackPath = `dist/server/mcp_server.${fallbackExt}`
+    if (fs.existsSync(fallbackPath)) {
+      console.warn(`[SmokeTest] Warning: Expected ${serverPath} but found ${fallbackPath}`)
+      console.warn(`[SmokeTest] Using ${fallbackPath} instead`)
+      serverPath = fallbackPath
+    } else {
+      console.error(`[SmokeTest] ERROR: ${serverPath} not found`)
+      console.error('[SmokeTest] Run "skedyul build" first')
+      process.exit(1)
+    }
   }
 
   console.log('[SmokeTest] Starting smoke test...')
+  console.log(`[SmokeTest] Compute layer: ${computeLayer}`)
   console.log(`[SmokeTest] Server path: ${serverPath}`)
   console.log(`[SmokeTest] Port: ${SMOKE_TEST_PORT}`)
 
