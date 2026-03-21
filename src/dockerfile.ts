@@ -51,10 +51,13 @@ RUN if [ ! -f tsup.config.ts ]; then \\
       printf 'import{defineConfig}from"tsup";export default defineConfig({entry:["src/server/mcp_server.ts"],format:["%s"],target:"node22",outDir:"dist/server",clean:true,splitting:false,dts:false,external:["%s"]})' "$FORMAT" "$EXT_ARRAY" > tsup.config.ts; \\
     fi
 
-# Install dependencies (including dev deps for build), compile, then prune
+# Install dependencies (including dev deps for build), compile, smoke test, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist
+# COMPUTE_LAYER env var tells skedyul build which format to use
+# Smoke test runs before pruning since skedyul CLI is a dev dependency
 RUN pnpm install --no-frozen-lockfile && \\
-    pnpm run build && \\
+    COMPUTE_LAYER=$COMPUTE_LAYER pnpm run build && \\
+    skedyul smoke-test && \\
     pnpm prune --prod && \\
     pnpm store prune && \\
     rm -rf /tmp/* /var/cache/apk/* ~/.npm

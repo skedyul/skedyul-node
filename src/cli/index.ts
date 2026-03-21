@@ -14,6 +14,7 @@ import { unlinkCommand } from './commands/unlink'
 import { installCommand } from './commands/install'
 import { instancesCommand } from './commands/instances'
 import { buildCommand } from './commands/build'
+import { smokeTestCommand } from './commands/smoke-test'
 
 const args = process.argv.slice(2)
 
@@ -104,6 +105,7 @@ COMMANDS
   Building
   ────────
   build             Build your integration using skedyul.config.ts
+  smoke-test        Validate built server starts and responds to tools/list
 
   Testing & Debugging
   ───────────────────
@@ -223,6 +225,11 @@ async function main(): Promise<void> {
     return
   }
 
+  if (command === 'smoke-test') {
+    await smokeTestCommand(args.slice(1))
+    return
+  }
+
   if (command !== 'dev') {
     console.error(`Unknown command: ${command}`)
     console.error(`Run 'skedyul --help' for usage information.`)
@@ -268,6 +275,9 @@ async function main(): Promise<void> {
       break
     case 'build':
       await buildCommand(subArgs)
+      break
+    case 'smoke-test':
+      await smokeTestCommand(subArgs)
       break
     default:
       console.error(`Unknown dev command: ${subCommand}`)
