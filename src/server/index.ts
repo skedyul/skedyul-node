@@ -146,12 +146,15 @@ export function createSkedyulServer(
     console.log(`[createSkedyulServer] Getting output schema for ${toolKey}`)
     const outputZodSchema = getZodSchema(tool.outputSchema)
 
-    // Wrap the input schema to accept Skedyul format: { inputs: {...}, env: {...} }
-    // This allows the MCP SDK to pass through the wrapper without stripping fields
+    // Wrap the input schema to accept Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
+    // All fields must be explicitly defined to prevent MCP SDK from stripping them during validation
     console.log(`[createSkedyulServer] Creating wrapped schema for ${toolKey}`)
     const wrappedInputSchema = z.object({
       inputs: inputZodSchema ?? z.record(z.string(), z.unknown()).optional(),
+      context: z.record(z.string(), z.unknown()).optional(),
       env: z.record(z.string(), z.string()).optional(),
+      invocation: z.record(z.string(), z.unknown()).optional(),
+      estimate: z.boolean().optional(),
     }).passthrough()
 
     console.log(`[createSkedyulServer] Calling mcpServer.registerTool for ${toolKey}`)
