@@ -176,9 +176,10 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
       // Call handler with two arguments: (input, context)
       // Wrap in runWithConfig for request-scoped SDK configuration
-      // Also wrap in runWithLogContext to inject invocation context into all logs
-      const functionResult = await runWithLogContext({ invocation }, async () => {
-        return await runWithConfig(requestConfig, async () => {
+      // IMPORTANT: runWithConfig must be the OUTER wrapper to ensure AsyncLocalStorage
+      // context is preserved across all async operations including fetch() calls
+      const functionResult = await runWithConfig(requestConfig, async () => {
+        return await runWithLogContext({ invocation }, async () => {
           return await fn(inputs as never, executionContext as never)
         })
       })
