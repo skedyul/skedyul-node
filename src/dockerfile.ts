@@ -26,12 +26,14 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy package files (lockfile is optional)
+# Copy package files and source code
 COPY package.json tsconfig.json skedyul.config.ts ./
 COPY src ./src
 
-# Copy tsup.config.ts if it exists (optional - skedyul build will generate one if needed)
-COPY tsup.config.t[s] ./
+# Copy optional root-level TypeScript files (provision.ts, env.ts, etc.)
+# Using a wildcard that copies all .ts files from root except those in src/
+# Note: tsup.config.ts is optional - skedyul build generates it if not present
+COPY *.ts ./
 
 # Install dependencies (including dev deps for build), compile, smoke test, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist
