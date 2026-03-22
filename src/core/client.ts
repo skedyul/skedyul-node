@@ -73,15 +73,27 @@ export function runWithConfig<T>(config: ClientConfig, fn: () => T): T {
 /**
  * Get the effective configuration for the current context.
  * Request-scoped config takes precedence over global config.
+ * Falls back to process.env for runtime-injected values.
  */
 function getEffectiveConfig(): ClientConfig {
-  // Check for request-scoped config first
+  // Check for request-scoped config first (AsyncLocalStorage)
   const requestConfig = requestConfigStorage.getStore()
   if (requestConfig?.baseUrl && requestConfig?.apiToken) {
     return requestConfig
   }
-  // Fall back to global config
-  return globalConfig
+  
+  // Check if global config has been explicitly set via configure()
+  if (globalConfig.baseUrl && globalConfig.apiToken) {
+    return globalConfig
+  }
+  
+  // Fall back to process.env for runtime-injected values
+  // This handles cases where env vars are set per-request (e.g., in tool handlers)
+  // and AsyncLocalStorage context is lost across async boundaries
+  return {
+    baseUrl: process.env.SKEDYUL_API_URL ?? process.env.SKEDYUL_NODE_URL ?? globalConfig.baseUrl,
+    apiToken: process.env.SKEDYUL_API_TOKEN ?? globalConfig.apiToken,
+  }
 }
 
 /**
@@ -143,11 +155,9 @@ async function callCore<T>(
   const requestConfig = requestConfigStorage.getStore()
   console.log(`[callCore] Method: ${method}, Config state:`, {
     hasRequestConfig: !!requestConfig,
-    requestConfigBaseUrl: requestConfig?.baseUrl ? 'set' : 'not set',
     requestConfigApiToken: requestConfig?.apiToken ? `set (${requestConfig.apiToken.length} chars)` : 'not set',
-    globalConfigBaseUrl: globalConfig.baseUrl ? 'set' : 'not set',
     globalConfigApiToken: globalConfig.apiToken ? `set (${globalConfig.apiToken.length} chars)` : 'not set',
-    effectiveBaseUrl: baseUrl ? 'set' : 'not set',
+    processEnvApiToken: process.env.SKEDYUL_API_TOKEN ? `set (${process.env.SKEDYUL_API_TOKEN.length} chars)` : 'not set',
     effectiveApiToken: apiToken ? `set (${apiToken.length} chars)` : 'not set',
   })
 
