@@ -39,7 +39,7 @@ COPY tsup.config.t[s] ./
 # Smoke test runs before pruning since skedyul CLI is a dev dependency
 RUN pnpm install --no-frozen-lockfile && \\
     pnpm run build && \\
-    skedyul smoke-test && \\
+    pnpm exec skedyul smoke-test && \\
     pnpm prune --prod && \\
     pnpm store prune && \\
     rm -rf /tmp/* /var/cache/apk/* ~/.npm
