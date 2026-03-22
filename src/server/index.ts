@@ -169,12 +169,25 @@ export function createSkedyulServer(
         // outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
+        // Debug: Log raw args received from MCP SDK to diagnose env passthrough issues
+        console.log(`[mcpServer.registerTool] Tool ${toolName} received raw args:`, JSON.stringify(args, null, 2))
+        
         // Args are in Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
         const rawArgs = args as Record<string, unknown>
         const toolInputs = (rawArgs.inputs ?? {}) as Record<string, unknown>
         const toolContext = rawArgs.context as Record<string, unknown> | undefined
         const toolEnv = rawArgs.env as Record<string, string> | undefined
         const toolInvocation = rawArgs.invocation as Record<string, unknown> | undefined
+        
+        // Debug: Log extracted values
+        console.log(`[mcpServer.registerTool] Tool ${toolName} extracted:`, {
+          hasInputs: !!rawArgs.inputs,
+          hasContext: !!rawArgs.context,
+          hasEnv: !!rawArgs.env,
+          hasInvocation: !!rawArgs.invocation,
+          envKeys: toolEnv ? Object.keys(toolEnv) : [],
+          hasApiToken: toolEnv?.SKEDYUL_API_TOKEN ? `yes (${toolEnv.SKEDYUL_API_TOKEN.length} chars)` : 'no',
+        })
 
         // Validate inputs if schema exists
         let validatedInputs = toolInputs
