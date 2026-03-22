@@ -66,7 +66,8 @@ ENV MCP_ENV_JSON=\${MCP_ENV_JSON}
 EXPOSE 3000
 
 # Run as HTTP server (dedicated mode auto-detected by absence of AWS_LAMBDA_FUNCTION_NAME)
-CMD ["node", "dist/server/mcp_server.js"]
+# Support both .js (dedicated builds) and .mjs (serverless builds) extensions
+CMD ["sh", "-c", "node dist/server/mcp_server.mjs 2>/dev/null || node dist/server/mcp_server.js"]
 
 # =============================================================================
 # SERVERLESS STAGE - For AWS Lambda deployments
