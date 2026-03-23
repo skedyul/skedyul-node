@@ -128,11 +128,16 @@ export const AppFieldVisibilitySchema = z.object({
   filters: z.boolean().optional(),
 })
 
+export const FieldRequirementTypeSchema = z.enum(['optional', 'on_create', 'required'])
+
 export const ModelFieldDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
   type: FieldDataTypeSchema.optional(),
   definition: z.union([InlineFieldDefinitionSchema, z.string()]).optional(),
+  /** Field requirement type: 'optional', 'on_create', or 'required' */
+  requirement: FieldRequirementTypeSchema.optional(),
+  /** @deprecated Use `requirement` instead */
   required: z.boolean().optional(),
   unique: z.boolean().optional(),
   system: z.boolean().optional(),
@@ -897,6 +902,7 @@ export function safeParseConfig(data: unknown): ParsedSkedyulConfig | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type FieldOwner = z.infer<typeof FieldOwnerSchema>
+export type FieldRequirementType = z.infer<typeof FieldRequirementTypeSchema>
 export type FieldOption = z.infer<typeof FieldOptionSchema>
 export type InlineFieldDefinition = z.infer<typeof InlineFieldDefinitionSchema>
 export type RelationshipCardinality = z.infer<typeof RelationshipCardinalitySchema>

@@ -47,6 +47,14 @@ export type FieldType =
 export type OnDelete = 'none' | 'cascade' | 'restrict'
 
 /**
+ * Field requirement types.
+ * - 'optional': Field is never required
+ * - 'on_create': Field is required only when creating new records
+ * - 'required': Field is always required (create and update)
+ */
+export type FieldRequirementType = 'optional' | 'on_create' | 'required'
+
+/**
  * Inline field definition for options and validation constraints.
  */
 export interface InlineFieldDefinition {
@@ -97,7 +105,17 @@ export interface FieldDefinition {
    * - Omitted: Auto-creates workplace definition as <subdomain>/<model>/<field>
    */
   definition?: InlineFieldDefinition | string
-  /** Whether this field is required */
+  /**
+   * Field requirement type.
+   * - 'optional': Field is never required (default)
+   * - 'on_create': Field is required only when creating new records
+   * - 'required': Field is always required (create and update)
+   */
+  requirement?: FieldRequirementType
+  /**
+   * Whether this field is required.
+   * @deprecated Use `requirement` instead. Maps to 'required' if true, 'optional' if false.
+   */
   required?: boolean
   /** Whether this field must be unique across all records */
   unique?: boolean
