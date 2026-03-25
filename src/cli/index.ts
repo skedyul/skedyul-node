@@ -9,6 +9,7 @@ import { diffCommand } from './commands/diff'
 import { deployCommand } from './commands/deploy'
 import { authCommand } from './commands/auth'
 import { configCommand } from './commands/config'
+import { configExportCommand } from './commands/config-export'
 import { linkCommand } from './commands/link'
 import { unlinkCommand } from './commands/unlink'
 import { installCommand } from './commands/install'
@@ -207,6 +208,11 @@ async function main(): Promise<void> {
 
   if (command === 'config') {
     await configCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'config:export') {
+    await configExportCommand(args.slice(1))
     return
   }
 

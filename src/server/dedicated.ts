@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import http, { IncomingMessage, ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
@@ -34,6 +35,9 @@ import {
   type ProvisionRequestBody,
 } from './handlers'
 
+/** Path to pre-generated config file (created during Docker build) */
+const CONFIG_FILE_PATH = '.skedyul/config.json'
+
 /**
  * Creates a dedicated (long-running HTTP) server instance
  */
@@ -67,8 +71,20 @@ export function createDedicatedServerInstance(
 
       // GET /config - Returns app configuration metadata
       // Used by deployment workflow to extract tool timeouts, webhooks, etc.
-      // Note: provision/install configs are extracted separately during build
+      // Reads from pre-generated .skedyul/config.json (created during build)
+      // Falls back to runtime serialization for local dev without build
       if (pathname === '/config' && req.method === 'GET') {
+        // Try to read pre-generated config file first (created by skedyul config:export)
+        try {
+          if (fs.existsSync(CONFIG_FILE_PATH)) {
+            const fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, 'utf-8'))
+            sendJSON(res, 200, fileConfig)
+            return
+          }
+        } catch (err) {
+          console.warn('[/config] Failed to read config file, falling back to runtime serialization:', err)
+        }
+        // Fallback to runtime serialization (for local dev without build)
         sendJSON(res, 200, serializeConfig(config))
         return
       }

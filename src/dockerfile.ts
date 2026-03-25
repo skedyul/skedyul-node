@@ -35,12 +35,14 @@ COPY src ./src
 # Note: tsup.config.ts is optional - skedyul build generates it if not present
 COPY *.ts ./
 
-# Install dependencies (including dev deps for build), compile, smoke test, then prune
+# Install dependencies (including dev deps for build), compile, export config, smoke test, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist
 # skedyul build reads computeLayer from skedyul.config.ts
+# skedyul config:export resolves all dynamic imports and writes .skedyul/config.json
 # Smoke test runs before pruning since skedyul CLI is a dev dependency
 RUN pnpm install --no-frozen-lockfile && \\
     pnpm run build && \\
+    pnpm exec skedyul config:export && \\
     pnpm exec skedyul smoke-test && \\
     pnpm prune --prod && \\
     pnpm store prune && \\
@@ -57,6 +59,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/.skedyul ./.skedyul
 
 # Allow overriding the baked-in MCP env at runtime
 ARG MCP_ENV_JSON="{}"
@@ -79,6 +82,7 @@ WORKDIR \${LAMBDA_TASK_ROOT}
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/.skedyul ./.skedyul
 
 # Allow overriding the baked-in MCP env at runtime
 ARG MCP_ENV_JSON="{}"

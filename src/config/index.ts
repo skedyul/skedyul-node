@@ -37,5 +37,8 @@ export {
 // Re-export loader utilities
 export { CONFIG_FILE_NAMES, loadConfig, validateConfig } from './loader'
 
+// Re-export resolver utilities for build-time config export
+export { loadAndResolveConfig, serializeResolvedConfig, type ResolvedConfig } from './resolver'
+
 // Re-export helper utilities
 export { getAllEnvKeys, getRequiredInstallEnvKeys } from './utils'

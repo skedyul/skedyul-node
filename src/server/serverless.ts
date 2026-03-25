@@ -1,3 +1,5 @@
+import * as fs from 'fs'
+import * as path from 'path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 import type {
@@ -28,6 +30,9 @@ import {
   type UninstallRequestBody,
   type ProvisionRequestBody,
 } from './handlers'
+
+/** Path to pre-generated config file (created during Docker build) */
+const CONFIG_FILE_PATH = '.skedyul/config.json'
 
 /**
  * Creates a serverless (Lambda-style) server instance
@@ -372,8 +377,19 @@ export function createServerlessInstance(
 
         // GET /config - Returns app configuration metadata
         // Used by deployment workflow to extract tool timeouts, webhooks, etc.
-        // Note: provision/install configs are extracted separately during build
+        // Reads from pre-generated .skedyul/config.json (created during build)
+        // Falls back to runtime serialization for local dev without build
         if (path === '/config' && method === 'GET') {
+          // Try to read pre-generated config file first (created by skedyul config:export)
+          try {
+            if (fs.existsSync(CONFIG_FILE_PATH)) {
+              const fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, 'utf-8'))
+              return createResponse(200, fileConfig, headers)
+            }
+          } catch (err) {
+            console.warn('[/config] Failed to read config file, falling back to runtime serialization:', err)
+          }
+          // Fallback to runtime serialization (for local dev without build)
           return createResponse(200, serializeConfig(config), headers)
         }
 
