@@ -33,6 +33,7 @@ import { printStartupLog } from './startup-logger'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
 import { getZodSchema, getDefaultHeaders, createResponse } from './utils'
+import { resolveConfig, createMinimalConfig } from '../config/resolve'
 
 /**
  * Creates a serverless (Lambda-style) server instance
@@ -798,23 +799,12 @@ export function createServerlessInstance(
         // GET /config - Returns full app configuration metadata
         // Used by deployment workflow to extract tool timeouts, webhooks, etc.
         if (path === '/config' && method === 'GET') {
-          return createResponse(200, {
-            name: config.metadata.name,
-            version: config.metadata.version,
-            computeLayer: config.computeLayer,
-            tools: Object.entries(registry).map(([key, tool]) => ({
-              name: tool.name || key,
-              description: tool.description,
-              timeout: tool.timeout,
-              retries: tool.retries,
-              triggers: tool.triggers,
-            })),
-            webhooks: webhookRegistry ? Object.values(webhookRegistry).map(w => ({
-              name: w.name,
-              description: w.description,
-              methods: w.methods,
-            })) : [],
-          }, headers)
+          const appConfig = config.appConfig ?? createMinimalConfig(
+            config.metadata.name,
+            config.metadata.version,
+          )
+          const serializedConfig = await resolveConfig(appConfig, registry, webhookRegistry)
+          return createResponse(200, serializedConfig, headers)
         }
 
         if (path === '/mcp' && method === 'POST') {

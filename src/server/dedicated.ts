@@ -32,6 +32,7 @@ import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } f
 import { printStartupLog } from './startup-logger'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
+import { resolveConfig, createMinimalConfig } from '../config/resolve'
 import {
   readRawRequestBody,
   parseJSONBody,
@@ -73,23 +74,12 @@ export function createDedicatedServerInstance(
       // GET /config - Returns full app configuration metadata
       // Used by deployment workflow to extract tool timeouts, webhooks, etc.
       if (pathname === '/config' && req.method === 'GET') {
-        sendJSON(res, 200, {
-          name: config.metadata.name,
-          version: config.metadata.version,
-          computeLayer: config.computeLayer,
-          tools: Object.entries(registry).map(([key, tool]) => ({
-            name: tool.name || key,
-            description: tool.description,
-            timeout: tool.timeout,
-            retries: tool.retries,
-            triggers: tool.triggers,
-          })),
-          webhooks: webhookRegistry ? Object.values(webhookRegistry).map(w => ({
-            name: w.name,
-            description: w.description,
-            methods: w.methods,
-          })) : [],
-        })
+        const appConfig = config.appConfig ?? createMinimalConfig(
+          config.metadata.name,
+          config.metadata.version,
+        )
+        const serializedConfig = await resolveConfig(appConfig, registry, webhookRegistry)
+        sendJSON(res, 200, serializedConfig)
         return
       }
 

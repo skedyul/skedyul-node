@@ -2,6 +2,7 @@ import type { CoreApiConfig } from '../core/types'
 import type { ServerHooks } from './handlers'
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from './aws'
 import type { ComputeLayer } from '../config/types/compute'
+import type { SkedyulConfig } from '../config/app-config'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Server Types
@@ -41,6 +42,8 @@ export interface SkedyulServerConfig {
   coreApi?: CoreApiConfig
   /** Lifecycle hooks for install and provision handlers */
   hooks?: ServerHooks
+  /** Original app config from skedyul.config.ts for /config endpoint serialization */
+  appConfig?: SkedyulConfig
 }
 
 export interface DedicatedServerInstance {
