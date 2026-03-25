@@ -13,6 +13,7 @@ import type {
   SkedyulServerInstance,
   ToolCallResponse,
   ToolMetadata,
+  ToolRegistry,
   UninstallHandler,
   UninstallHandlerContext,
   WebhookRegistry,
@@ -47,6 +48,7 @@ export function createDedicatedServerInstance(
   callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
   mcpServer: McpServer,
+  registry: ToolRegistry,
   webhookRegistry?: WebhookRegistry,
 ): SkedyulServerInstance {
   const port = getListeningPort(config)
@@ -65,6 +67,29 @@ export function createDedicatedServerInstance(
 
       if (pathname === '/health' && req.method === 'GET') {
         sendJSON(res, 200, state.getHealthStatus())
+        return
+      }
+
+      // GET /config - Returns full app configuration metadata
+      // Used by deployment workflow to extract tool timeouts, webhooks, etc.
+      if (pathname === '/config' && req.method === 'GET') {
+        sendJSON(res, 200, {
+          name: config.metadata.name,
+          version: config.metadata.version,
+          computeLayer: config.computeLayer,
+          tools: Object.entries(registry).map(([key, tool]) => ({
+            name: tool.name || key,
+            description: tool.description,
+            timeout: tool.timeout,
+            retries: tool.retries,
+            triggers: tool.triggers,
+          })),
+          webhooks: webhookRegistry ? Object.values(webhookRegistry).map(w => ({
+            name: w.name,
+            description: w.description,
+            methods: w.methods,
+          })) : [],
+        })
         return
       }
 

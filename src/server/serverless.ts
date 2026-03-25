@@ -795,6 +795,28 @@ export function createServerlessInstance(
           return createResponse(200, state.getHealthStatus(), headers)
         }
 
+        // GET /config - Returns full app configuration metadata
+        // Used by deployment workflow to extract tool timeouts, webhooks, etc.
+        if (path === '/config' && method === 'GET') {
+          return createResponse(200, {
+            name: config.metadata.name,
+            version: config.metadata.version,
+            computeLayer: config.computeLayer,
+            tools: Object.entries(registry).map(([key, tool]) => ({
+              name: tool.name || key,
+              description: tool.description,
+              timeout: tool.timeout,
+              retries: tool.retries,
+              triggers: tool.triggers,
+            })),
+            webhooks: webhookRegistry ? Object.values(webhookRegistry).map(w => ({
+              name: w.name,
+              description: w.description,
+              methods: w.methods,
+            })) : [],
+          }, headers)
+        }
+
         if (path === '/mcp' && method === 'POST') {
           let body: any
 

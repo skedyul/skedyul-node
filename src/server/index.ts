@@ -274,6 +274,7 @@ export function createSkedyulServer(
       callTool,
       state,
       mcpServer,
+      registry,
       webhookRegistry,
     )
   }
