@@ -74,10 +74,18 @@ export function createDedicatedServerInstance(
       // GET /config - Returns full app configuration metadata
       // Used by deployment workflow to extract tool timeouts, webhooks, etc.
       if (pathname === '/config' && req.method === 'GET') {
-        const appConfig = config.appConfig ?? createMinimalConfig(
-          config.metadata.name,
-          config.metadata.version,
-        )
+        // Load app config lazily to avoid bundling provision/install at build time
+        let appConfig = config.appConfig
+        if (!appConfig && config.appConfigLoader) {
+          const loaded = await config.appConfigLoader()
+          appConfig = loaded.default
+        }
+        if (!appConfig) {
+          appConfig = createMinimalConfig(
+            config.metadata.name,
+            config.metadata.version,
+          )
+        }
         const serializedConfig = await resolveConfig(appConfig, registry, webhookRegistry)
         sendJSON(res, 200, serializedConfig)
         return

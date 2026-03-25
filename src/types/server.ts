@@ -44,6 +44,12 @@ export interface SkedyulServerConfig {
   hooks?: ServerHooks
   /** Original app config from skedyul.config.ts for /config endpoint serialization */
   appConfig?: SkedyulConfig
+  /** 
+   * Lazy loader for app config - use this instead of appConfig to avoid bundling 
+   * provision/install configs at build time. The loader is called only when the 
+   * /config endpoint is accessed.
+   */
+  appConfigLoader?: () => Promise<{ default: SkedyulConfig }>
 }
 
 export interface DedicatedServerInstance {

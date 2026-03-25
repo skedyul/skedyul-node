@@ -799,10 +799,18 @@ export function createServerlessInstance(
         // GET /config - Returns full app configuration metadata
         // Used by deployment workflow to extract tool timeouts, webhooks, etc.
         if (path === '/config' && method === 'GET') {
-          const appConfig = config.appConfig ?? createMinimalConfig(
-            config.metadata.name,
-            config.metadata.version,
-          )
+          // Load app config lazily to avoid bundling provision/install at build time
+          let appConfig = config.appConfig
+          if (!appConfig && config.appConfigLoader) {
+            const loaded = await config.appConfigLoader()
+            appConfig = loaded.default
+          }
+          if (!appConfig) {
+            appConfig = createMinimalConfig(
+              config.metadata.name,
+              config.metadata.version,
+            )
+          }
           const serializedConfig = await resolveConfig(appConfig, registry, webhookRegistry)
           return createResponse(200, serializedConfig, headers)
         }
