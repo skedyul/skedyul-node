@@ -64,7 +64,7 @@ export interface FormHeader {
 /**
  * Action definition for form buttons.
  */
-export interface ActionDefinition {
+export interface FormActionDefinition {
   handle: string
   /** Button label - supports Liquid templates */
   label: string
@@ -79,6 +79,11 @@ export interface ActionDefinition {
 }
 
 /**
+ * @deprecated Use FormActionDefinition instead.
+ */
+export type ActionDefinition = FormActionDefinition
+
+/**
  * Modal form definition for nested forms.
  */
 export interface ModalFormDefinition {
@@ -91,7 +96,7 @@ export interface ModalFormDefinition {
   /** Inline field definitions (used when template is not specified) */
   fields?: FormComponent[]
   layout?: FormLayoutConfig
-  actions?: ActionDefinition[]
+  actions?: FormActionDefinition[]
 }
 
 /**
@@ -346,7 +351,7 @@ export interface FormProps {
   fields: FormComponent[]
   layout: FormLayoutConfig
   /** Actions that trigger tool calls */
-  actions?: ActionDefinition[]
+  actions?: FormActionDefinition[]
 }
 
 /**
@@ -367,9 +372,9 @@ export interface CardBlock {
   restructurable?: boolean
   header?: CardHeader
   form: FormProps
-  actions?: ActionDefinition[]
-  secondaryActions?: ActionDefinition[]
-  primaryActions?: ActionDefinition[]
+  actions?: FormActionDefinition[]
+  secondaryActions?: FormActionDefinition[]
+  primaryActions?: FormActionDefinition[]
 }
 
 /**

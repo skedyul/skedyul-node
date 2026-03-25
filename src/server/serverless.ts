@@ -2,36 +2,32 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 import type {
   APIGatewayProxyEvent,
-  InstallHandler,
-  InstallHandlerContext,
-  OAuthCallbackHandler,
-  OAuthCallbackContext,
-  ProvisionHandler,
-  ProvisionHandlerContext,
   SkedyulServerInstance,
   ToolCallResponse,
   ToolMetadata,
   ToolRegistryEntry,
-  UninstallHandler,
-  UninstallHandlerContext,
-  WebhookContext,
-  WebhookResponse,
-  WebhookRequest,
   InvocationContext,
 } from '../types'
 import type { RuntimeSkedyulConfig } from './index'
 import type { WebhookRequest as CoreWebhookRequest } from '../core/types'
 import type { RequestState, CoreMethod } from './types'
 import { coreApiService } from '../core/service'
-import { runWithConfig } from '../core/client'
-import { InstallError } from '../errors'
 import { handleCoreMethod } from './core-api-handler'
-import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } from './handler-helpers'
 import { printStartupLog } from './startup-logger'
-import { runWithLogContext } from './context-logger'
-import { createContextLogger } from './logger'
 import { getZodSchema, getDefaultHeaders, createResponse } from './utils'
 import { serializeConfig } from './config-serializer'
+import {
+  handleInstall,
+  handleUninstall,
+  handleProvision,
+  handleOAuthCallback,
+  parseWebhookRequest,
+  executeWebhookHandler,
+  isMethodAllowed,
+  type InstallRequestBody,
+  type UninstallRequestBody,
+  type ProvisionRequestBody,
+} from './handlers'
 
 /**
  * Creates a serverless (Lambda-style) server instance
@@ -39,7 +35,7 @@ import { serializeConfig } from './config-serializer'
 export function createServerlessInstance(
   config: RuntimeSkedyulConfig,
   tools: ToolMetadata[],
-  callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
+  callTool: (toolNameInput: unknown, toolArgsInput: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
   mcpServer: McpServer,
 ): SkedyulServerInstance {
@@ -70,15 +66,13 @@ export function createServerlessInstance(
         // Handle webhook requests: /webhooks/{handle}
         if (path.startsWith('/webhooks/') && webhookRegistry) {
           const handle = path.slice('/webhooks/'.length)
-          const webhookDef = webhookRegistry[handle]
 
-          if (!webhookDef) {
+          if (!webhookRegistry[handle]) {
             return createResponse(404, { error: `Webhook handler '${handle}' not found` }, headers)
           }
 
           // Check if HTTP method is allowed
-          const allowedMethods = webhookDef.methods ?? ['POST']
-          if (!allowedMethods.includes(method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')) {
+          if (!isMethodAllowed(webhookRegistry, handle, method)) {
             return createResponse(405, { error: `Method ${method} not allowed` }, headers)
           }
 
@@ -98,169 +92,48 @@ export function createServerlessInstance(
             parsedBody = rawBody
           }
 
-          // Check if this is an envelope format from the platform
-          // Envelope format: { env: {...}, request: {...}, context: {...}, invocation?: {...} }
-          const isEnvelope = (
-            typeof parsedBody === 'object' &&
-            parsedBody !== null &&
-            'env' in parsedBody &&
-            'request' in parsedBody &&
-            'context' in parsedBody
+          // Build URL for direct requests
+          const forwardedProto =
+            event.headers?.['x-forwarded-proto'] ??
+            event.headers?.['X-Forwarded-Proto']
+          const protocol = forwardedProto ?? 'https'
+          const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
+          const queryString = event.queryStringParameters
+            ? '?' + new URLSearchParams(event.queryStringParameters as Record<string, string>).toString()
+            : ''
+          const webhookUrl = `${protocol}://${host}${path}${queryString}`
+
+          // Parse webhook request using shared handler
+          const parseResult = parseWebhookRequest(
+            parsedBody,
+            method,
+            webhookUrl,
+            path,
+            event.headers as Record<string, string | string[] | undefined>,
+            event.queryStringParameters ?? {},
+            rawBody,
+            event.headers?.['x-skedyul-app-id'] ?? event.headers?.['X-Skedyul-App-Id'],
+            event.headers?.['x-skedyul-app-version-id'] ?? event.headers?.['X-Skedyul-App-Version-Id'],
           )
 
-          let webhookRequest: WebhookRequest
-          let webhookContext: WebhookContext
-          let requestEnv: Record<string, string> = {}
-          let invocation: InvocationContext | undefined
-
-          if (isEnvelope) {
-            // Platform envelope format - extract env, request, and context
-            const envelope = parsedBody as {
-              env: Record<string, string>
-              request: {
-                method: string
-                url: string
-                path: string
-                headers: Record<string, string>
-                query: Record<string, string>
-                body: string
-              }
-              context: {
-                app: { id: string; versionId: string }
-                appInstallationId: string | null
-                workplace: { id: string; subdomain: string } | null
-                registration: Record<string, unknown> | null
-              }
-              invocation?: InvocationContext
-            }
-
-            requestEnv = envelope.env ?? {}
-            invocation = envelope.invocation
-
-            // Parse the original request body
-            let originalParsedBody: unknown = envelope.request.body
-            const originalContentType = envelope.request.headers['content-type'] ?? ''
-            if (originalContentType.includes('application/json')) {
-              try {
-                originalParsedBody = envelope.request.body ? JSON.parse(envelope.request.body) : {}
-              } catch {
-                // Keep as string if JSON parsing fails
-              }
-            }
-
-            webhookRequest = {
-              method: envelope.request.method,
-              url: envelope.request.url,
-              path: envelope.request.path,
-              headers: envelope.request.headers as Record<string, string | string[] | undefined>,
-              query: envelope.request.query,
-              body: originalParsedBody,
-              rawBody: envelope.request.body ? Buffer.from(envelope.request.body, 'utf-8') : undefined,
-            }
-
-            const envVars = { ...process.env, ...requestEnv } as Record<string, string | undefined>
-            const app = envelope.context.app
-
-            // Build webhook context based on whether we have installation context
-            if (envelope.context.appInstallationId && envelope.context.workplace) {
-              // Runtime webhook context
-              webhookContext = {
-                env: envVars,
-                app,
-                appInstallationId: envelope.context.appInstallationId,
-                workplace: envelope.context.workplace,
-                registration: envelope.context.registration ?? {},
-                invocation,
-                log: createContextLogger(),
-              }
-            } else {
-              // Provision webhook context
-              webhookContext = {
-                env: envVars,
-                app,
-                invocation,
-                log: createContextLogger(),
-              }
-            }
-          } else {
-            // Direct request format (legacy or direct calls) - requires app info from headers or fail
-            const appId = event.headers?.['x-skedyul-app-id'] ?? event.headers?.['X-Skedyul-App-Id']
-            const appVersionId = event.headers?.['x-skedyul-app-version-id'] ?? event.headers?.['X-Skedyul-App-Version-Id']
-            
-            if (!appId || !appVersionId) {
-              throw new Error('Missing app info in webhook request (x-skedyul-app-id and x-skedyul-app-version-id headers required)')
-            }
-
-            const forwardedProto =
-              event.headers?.['x-forwarded-proto'] ??
-              event.headers?.['X-Forwarded-Proto']
-            const protocol = forwardedProto ?? 'https'
-            const host = event.headers?.host ?? event.headers?.Host ?? 'localhost'
-            const queryString = event.queryStringParameters
-              ? '?' + new URLSearchParams(event.queryStringParameters as Record<string, string>).toString()
-              : ''
-            const webhookUrl = `${protocol}://${host}${path}${queryString}`
-
-            webhookRequest = {
-              method,
-              url: webhookUrl,
-              path,
-              headers: event.headers as Record<string, string | string[] | undefined>,
-              query: event.queryStringParameters ?? {},
-              body: parsedBody,
-              rawBody: rawBody ? Buffer.from(rawBody, 'utf-8') : undefined,
-            }
-
-            // Direct calls are provision-level (no installation context)
-            webhookContext = {
-              env: process.env as Record<string, string | undefined>,
-              app: { id: appId, versionId: appVersionId },
-              log: createContextLogger(),
-            }
+          if ('error' in parseResult) {
+            return createResponse(400, { error: parseResult.error }, headers)
           }
 
-          // Temporarily inject env into process.env for skedyul client to use
-          // (same pattern as tool handler)
-          const originalEnv = { ...process.env }
-          Object.assign(process.env, requestEnv)
-
-          // Build request-scoped config for the skedyul client
-          // This uses AsyncLocalStorage to override the global config (same pattern as tools)
-          const requestConfig = {
-            baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-            apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
-          }
-
-          // Invoke the handler with request-scoped config and log context
-          let webhookResponse: WebhookResponse
-          try {
-            webhookResponse = await runWithLogContext({ invocation }, async () => {
-              return await runWithConfig(requestConfig, async () => {
-                return await webhookDef.handler(webhookRequest, webhookContext)
-              })
-            })
-          } catch (err) {
-            console.error(`Webhook handler '${handle}' error:`, err)
-            return createResponse(500, { error: 'Webhook handler error' }, headers)
-          } finally {
-            // Restore original env
-            process.env = originalEnv
-          }
+          // Execute webhook handler
+          const result = await executeWebhookHandler(handle, webhookRegistry, parseResult)
 
           // Build response headers
           const responseHeaders: Record<string, string> = {
             ...headers,
-            ...webhookResponse.headers,
+            ...result.headers,
           }
 
-          const status = webhookResponse.status ?? 200
-          const body = webhookResponse.body
-
           return {
-            statusCode: status,
+            statusCode: result.status,
             headers: responseHeaders,
-            body: body !== undefined
-              ? (typeof body === 'string' ? body : JSON.stringify(body))
+            body: result.body !== undefined
+              ? (typeof result.body === 'string' ? result.body : JSON.stringify(result.body))
               : '',
           }
         }
@@ -423,19 +296,7 @@ export function createServerlessInstance(
 
         // Handle /install endpoint for install handlers
         if (path === '/install' && method === 'POST') {
-          if (!config.hooks?.install) {
-            return createResponse(404, { error: 'Install handler not configured' }, headers)
-          }
-
-          let installBody: {
-            env?: Record<string, string>
-            invocation?: InvocationContext
-            context?: {
-              app: { id: string; versionId: string; handle: string; versionHandle: string }
-              appInstallationId: string
-              workplace: { id: string; subdomain: string }
-            }
-          }
+          let installBody: InstallRequestBody
 
           try {
             installBody = event.body ? JSON.parse(event.body) : {}
@@ -447,94 +308,13 @@ export function createServerlessInstance(
             )
           }
 
-          if (!installBody.context?.appInstallationId || !installBody.context?.workplace) {
-            return createResponse(
-              400,
-              { error: { code: -32602, message: 'Missing context (appInstallationId and workplace required)' } },
-              headers,
-            )
-          }
-
-          const installContext: InstallHandlerContext = {
-            env: installBody.env ?? {},
-            workplace: installBody.context.workplace,
-            appInstallationId: installBody.context.appInstallationId,
-            app: installBody.context.app,
-            invocation: installBody.invocation,
-            log: createContextLogger(),
-          }
-
-          // Build request-scoped config for SDK access
-          // Use env from request body (contains generated token from workflow)
-          const installRequestConfig = {
-            baseUrl:
-              installBody.env?.SKEDYUL_API_URL ??
-              process.env.SKEDYUL_API_URL ??
-              '',
-            apiToken:
-              installBody.env?.SKEDYUL_API_TOKEN ??
-              process.env.SKEDYUL_API_TOKEN ??
-              '',
-          }
-
-          try {
-            const installHook = config.hooks!.install!
-            const installHandler: InstallHandler = typeof installHook === 'function' 
-              ? installHook 
-              : installHook.handler
-            const result = await runWithLogContext({ invocation: installBody.invocation }, async () => {
-              return await runWithConfig(installRequestConfig, async () => {
-                return await installHandler(installContext)
-              })
-            })
-            return createResponse(
-              200,
-              { env: result.env ?? {}, redirect: result.redirect },
-              headers,
-            )
-          } catch (err) {
-            // Check for typed install errors
-            if (err instanceof InstallError) {
-              return createResponse(
-                400,
-                {
-                  error: {
-                    code: err.code,
-                    message: err.message,
-                    field: err.field,
-                  },
-                },
-                headers,
-              )
-            }
-            return createResponse(
-              500,
-              {
-                error: {
-                  code: -32603,
-                  message: err instanceof Error ? err.message : String(err ?? ''),
-                },
-              },
-              headers,
-            )
-          }
+          const result = await handleInstall(installBody, config.hooks)
+          return createResponse(result.status, result.body, headers)
         }
 
         // Handle /uninstall endpoint for uninstall handlers
         if (path === '/uninstall' && method === 'POST') {
-          if (!config.hooks?.uninstall) {
-            return createResponse(404, { error: 'Uninstall handler not configured' }, headers)
-          }
-
-          let uninstallBody: {
-            env?: Record<string, string>
-            invocation?: InvocationContext
-            context?: {
-              app: { id: string; versionId: string; handle: string; versionHandle: string }
-              appInstallationId: string
-              workplace: { id: string; subdomain: string }
-            }
-          }
+          let uninstallBody: UninstallRequestBody
 
           try {
             uninstallBody = event.body ? JSON.parse(event.body) : {}
@@ -546,98 +326,17 @@ export function createServerlessInstance(
             )
           }
 
-          if (
-            !uninstallBody.context?.appInstallationId ||
-            !uninstallBody.context?.workplace ||
-            !uninstallBody.context?.app
-          ) {
-            return createResponse(
-              400,
-              {
-                error: {
-                  code: -32602,
-                  message: 'Missing context (appInstallationId, workplace and app required)',
-                },
-              },
-              headers,
-            )
-          }
-
-          const uninstallContext: UninstallHandlerContext = {
-            env: uninstallBody.env ?? {},
-            workplace: uninstallBody.context.workplace,
-            appInstallationId: uninstallBody.context.appInstallationId,
-            app: uninstallBody.context.app,
-            invocation: uninstallBody.invocation,
-            log: createContextLogger(),
-          }
-
-          const uninstallRequestConfig = {
-            baseUrl:
-              uninstallBody.env?.SKEDYUL_API_URL ??
-              process.env.SKEDYUL_API_URL ??
-              '',
-            apiToken:
-              uninstallBody.env?.SKEDYUL_API_TOKEN ??
-              process.env.SKEDYUL_API_TOKEN ??
-              '',
-          }
-
-          try {
-            const uninstallHook = config.hooks!.uninstall!
-            const uninstallHandlerFn: UninstallHandler =
-              typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
-            const result = await runWithLogContext({ invocation: uninstallBody.invocation }, async () => {
-              return await runWithConfig(uninstallRequestConfig, async () => {
-                return await uninstallHandlerFn(uninstallContext)
-              })
-            })
-            return createResponse(
-              200,
-              { cleanedWebhookIds: result.cleanedWebhookIds ?? [] },
-              headers,
-            )
-          } catch (err) {
-            return createResponse(
-              500,
-              {
-                error: {
-                  code: -32603,
-                  message: err instanceof Error ? err.message : String(err ?? ''),
-                },
-              },
-              headers,
-            )
-          }
+          const result = await handleUninstall(uninstallBody, config.hooks)
+          return createResponse(result.status, result.body, headers)
         }
 
         // Handle /provision endpoint for provision handlers
         if (path === '/provision' && method === 'POST') {
-          console.log('[serverless] /provision endpoint called')
-          
-          if (!config.hooks?.provision) {
-            console.log('[serverless] No provision handler configured')
-            return createResponse(404, { error: 'Provision handler not configured' }, headers)
-          }
-
-          let provisionBody: {
-            env?: Record<string, string>
-            invocation?: InvocationContext
-            context?: {
-              app: { id: string; versionId: string }
-            }
-          }
+          let provisionBody: ProvisionRequestBody
 
           try {
             provisionBody = event.body ? JSON.parse(event.body) : {}
-            console.log('[serverless] Provision body parsed:', {
-              hasEnv: !!provisionBody.env,
-              hasContext: !!provisionBody.context,
-              appId: provisionBody.context?.app?.id,
-              versionId: provisionBody.context?.app?.versionId,
-            })
           } catch {
-            console.log('[serverless] Failed to parse provision body')
             return createResponse(
               400,
               { error: { code: -32700, message: 'Parse error' } },
@@ -645,79 +344,12 @@ export function createServerlessInstance(
             )
           }
 
-          if (!provisionBody.context?.app) {
-            console.log('[serverless] Missing app context in provision body')
-            return createResponse(
-              400,
-              { error: { code: -32602, message: 'Missing context (app required)' } },
-              headers,
-            )
-          }
-
-          // SECURITY: Merge process.env (baked-in secrets) with request env (API token).
-          // This ensures secrets like MAILGUN_API_KEY come from the container,
-          // while runtime values like SKEDYUL_API_TOKEN come from the request.
-          const mergedEnv: Record<string, string> = {}
-          for (const [key, value] of Object.entries(process.env)) {
-            if (value !== undefined) {
-              mergedEnv[key] = value
-            }
-          }
-          // Request env overrides process.env (e.g., for SKEDYUL_API_TOKEN)
-          Object.assign(mergedEnv, provisionBody.env ?? {})
-
-          const provisionContext: ProvisionHandlerContext = {
-            env: mergedEnv,
-            app: provisionBody.context.app,
-            invocation: provisionBody.invocation,
-            log: createContextLogger(),
-          }
-
-          // Build request-scoped config for SDK access
-          const provisionRequestConfig = {
-            baseUrl: mergedEnv.SKEDYUL_API_URL ?? '',
-            apiToken: mergedEnv.SKEDYUL_API_TOKEN ?? '',
-          }
-
-          console.log('[serverless] Calling provision handler...')
-          try {
-            const provisionHook = config.hooks!.provision!
-            const provisionHandler: ProvisionHandler =
-              typeof provisionHook === 'function'
-                ? provisionHook
-                : (provisionHook as { handler: ProvisionHandler }).handler
-            const result = await runWithLogContext({ invocation: provisionBody.invocation }, async () => {
-              return await runWithConfig(provisionRequestConfig, async () => {
-                return await provisionHandler(provisionContext)
-              })
-            })
-            console.log('[serverless] Provision handler completed successfully')
-            return createResponse(200, result, headers)
-          } catch (err) {
-            console.error('[serverless] Provision handler failed:', err instanceof Error ? err.message : String(err))
-            return createResponse(
-              500,
-              {
-                error: {
-                  code: -32603,
-                  message: err instanceof Error ? err.message : String(err ?? ''),
-                },
-              },
-              headers,
-            )
-          }
+          const result = await handleProvision(provisionBody, config.hooks)
+          return createResponse(result.status, result.body, headers)
         }
 
         // Handle /oauth_callback endpoint for OAuth callbacks (called by platform route)
         if (path === '/oauth_callback' && method === 'POST') {
-          if (!config.hooks?.oauth_callback) {
-            return createResponse(
-              404,
-              { error: 'OAuth callback handler not configured' },
-              headers,
-            )
-          }
-
           let parsedBody: unknown
           try {
             parsedBody = event.body ? JSON.parse(event.body) : {}
@@ -730,64 +362,8 @@ export function createServerlessInstance(
             )
           }
 
-          // Parse envelope using shared helper
-          const envelope = parseHandlerEnvelope(parsedBody)
-          if (!envelope) {
-            console.error('[OAuth Callback] Failed to parse envelope. Body:', JSON.stringify(parsedBody, null, 2))
-            return createResponse(
-              400,
-              { error: { code: -32602, message: 'Missing envelope format: expected { env, request }' } },
-              headers,
-            )
-          }
-
-          // Extract invocation context from parsed body
-          const invocation = (parsedBody as { invocation?: InvocationContext }).invocation
-
-          // Convert raw request to rich request using shared helper
-          const oauthRequest = buildRequestFromRaw(envelope.request)
-
-          // Build request-scoped config using shared helper
-          const oauthCallbackRequestConfig = buildRequestScopedConfig(envelope.env)
-
-          const oauthCallbackContext: OAuthCallbackContext = {
-            request: oauthRequest,
-            invocation,
-            log: createContextLogger(),
-          }
-
-          try {
-            const oauthCallbackHook = config.hooks!.oauth_callback!
-            const oauthCallbackHandler: OAuthCallbackHandler = typeof oauthCallbackHook === 'function'
-              ? oauthCallbackHook
-              : oauthCallbackHook.handler
-            const result = await runWithLogContext({ invocation }, async () => {
-              return await runWithConfig(oauthCallbackRequestConfig, async () => {
-                return await oauthCallbackHandler(oauthCallbackContext)
-              })
-            })
-
-            return createResponse(
-              200,
-              {
-                appInstallationId: result.appInstallationId,
-                env: result.env ?? {},
-              },
-              headers,
-            )
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : String(err ?? 'Unknown error')
-            return createResponse(
-              500,
-              {
-                error: {
-                  code: -32603,
-                  message: errorMessage,
-                },
-              },
-              headers,
-            )
-          }
+          const result = await handleOAuthCallback(parsedBody, config.hooks)
+          return createResponse(result.status, result.body, headers)
         }
 
         if (path === '/health' && method === 'GET') {

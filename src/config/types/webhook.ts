@@ -10,7 +10,7 @@ import type { ContextLogger } from '../../server/logger'
 /**
  * HTTP methods supported by webhooks.
  */
-export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch'
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 
 /**
  * Incoming webhook request.
@@ -64,6 +64,7 @@ export interface WebhookHandlerDefinition {
 
 /**
  * Webhook registry type.
+ * @deprecated Use WebhookRegistry from '../types/webhook' instead.
  */
 export type Webhooks = Record<string, WebhookHandlerDefinition>
 

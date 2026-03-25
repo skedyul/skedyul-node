@@ -6,7 +6,14 @@
  * - 'install': User-configured during app installation
  */
 
-import type { Scope, Visibility } from './base'
+import type { Visibility } from './base'
+
+/**
+ * Scope for environment variables.
+ * - 'provision': Developer-configured, shared across all installations
+ * - 'install': User-configured during app installation
+ */
+export type EnvScope = 'provision' | 'install'
 
 /**
  * Environment variable definition.
@@ -15,7 +22,7 @@ export interface EnvVariable {
   /** Human-readable label for the variable */
   label: string
   /** Scope: 'provision' (developer) or 'install' (user) */
-  scope?: Scope
+  scope?: EnvScope
   /** Whether this variable is required */
   required?: boolean
   /** Visibility setting: 'visible' or 'encrypted' */

@@ -79,10 +79,10 @@ export function createCallToolHandler<T extends ToolRegistry>(
   onMaxRequests?: () => void,
 ) {
   return async function callTool(
-    nameRaw: unknown,
-    argsRaw: unknown,
+    toolNameInput: unknown,
+    toolArgsInput: unknown,
   ): Promise<ToolCallResponse> {
-    const toolName = String(nameRaw) as ToolName<T>
+    const toolName = String(toolNameInput) as ToolName<T>
     const tool = registry[toolName]
 
     if (!tool) {
@@ -95,7 +95,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
     const fn = tool.handler
 
-    const args = (argsRaw ?? {}) as ToolCallArgs
+    const args = (toolArgsInput ?? {}) as ToolCallArgs
     const estimateMode = args.estimate === true
     if (!estimateMode) {
       state.incrementRequestCount()

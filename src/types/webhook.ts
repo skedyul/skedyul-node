@@ -11,7 +11,7 @@ import type { ContextLogger } from '../server/logger'
  * This is the wire format used by both webhooks and OAuth callbacks.
  * It gets converted to the rich WebhookRequest type at parse time.
  */
-export interface HandlerRawRequest {
+export interface WebhookWireRequest {
   method: string
   url: string
   path: string
@@ -19,6 +19,11 @@ export interface HandlerRawRequest {
   query: Record<string, string>
   body: string  // Raw body as string
 }
+
+/**
+ * @deprecated Use WebhookWireRequest instead.
+ */
+export type HandlerRawRequest = WebhookWireRequest
 
 /** Raw HTTP request received by webhooks */
 export interface WebhookRequest {
@@ -121,11 +126,16 @@ export type WebhookLifecycleHook<TContext = WebhookLifecycleContext> = (
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Webhook invocation type - determines how responses are handled.
+ * Webhook invocation mode - determines how responses are handled.
  * - WEBHOOK: Fire-and-forget. Returns 200 immediately, processes asynchronously.
  * - CALLBACK: Waits for handler response and returns it to the caller (e.g., Twilio TwiML).
  */
-export type WebhookType = 'WEBHOOK' | 'CALLBACK'
+export type WebhookInvocationMode = 'WEBHOOK' | 'CALLBACK'
+
+/**
+ * @deprecated Use WebhookInvocationMode instead.
+ */
+export type WebhookType = WebhookInvocationMode
 
 export interface WebhookDefinition {
   name: string
@@ -133,10 +143,10 @@ export interface WebhookDefinition {
   /** HTTP methods this webhook accepts. Defaults to ['POST'] */
   methods?: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')[]
   /**
-   * Invocation type. Defaults to 'WEBHOOK' (fire-and-forget).
+   * Invocation mode. Defaults to 'WEBHOOK' (fire-and-forget).
    * Use 'CALLBACK' when the caller expects the handler's response (e.g., Twilio TwiML).
    */
-  type?: WebhookType
+  type?: WebhookInvocationMode
   handler: WebhookHandler
 
   // App lifecycle
@@ -161,5 +171,5 @@ export interface WebhookMetadata {
   name: string
   description: string
   methods: string[]
-  type: WebhookType
+  type: WebhookInvocationMode
 }

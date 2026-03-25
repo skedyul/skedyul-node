@@ -126,10 +126,8 @@ export interface ToolMetadata {
   retries?: number
 }
 
-export interface ToolCallResponse {
-  output: unknown | null
-  billing: BillingInfo
-  meta: ToolResponseMeta
-  error?: ToolError | null
-  effect?: ToolEffect
-}
+/**
+ * Response from a tool call.
+ * Alias for ToolExecutionResult<unknown> for backwards compatibility.
+ */
+export type ToolCallResponse = ToolExecutionResult<unknown>

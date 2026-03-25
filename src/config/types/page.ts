@@ -7,7 +7,7 @@
 
 import type { BaseDefinition, StructuredFilter } from './base'
 import type { ContextDefinition } from './context'
-import type { ActionDefinition, BlockDefinition } from './form'
+import type { FormActionDefinition, BlockDefinition } from './form'
 import type { NavigationConfig } from './navigation'
 
 /**
@@ -48,7 +48,7 @@ export interface PageDefinition extends BaseDefinition {
   /** Page blocks (cards, lists, etc.) */
   blocks: BlockDefinition[]
   /** Page-level actions */
-  actions?: ActionDefinition[]
+  actions?: FormActionDefinition[]
   /** Context data to load for Liquid templates */
   context?: ContextDefinition
   /** Filter for list pages - defines which model instances to show */

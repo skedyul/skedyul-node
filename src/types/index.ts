@@ -6,7 +6,7 @@
  */
 
 // Shared types
-export type { AppInfo, WorkplaceInfo, RequestInfo } from './shared'
+export type { AppInfo, AppInfoWithHandles, WorkplaceInfo, RequestInfo } from './shared'
 
 // Invocation context types
 export type {
@@ -36,7 +36,6 @@ export { isProvisionContext, isRuntimeContext } from './tool-context'
 
 // Tool types
 export type {
-  ProvisionToolInput,
   BillingInfo,
   ToolResponseMeta,
   ToolEffect,
@@ -90,6 +89,7 @@ export type { APIGatewayProxyEvent, APIGatewayProxyResult } from './aws'
 
 // Webhook types
 export type {
+  WebhookWireRequest,
   HandlerRawRequest,
   WebhookRequest,
   WebhookResponse,
@@ -101,6 +101,7 @@ export type {
   CommunicationChannelLifecycleContext,
   WebhookLifecycleResult,
   WebhookLifecycleHook,
+  WebhookInvocationMode,
   WebhookType,
   WebhookDefinition,
   WebhookRegistry,

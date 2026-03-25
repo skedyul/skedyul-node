@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from './aws'
-import type { ComputeLayer } from '../config/types/compute'
+import type { ComputeLayer } from '../config/types/base'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Server Types

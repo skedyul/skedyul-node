@@ -10,9 +10,6 @@ export * from './base'
 // Environment variables
 export * from './env'
 
-// Compute layer
-export * from './compute'
-
 // Resource dependencies
 export * from './resource'
 

@@ -1,5 +1,6 @@
 import type { WebhookRequest } from './webhook'
 import type { InvocationContext } from './invocation'
+import type { AppInfoWithHandles, AppInfo, WorkplaceInfo } from './shared'
 import type { ContextLogger } from '../server/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -8,9 +9,9 @@ import type { ContextLogger } from '../server/logger'
 
 export interface InstallHandlerContext {
   env: Record<string, string>
-  workplace: { id: string; subdomain: string }
+  workplace: WorkplaceInfo
   appInstallationId: string
-  app: { id: string; versionId: string; handle: string; versionHandle: string }
+  app: AppInfoWithHandles
   /** Invocation context for log traceability */
   invocation?: InvocationContext
   /** Context-aware logger that automatically includes invocation context */
@@ -52,9 +53,9 @@ export type InstallHandler<Hooks extends ServerHooks = ServerHooks> = (
 
 export interface UninstallHandlerContext {
   env: Record<string, string>
-  workplace: { id: string; subdomain: string }
+  workplace: WorkplaceInfo
   appInstallationId: string
-  app: { id: string; versionId: string; handle: string; versionHandle: string }
+  app: AppInfoWithHandles
   /** Invocation context for log traceability */
   invocation?: InvocationContext
   /** Context-aware logger that automatically includes invocation context */
@@ -97,7 +98,7 @@ export type OAuthCallbackHandler = (
 
 export interface ProvisionHandlerContext {
   env: Record<string, string>
-  app: { id: string; versionId: string }
+  app: AppInfo
   /** Invocation context for log traceability */
   invocation?: InvocationContext
   /** Context-aware logger that automatically includes invocation context */

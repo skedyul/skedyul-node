@@ -1,7 +1,6 @@
 import { z } from 'zod/v4'
 
 export * from './types'
-export { ToolResponseMetaSchema } from './types'
 export * from './schemas'
 export { server } from './server'
 export { DEFAULT_DOCKERFILE } from './dockerfile'
@@ -151,6 +150,7 @@ export type {
   ButtonProps,
   RelationshipExtension,
   FormHeader,
+  FormActionDefinition,
   ActionDefinition,
   ModalFormDefinition,
   InputComponent,
