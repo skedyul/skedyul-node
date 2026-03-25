@@ -47,16 +47,12 @@ function createEchoRegistry() {
 }
 
 test('dedicated server exposes listen + health APIs', () => {
-  const instance = server.create(
-    {
-      computeLayer: 'dedicated',
-      metadata: {
-        name: 'skedyul-test',
-        version: '0.0.1',
-      },
-    },
-    createEchoRegistry(),
-  ) as DedicatedServerInstance
+  const instance = server.create({
+    computeLayer: 'dedicated',
+    name: 'skedyul-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as DedicatedServerInstance
 
   assert.strictEqual(typeof instance.listen, 'function')
   assert.strictEqual(typeof instance.getHealthStatus, 'function')
@@ -69,16 +65,12 @@ test('dedicated server exposes listen + health APIs', () => {
 })
 
 test('serverless handler responds to MCP calls and health checks', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'handler-test',
-        version: '0.0.1',
-      },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'handler-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -145,16 +137,12 @@ test('serverless handler responds to MCP calls and health checks', async () => {
 })
 
 test('serverless estimate endpoint returns billing data', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'handler-estimate-test',
-        version: '0.0.1',
-      },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'handler-estimate-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -178,16 +166,12 @@ test('serverless estimate endpoint returns billing data', async () => {
 })
 
 test('serverless handler returns parse error on invalid payload', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'parse-error',
-        version: '0.0.1',
-      },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'parse-error',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -232,16 +216,12 @@ test('Zod schema validation accepts valid inputs', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'zod-validation-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'zod-validation-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -294,16 +274,12 @@ test('Zod schema validation rejects invalid inputs', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'zod-invalid-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'zod-invalid-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -361,16 +337,12 @@ test('Zod schema with required and optional fields', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'zod-optional-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'zod-optional-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -431,16 +403,12 @@ test('Zod schema with nested objects and arrays', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'zod-complex-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'zod-complex-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -519,16 +487,12 @@ test('Multiple tools in registry work correctly', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'multi-tool-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'multi-tool-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -617,16 +581,12 @@ test('Tool with custom name different from registry key', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'custom-name-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'custom-name-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -682,16 +642,12 @@ test('Estimate endpoint works with Zod schema validation', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'estimate-zod-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'estimate-zod-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -747,16 +703,12 @@ test('server.create works with a namespaced registry object', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: {
-        name: 'namespaced-registry-test',
-        version: '0.0.1',
-      },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'namespaced-registry-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   const { handler } = serverless
 
@@ -800,19 +752,18 @@ test('server.create works with a namespaced registry object', async () => {
 test('install handler is invoked with correct context', async () => {
   let capturedContext: unknown = null
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'install-test', version: '0.0.1' },
-      hooks: {
-        install: async (ctx) => {
-          capturedContext = ctx
-          return { env: { CUSTOM_VAR: 'installed' } }
-        },
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'install-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    hooks: {
+      install: async (ctx) => {
+        capturedContext = ctx
+        return { env: { CUSTOM_VAR: 'installed' } }
       },
     },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/install',
@@ -840,13 +791,12 @@ test('install handler is invoked with correct context', async () => {
 })
 
 test('install endpoint returns 404 when handler not configured', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'no-install', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'no-install',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/install',
@@ -867,18 +817,17 @@ test('install endpoint returns 404 when handler not configured', async () => {
 })
 
 test('uninstall handler is invoked and returns cleanedWebhookIds', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'uninstall-test', version: '0.0.1' },
-      hooks: {
-        uninstall: async () => {
-          return { cleanedWebhookIds: ['whk-1', 'whk-2'] }
-        },
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'uninstall-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    hooks: {
+      uninstall: async () => {
+        return { cleanedWebhookIds: ['whk-1', 'whk-2'] }
       },
     },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/uninstall',
@@ -902,13 +851,12 @@ test('uninstall handler is invoked and returns cleanedWebhookIds', async () => {
 })
 
 test('uninstall endpoint returns 404 when handler not configured', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'no-uninstall', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'no-uninstall',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/uninstall',
@@ -947,14 +895,13 @@ test('webhook routes to correct handler', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'webhook-test', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-    webhookRegistry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'webhook-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    webhooks: webhookRegistry,
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/webhooks/receive-sms',
@@ -987,14 +934,13 @@ test('webhook routes to correct handler', async () => {
 })
 
 test('webhook returns 404 for unknown handler', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'webhook-404', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-    {},
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'webhook-404',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    webhooks: {},
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/webhooks/unknown-handler',
@@ -1018,14 +964,13 @@ test('webhook returns 405 for disallowed method', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'webhook-405', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-    webhookRegistry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'webhook-405',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    webhooks: webhookRegistry,
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/webhooks/post-only',
@@ -1044,13 +989,12 @@ test('webhook returns 405 for disallowed method', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('tool call returns error for unknown tool', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'unknown-tool', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'unknown-tool',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/mcp',
@@ -1088,13 +1032,12 @@ test('tool handler receives context with different trigger types', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'context-test', version: '0.0.1' },
-    },
-    registry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'context-test',
+    version: '0.0.1',
+    tools: registry,
+  }) as ServerlessServerInstance
 
   // Test with workflow trigger
   await serverless.handler({
@@ -1133,13 +1076,12 @@ test('tool handler receives context with different trigger types', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('MCP returns error for invalid JSON-RPC version', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'jsonrpc-version', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'jsonrpc-version',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/mcp',
@@ -1160,13 +1102,12 @@ test('MCP returns error for invalid JSON-RPC version', async () => {
 })
 
 test('MCP returns error for unknown method', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'unknown-method', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'unknown-method',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/mcp',
@@ -1203,14 +1144,13 @@ test('MCP webhooks/list returns registered webhooks', async () => {
     },
   }
 
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'webhooks-list', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-    webhookRegistry,
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'webhooks-list',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    webhooks: webhookRegistry,
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/mcp',
@@ -1239,13 +1179,12 @@ test('MCP webhooks/list returns registered webhooks', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('OPTIONS preflight returns 200', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'options-test', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'options-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/mcp',
@@ -1260,13 +1199,12 @@ test('OPTIONS preflight returns 200', async () => {
 })
 
 test('unknown path returns 404', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: '404-test', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: '404-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/unknown/path',
@@ -1281,15 +1219,14 @@ test('unknown path returns 404', async () => {
 })
 
 test('health endpoint returns correct structure', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'health-structure', version: '0.0.1' },
-      maxRequests: 100,
-      ttlExtendSeconds: 1800,
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'health-structure',
+    version: '0.0.1',
+    maxRequests: 100,
+    ttlExtendSeconds: 1800,
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/health',
@@ -1316,13 +1253,12 @@ test('health endpoint returns correct structure', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('request count increments on tool calls', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'request-count', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'request-count',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   // Initial health check
   let healthResponse = await serverless.handler({
@@ -1365,13 +1301,12 @@ test('request count increments on tool calls', async () => {
 })
 
 test('estimate mode does not increment request count', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'estimate-no-count', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'estimate-no-count',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   // Make an estimate call
   await serverless.handler({
@@ -1401,13 +1336,12 @@ test('estimate mode does not increment request count', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('core endpoint returns 400 for missing method', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'core-no-method', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'core-no-method',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/core',
@@ -1424,13 +1358,12 @@ test('core endpoint returns 400 for missing method', async () => {
 })
 
 test('core endpoint returns parse error for invalid JSON', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'core-parse-error', version: '0.0.1' },
-    },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'core-parse-error',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/core',
@@ -1592,18 +1525,17 @@ test('mergeRuntimeEnv merges MCP_ENV into process.env', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('install handler returns InstallError details', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'install-error-test', version: '0.0.1' },
-      hooks: {
-        install: async () => {
-          throw new MissingRequiredFieldError('apiKey')
-        },
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'install-error-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    hooks: {
+      install: async () => {
+        throw new MissingRequiredFieldError('apiKey')
       },
     },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/install',
@@ -1628,18 +1560,17 @@ test('install handler returns InstallError details', async () => {
 })
 
 test('install handler returns 500 for generic errors', async () => {
-  const serverless = server.create(
-    {
-      computeLayer: 'serverless',
-      metadata: { name: 'install-generic-error', version: '0.0.1' },
-      hooks: {
-        install: async () => {
-          throw new Error('Something went wrong')
-        },
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'install-generic-error',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    hooks: {
+      install: async () => {
+        throw new Error('Something went wrong')
       },
     },
-    createEchoRegistry(),
-  ) as ServerlessServerInstance
+  }) as ServerlessServerInstance
 
   const response = await serverless.handler({
     path: '/install',
