@@ -59,7 +59,7 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
     if (isTypeScript) {
       const transpiled = await transpileTypeScript(absolutePath)
       const tempDir = os.tmpdir()
-      const tempFile = path.join(tempDir, `skedyul-config-${Date.now()}.js`)
+      const tempFile = path.join(tempDir, `skedyul-config-${Date.now()}.cjs`)
       fs.writeFileSync(tempFile, transpiled)
       moduleToLoad = tempFile
 
