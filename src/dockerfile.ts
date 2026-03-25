@@ -35,10 +35,11 @@ COPY . .
 # Note: Using --no-frozen-lockfile since lockfile may not exist
 # skedyul build reads computeLayer from skedyul.config.ts
 # skedyul config:export resolves all dynamic imports and writes .skedyul/config.json
+# We use tsx to run config:export since it needs to import TypeScript files
 # Smoke test runs before pruning since skedyul CLI is a dev dependency
 RUN pnpm install --no-frozen-lockfile && \\
     pnpm run build && \\
-    pnpm exec skedyul config:export && \\
+    pnpm exec tsx node_modules/skedyul/dist/cli/index.js config:export && \\
     pnpm exec skedyul smoke-test && \\
     pnpm prune --prod && \\
     pnpm store prune && \\
