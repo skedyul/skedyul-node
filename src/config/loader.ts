@@ -28,8 +28,9 @@ async function transpileTypeScript(filePath: string): Promise<string> {
 
   // Convert relative imports to absolute paths so they work from temp directory
   // Match: import X from './path' or import X from '../path'
+  // Also handles ESM import attributes: import X from './path' with { type: 'json' }
   transpiled = transpiled.replace(
-    /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"]/g,
+    /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"]\s*(?:with\s*\{[^}]*\})?/g,
     (match, varName, relativePath) => {
       const absolutePath = path.resolve(configDir, relativePath)
       return `const ${varName} = require('${absolutePath.replace(/\\/g, '/')}')`
