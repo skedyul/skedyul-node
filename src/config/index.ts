@@ -17,6 +17,7 @@ export type {
   InstallConfig,
   ProvisionConfig,
   BuildConfig,
+  CorsOptions,
   SkedyulConfig,
   SerializableSkedyulConfig,
 } from './app-config'
@@ -35,9 +36,6 @@ export {
 
 // Re-export loader utilities
 export { CONFIG_FILE_NAMES, loadConfig, validateConfig } from './loader'
-
-// Re-export resolution utilities
-export { resolveConfig, createMinimalConfig } from './resolve'
 
 // Re-export helper utilities
 export { getAllEnvKeys, getRequiredInstallEnvKeys } from './utils'

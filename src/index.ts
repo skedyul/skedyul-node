@@ -85,8 +85,6 @@ export {
   defineNavigation,
   loadConfig,
   validateConfig,
-  resolveConfig,
-  createMinimalConfig,
   CONFIG_FILE_NAMES,
   getAllEnvKeys,
   getRequiredInstallEnvKeys,

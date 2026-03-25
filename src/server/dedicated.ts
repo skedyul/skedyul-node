@@ -9,19 +9,17 @@ import type {
   OAuthCallbackContext,
   ProvisionHandler,
   ProvisionHandlerContext,
-  SkedyulServerConfig,
   SkedyulServerInstance,
   ToolCallResponse,
   ToolMetadata,
-  ToolRegistry,
   UninstallHandler,
   UninstallHandlerContext,
-  WebhookRegistry,
   WebhookContext,
   WebhookResponse,
   WebhookRequest,
   InvocationContext,
 } from '../types'
+import type { RuntimeSkedyulConfig } from './index'
 import type { WebhookRequest as CoreWebhookRequest } from '../core/types'
 import type { RequestState, CoreMethod } from './types'
 import { coreApiService } from '../core/service'
@@ -32,7 +30,7 @@ import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } f
 import { printStartupLog } from './startup-logger'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
-import { resolveConfig, createMinimalConfig } from '../config/resolve'
+import { serializeConfig } from './config-serializer'
 import {
   readRawRequestBody,
   parseJSONBody,
@@ -44,15 +42,15 @@ import {
  * Creates a dedicated (long-running HTTP) server instance
  */
 export function createDedicatedServerInstance(
-  config: SkedyulServerConfig,
+  config: RuntimeSkedyulConfig,
   tools: ToolMetadata[],
   callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
   mcpServer: McpServer,
-  registry: ToolRegistry,
-  webhookRegistry?: WebhookRegistry,
 ): SkedyulServerInstance {
   const port = getListeningPort(config)
+  const registry = config.tools
+  const webhookRegistry = config.webhooks
   const httpServer = http.createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
       function sendCoreResult(result: { status: number; payload: unknown }) {
@@ -71,23 +69,11 @@ export function createDedicatedServerInstance(
         return
       }
 
-      // GET /config - Returns full app configuration metadata
+      // GET /config - Returns app configuration metadata
       // Used by deployment workflow to extract tool timeouts, webhooks, etc.
+      // Note: provision/install configs are extracted separately during build
       if (pathname === '/config' && req.method === 'GET') {
-        // Load app config lazily to avoid bundling provision/install at build time
-        let appConfig = config.appConfig
-        if (!appConfig && config.appConfigLoader) {
-          const loaded = await config.appConfigLoader()
-          appConfig = loaded.default
-        }
-        if (!appConfig) {
-          appConfig = createMinimalConfig(
-            config.metadata.name,
-            config.metadata.version,
-          )
-        }
-        const serializedConfig = await resolveConfig(appConfig, registry, webhookRegistry)
-        sendJSON(res, 200, serializedConfig)
+        sendJSON(res, 200, serializeConfig(config))
         return
       }
 
@@ -799,7 +785,7 @@ export function createDedicatedServerInstance(
       const finalPort = listenPort ?? port
       return new Promise<void>((resolve, reject) => {
         httpServer.listen(finalPort, () => {
-          printStartupLog(config, tools, webhookRegistry, finalPort)
+          printStartupLog(config, tools, finalPort)
           resolve()
         })
 

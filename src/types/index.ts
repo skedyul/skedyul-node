@@ -58,9 +58,6 @@ export { ToolResponseMetaSchema } from './tool'
 export type {
   HealthStatus,
   ComputeLayer,
-  ServerMetadata,
-  CorsOptions,
-  SkedyulServerConfig,
   DedicatedServerInstance,
   ServerlessServerInstance,
   SkedyulServerInstance,

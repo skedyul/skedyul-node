@@ -6,11 +6,11 @@ console.log('[skedyul-node/server] Module loading - imports done')
 import type {
   DedicatedServerInstance,
   ServerlessServerInstance,
-  SkedyulServerConfig,
   SkedyulServerInstance,
   ToolRegistry,
   WebhookRegistry,
 } from '../types'
+import type { SkedyulConfig } from '../config/app-config'
 import { coreApiService } from '../core/service'
 import { buildToolMetadata, createRequestState, createCallToolHandler } from './tool-handler'
 import { createDedicatedServerInstance } from './dedicated'
@@ -56,29 +56,34 @@ export { createDedicatedServerInstance } from './dedicated'
 export { createServerlessInstance } from './serverless'
 export { runWithLogContext, getLogContext, installContextLogger, uninstallContextLogger } from './context-logger'
 
+/**
+ * Runtime config type - SkedyulConfig with resolved registries (not promises).
+ * This is what server.create() expects at runtime.
+ */
+export type RuntimeSkedyulConfig = Omit<SkedyulConfig, 'tools' | 'webhooks'> & {
+  tools: ToolRegistry
+  webhooks?: WebhookRegistry
+}
+
 // Overload signatures for proper type inference based on computeLayer
 export function createSkedyulServer(
-  config: SkedyulServerConfig & { computeLayer: 'dedicated' },
-  registry: ToolRegistry,
-  webhookRegistry?: WebhookRegistry,
+  config: RuntimeSkedyulConfig & { computeLayer: 'dedicated' },
 ): DedicatedServerInstance
 export function createSkedyulServer(
-  config: SkedyulServerConfig & { computeLayer: 'serverless' },
-  registry: ToolRegistry,
-  webhookRegistry?: WebhookRegistry,
+  config: RuntimeSkedyulConfig & { computeLayer: 'serverless' },
 ): ServerlessServerInstance
 export function createSkedyulServer(
-  config: SkedyulServerConfig,
-  registry: ToolRegistry,
-  webhookRegistry?: WebhookRegistry,
+  config: RuntimeSkedyulConfig,
 ): SkedyulServerInstance
 export function createSkedyulServer(
-  config: SkedyulServerConfig,
-  registry: ToolRegistry,
-  webhookRegistry?: WebhookRegistry,
+  config: RuntimeSkedyulConfig,
 ): SkedyulServerInstance {
   console.log('[createSkedyulServer] Step 1: mergeRuntimeEnv()')
   mergeRuntimeEnv()
+
+  // Extract registries from config
+  const registry = config.tools
+  const webhookRegistry = config.webhooks
 
   console.log('[createSkedyulServer] Step 2: coreApi setup')
   if (config.coreApi?.service) {
@@ -93,7 +98,7 @@ export function createSkedyulServer(
   console.log('[createSkedyulServer] Step 3 done, tools:', tools.length)
   
   const toolNames = Object.values(registry).map((tool) => tool.name)
-  const runtimeLabel = config.computeLayer
+  const runtimeLabel = config.computeLayer ?? 'serverless'
   const maxRequests =
     config.maxRequests ??
     parseNumberEnv(process.env.MCP_MAX_REQUESTS) ??
@@ -114,8 +119,8 @@ export function createSkedyulServer(
 
   console.log('[createSkedyulServer] Step 5: new McpServer()')
   const mcpServer = new McpServer({
-      name: config.metadata.name,
-      version: config.metadata.version,
+      name: config.name,
+      version: config.version ?? '0.0.0',
   })
   console.log('[createSkedyulServer] Step 5 done')
 
@@ -274,13 +279,11 @@ export function createSkedyulServer(
       callTool,
       state,
       mcpServer,
-      registry,
-      webhookRegistry,
     )
   }
 
   console.log('[createSkedyulServer] Creating serverless instance')
-  const serverlessInstance = createServerlessInstance(config, tools, callTool, state, mcpServer, registry, webhookRegistry)
+  const serverlessInstance = createServerlessInstance(config, tools, callTool, state, mcpServer)
   console.log('[createSkedyulServer] Serverless instance created successfully')
   return serverlessInstance
 }

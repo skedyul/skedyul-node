@@ -1,4 +1,5 @@
-import type { SkedyulServerConfig, ToolMetadata, WebhookRegistry } from '../types'
+import type { ToolMetadata } from '../types'
+import type { SkedyulConfig } from '../config/app-config'
 import { parseNumberEnv } from './utils'
 
 /**
@@ -15,9 +16,8 @@ export function padEnd(str: string, length: number): string {
  * Prints a styled startup log showing server configuration
  */
 export function printStartupLog(
-  config: SkedyulServerConfig,
+  config: SkedyulConfig,
   tools: ToolMetadata[],
-  webhookRegistry?: WebhookRegistry,
   port?: number,
 ): void {
   // Skip startup log during tests
@@ -25,6 +25,7 @@ export function printStartupLog(
     return
   }
 
+  const webhookRegistry = config.webhooks
   const webhookCount = webhookRegistry ? Object.keys(webhookRegistry).length : 0
   const webhookNames = webhookRegistry ? Object.keys(webhookRegistry) : []
   const maxRequests =
@@ -51,11 +52,11 @@ export function printStartupLog(
   // eslint-disable-next-line no-console
   console.log(`║                                                                      ║`)
   // eslint-disable-next-line no-console
-  console.log(`║  📦 Server:       ${padEnd(config.metadata.name, 49)}║`)
+  console.log(`║  📦 Server:       ${padEnd(config.name, 49)}║`)
   // eslint-disable-next-line no-console
-  console.log(`║  🏷️  Version:      ${padEnd(config.metadata.version, 49)}║`)
+  console.log(`║  🏷️  Version:      ${padEnd(config.version ?? 'N/A', 49)}║`)
   // eslint-disable-next-line no-console
-  console.log(`║  ⚡ Compute:      ${padEnd(config.computeLayer, 49)}║`)
+  console.log(`║  ⚡ Compute:      ${padEnd(config.computeLayer ?? 'serverless', 49)}║`)
   if (port) {
     // eslint-disable-next-line no-console
     console.log(`║  🌐 Port:         ${padEnd(String(port), 49)}║`)

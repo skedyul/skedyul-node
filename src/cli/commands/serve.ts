@@ -470,18 +470,14 @@ export async function serveCommand(args: string[]): Promise<void> {
   }
 
   // Create server
-  const server = createSkedyulServer(
-    {
-      computeLayer: 'dedicated',
-      metadata: {
-        name: serverName,
-        version: serverVersion,
-      },
-      defaultPort: port,
-      hooks: installHandler ? { install: installHandler } : undefined,
-    },
-    registry,
-  )
+  const server = createSkedyulServer({
+    name: serverName,
+    version: serverVersion,
+    computeLayer: 'dedicated',
+    defaultPort: port,
+    tools: registry,
+    hooks: installHandler ? { install: installHandler } : undefined,
+  })
 
   // Start listening
   const dedicatedServer = server as DedicatedServerInstance

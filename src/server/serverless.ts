@@ -8,20 +8,18 @@ import type {
   OAuthCallbackContext,
   ProvisionHandler,
   ProvisionHandlerContext,
-  SkedyulServerConfig,
   SkedyulServerInstance,
   ToolCallResponse,
   ToolMetadata,
-  ToolRegistry,
   ToolRegistryEntry,
   UninstallHandler,
   UninstallHandlerContext,
-  WebhookRegistry,
   WebhookContext,
   WebhookResponse,
   WebhookRequest,
   InvocationContext,
 } from '../types'
+import type { RuntimeSkedyulConfig } from './index'
 import type { WebhookRequest as CoreWebhookRequest } from '../core/types'
 import type { RequestState, CoreMethod } from './types'
 import { coreApiService } from '../core/service'
@@ -33,21 +31,21 @@ import { printStartupLog } from './startup-logger'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
 import { getZodSchema, getDefaultHeaders, createResponse } from './utils'
-import { resolveConfig, createMinimalConfig } from '../config/resolve'
+import { serializeConfig } from './config-serializer'
 
 /**
  * Creates a serverless (Lambda-style) server instance
  */
 export function createServerlessInstance(
-  config: SkedyulServerConfig,
+  config: RuntimeSkedyulConfig,
   tools: ToolMetadata[],
   callTool: (nameRaw: unknown, argsRaw: unknown) => Promise<ToolCallResponse>,
   state: RequestState,
   mcpServer: McpServer,
-  registry: ToolRegistry,
-  webhookRegistry?: WebhookRegistry,
 ): SkedyulServerInstance {
   const headers = getDefaultHeaders(config.cors)
+  const registry = config.tools
+  const webhookRegistry = config.webhooks
 
   // Print startup log once on cold start
   let hasLoggedStartup = false
@@ -56,7 +54,7 @@ export function createServerlessInstance(
     async handler(event: APIGatewayProxyEvent) {
       // Log startup info on first invocation (cold start)
       if (!hasLoggedStartup) {
-        printStartupLog(config, tools, webhookRegistry)
+        printStartupLog(config, tools)
         hasLoggedStartup = true
       }
       try {
@@ -796,23 +794,11 @@ export function createServerlessInstance(
           return createResponse(200, state.getHealthStatus(), headers)
         }
 
-        // GET /config - Returns full app configuration metadata
+        // GET /config - Returns app configuration metadata
         // Used by deployment workflow to extract tool timeouts, webhooks, etc.
+        // Note: provision/install configs are extracted separately during build
         if (path === '/config' && method === 'GET') {
-          // Load app config lazily to avoid bundling provision/install at build time
-          let appConfig = config.appConfig
-          if (!appConfig && config.appConfigLoader) {
-            const loaded = await config.appConfigLoader()
-            appConfig = loaded.default
-          }
-          if (!appConfig) {
-            appConfig = createMinimalConfig(
-              config.metadata.name,
-              config.metadata.version,
-            )
-          }
-          const serializedConfig = await resolveConfig(appConfig, registry, webhookRegistry)
-          return createResponse(200, serializedConfig, headers)
+          return createResponse(200, serializeConfig(config), headers)
         }
 
         if (path === '/mcp' && method === 'POST') {

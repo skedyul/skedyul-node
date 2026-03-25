@@ -1,8 +1,5 @@
-import type { CoreApiConfig } from '../core/types'
-import type { ServerHooks } from './handlers'
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from './aws'
 import type { ComputeLayer } from '../config/types/compute'
-import type { SkedyulConfig } from '../config/app-config'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Server Types
@@ -20,37 +17,6 @@ export interface HealthStatus {
 }
 
 export type { ComputeLayer }
-
-export interface ServerMetadata {
-  name: string
-  version: string
-}
-
-export interface CorsOptions {
-  allowOrigin?: string
-  allowMethods?: string
-  allowHeaders?: string
-}
-
-export interface SkedyulServerConfig {
-  computeLayer: ComputeLayer
-  metadata: ServerMetadata
-  defaultPort?: number
-  maxRequests?: number | null
-  ttlExtendSeconds?: number
-  cors?: CorsOptions
-  coreApi?: CoreApiConfig
-  /** Lifecycle hooks for install and provision handlers */
-  hooks?: ServerHooks
-  /** Original app config from skedyul.config.ts for /config endpoint serialization */
-  appConfig?: SkedyulConfig
-  /** 
-   * Lazy loader for app config - use this instead of appConfig to avoid bundling 
-   * provision/install configs at build time. The loader is called only when the 
-   * /config endpoint is accessed.
-   */
-  appConfigLoader?: () => Promise<{ default: SkedyulConfig }>
-}
 
 export interface DedicatedServerInstance {
   listen(port?: number): Promise<void>

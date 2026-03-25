@@ -1,5 +1,6 @@
 import http, { IncomingMessage } from 'http'
-import type { APIGatewayProxyResult, CorsOptions, SkedyulServerConfig } from '../../types'
+import type { APIGatewayProxyResult } from '../../types'
+import type { CorsOptions, SkedyulConfig } from '../../config/app-config'
 
 /**
  * Reads the raw request body from an IncomingMessage
@@ -88,7 +89,7 @@ export function createResponse(
 /**
  * Gets the port to listen on from config or environment
  */
-export function getListeningPort(config: SkedyulServerConfig): number {
+export function getListeningPort(config: SkedyulConfig): number {
   const envPort = Number.parseInt(process.env.PORT ?? '', 10)
   if (!Number.isNaN(envPort)) {
     return envPort

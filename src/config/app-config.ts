@@ -5,6 +5,8 @@
  */
 
 import type { ToolRegistry, WebhookRegistry, ToolMetadata, WebhookMetadata } from '../types'
+import type { ServerHooks } from '../types/handlers'
+import type { CoreApiConfig } from '../core/types'
 import type {
   EnvSchema,
   ComputeLayer,
@@ -60,30 +62,75 @@ export interface BuildConfig {
 }
 
 /**
+ * CORS configuration options.
+ */
+export interface CorsOptions {
+  allowOrigin?: string
+  allowMethods?: string
+  allowHeaders?: string
+}
+
+/**
  * Main Skedyul app configuration.
+ * This is the unified config type used for both declarative config (skedyul.config.ts)
+ * and runtime server creation (server.create()).
  */
 export interface SkedyulConfig {
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Identity
+  // ─────────────────────────────────────────────────────────────────────────────
   /** App name */
   name: string
   /** App version (semver) */
   version?: string
   /** App description */
   description?: string
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Runtime Configuration
+  // ─────────────────────────────────────────────────────────────────────────────
   /** Compute layer: 'serverless' (Lambda) or 'dedicated' (ECS/Docker) */
   computeLayer?: ComputeLayer
-  /** Build configuration for the integration */
-  build?: BuildConfig
+  /** Default port for dedicated mode HTTP server */
+  defaultPort?: number
+  /** Maximum requests before shutdown (serverless mode) */
+  maxRequests?: number | null
+  /** TTL extension in seconds */
+  ttlExtendSeconds?: number
+  /** CORS configuration */
+  cors?: CorsOptions
+  /** Core API configuration */
+  coreApi?: CoreApiConfig
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Registries
+  // ─────────────────────────────────────────────────────────────────────────────
   /** Tool registry - direct object or dynamic import */
   tools?: ToolRegistry | Promise<{ toolRegistry: ToolRegistry }>
   /** Webhook registry - direct object or dynamic import */
   webhooks?: WebhookRegistry | Promise<{ webhookRegistry: WebhookRegistry }>
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Lifecycle Hooks
+  // ─────────────────────────────────────────────────────────────────────────────
+  /** Lifecycle hooks for install, provision, uninstall, and oauth_callback */
+  hooks?: ServerHooks
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Declarative Configuration (for platform provisioning)
+  // ─────────────────────────────────────────────────────────────────────────────
   /** Provision configuration - direct object or dynamic import */
   provision?: ProvisionConfig | Promise<{ default: ProvisionConfig }>
   /** Install configuration - direct object or dynamic import */
   install?: InstallConfig | Promise<{ default: InstallConfig }>
   /** Agent definitions - multi-tenant agents with tool bindings */
   agents?: AgentDefinition[]
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Build Configuration
+  // ─────────────────────────────────────────────────────────────────────────────
+  /** Build configuration for the integration */
+  build?: BuildConfig
 }
 
 /**
