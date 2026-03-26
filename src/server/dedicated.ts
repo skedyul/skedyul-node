@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import * as path from 'path'
 import http, { IncomingMessage, ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
@@ -35,7 +36,10 @@ import {
   type ProvisionRequestBody,
 } from './handlers'
 
-/** Path to pre-generated config file (created during Docker build) */
+/**
+ * Path to pre-generated config file (created during Docker build).
+ * For dedicated servers, we use a relative path since they run from the app directory.
+ */
 const CONFIG_FILE_PATH = '.skedyul/config.json'
 
 /**
@@ -76,16 +80,21 @@ export function createDedicatedServerInstance(
       if (pathname === '/config' && req.method === 'GET') {
         // Try to read pre-generated config file first (created by skedyul config:export)
         try {
+          console.log(`[/config] Checking for config file at: ${CONFIG_FILE_PATH}`)
           if (fs.existsSync(CONFIG_FILE_PATH)) {
             const fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, 'utf-8'))
+            console.log(`[/config] Loaded config from file: tools=${fileConfig.tools?.length ?? 0}, webhooks=${fileConfig.webhooks?.length ?? 0}`)
             sendJSON(res, 200, fileConfig)
             return
           }
+          console.log('[/config] Config file not found, falling back to runtime serialization')
         } catch (err) {
           console.warn('[/config] Failed to read config file, falling back to runtime serialization:', err)
         }
         // Fallback to runtime serialization (for local dev without build)
-        sendJSON(res, 200, serializeConfig(config))
+        const serialized = serializeConfig(config)
+        console.log(`[/config] Runtime serialization: tools=${serialized.tools?.length ?? 0}, webhooks=${serialized.webhooks?.length ?? 0}`)
+        sendJSON(res, 200, serialized)
         return
       }
 

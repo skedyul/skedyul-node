@@ -31,8 +31,14 @@ import {
   type ProvisionRequestBody,
 } from './handlers'
 
-/** Path to pre-generated config file (created during Docker build) */
-const CONFIG_FILE_PATH = '.skedyul/config.json'
+/**
+ * Path to pre-generated config file (created during Docker build).
+ * In Lambda, LAMBDA_TASK_ROOT is /var/task where files are copied.
+ * We use an absolute path to avoid issues with process.cwd() not matching LAMBDA_TASK_ROOT.
+ */
+const CONFIG_FILE_PATH = process.env.LAMBDA_TASK_ROOT
+  ? path.join(process.env.LAMBDA_TASK_ROOT, '.skedyul', 'config.json')
+  : '.skedyul/config.json'
 
 /**
  * Creates a serverless (Lambda-style) server instance
@@ -382,15 +388,20 @@ export function createServerlessInstance(
         if (path === '/config' && method === 'GET') {
           // Try to read pre-generated config file first (created by skedyul config:export)
           try {
+            console.log(`[/config] Checking for config file at: ${CONFIG_FILE_PATH}`)
             if (fs.existsSync(CONFIG_FILE_PATH)) {
               const fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, 'utf-8'))
+              console.log(`[/config] Loaded config from file: tools=${fileConfig.tools?.length ?? 0}, webhooks=${fileConfig.webhooks?.length ?? 0}`)
               return createResponse(200, fileConfig, headers)
             }
+            console.log('[/config] Config file not found, falling back to runtime serialization')
           } catch (err) {
             console.warn('[/config] Failed to read config file, falling back to runtime serialization:', err)
           }
           // Fallback to runtime serialization (for local dev without build)
-          return createResponse(200, serializeConfig(config), headers)
+          const serialized = serializeConfig(config)
+          console.log(`[/config] Runtime serialization: tools=${serialized.tools?.length ?? 0}, webhooks=${serialized.webhooks?.length ?? 0}`)
+          return createResponse(200, serialized, headers)
         }
 
         if (path === '/mcp' && method === 'POST') {
