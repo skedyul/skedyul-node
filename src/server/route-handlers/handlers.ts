@@ -68,6 +68,12 @@ export function handleConfigRoute(ctx: RouteContext): UnifiedResponse {
       console.log(
         `[/config] Loaded config from file: tools=${fileConfig.tools?.length ?? 0}, webhooks=${fileConfig.webhooks?.length ?? 0}`,
       )
+      console.log(
+        `[/config] SENDING config with keys: ${Object.keys(fileConfig).join(', ')}`,
+      )
+      console.log(
+        `[/config] SENDING full config: ${JSON.stringify(fileConfig).substring(0, 2000)}...`,
+      )
       return { status: 200, body: fileConfig }
     }
     console.log('[/config] Config file not found, falling back to runtime serialization')
@@ -78,6 +84,12 @@ export function handleConfigRoute(ctx: RouteContext): UnifiedResponse {
   const serialized = serializeConfig(ctx.config)
   console.log(
     `[/config] Runtime serialization: tools=${serialized.tools?.length ?? 0}, webhooks=${serialized.webhooks?.length ?? 0}`,
+  )
+  console.log(
+    `[/config] SENDING serialized config with keys: ${Object.keys(serialized).join(', ')}`,
+  )
+  console.log(
+    `[/config] SENDING full serialized config: ${JSON.stringify(serialized).substring(0, 2000)}...`,
   )
   return { status: 200, body: serialized }
 }
