@@ -56,6 +56,10 @@ export { createDedicatedServerInstance } from './dedicated'
 export { createServerlessInstance } from './serverless'
 export { runWithLogContext, getLogContext, installContextLogger, uninstallContextLogger } from './context-logger'
 
+// Re-export route handlers
+export { routeRequest } from './route-handlers'
+export type { UnifiedRequest, UnifiedResponse, RouteContext } from './route-handlers'
+
 /**
  * Runtime config type - SkedyulConfig with resolved registries (not promises).
  * This is what server.create() expects at runtime.
