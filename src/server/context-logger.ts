@@ -45,9 +45,10 @@ function safeStringify(value: unknown): string {
 }
 
 /**
- * Formats a log message with invocation context prepended as JSON.
- * All arguments are stringified into a single line to ensure the context
- * prefix appears on every line in Docker/CloudWatch logs.
+ * Formats a log message as a single JSON object with invocation context.
+ * When Lambda's LogFormat is set to 'JSON', console.log of a single object
+ * results in the object being embedded in the 'message' field, enabling
+ * CloudWatch filter patterns like { $.message.invocationType = "tool_call" }.
  */
 function formatLogWithContext(args: unknown[]): unknown[] {
   const context = getLogContext()
@@ -55,8 +56,15 @@ function formatLogWithContext(args: unknown[]): unknown[] {
     return args
   }
 
-  // Create a context prefix that includes key invocation fields
-  const contextPrefix = {
+  // Stringify all arguments into a single message string
+  const messageParts = args.map(arg => {
+    if (typeof arg === 'string') return arg
+    return safeStringify(arg)
+  })
+
+  // Return a single object that Lambda will embed in the 'message' field
+  // This enables CloudWatch JSON filter patterns for server-side filtering
+  return [{
     invocationType: context.invocation.invocationType,
     ...(context.invocation.toolHandle && { toolHandle: context.invocation.toolHandle }),
     ...(context.invocation.serverHookHandle && { serverHookHandle: context.invocation.serverHookHandle }),
@@ -64,18 +72,8 @@ function formatLogWithContext(args: unknown[]): unknown[] {
     ...(context.invocation.toolCallId && { toolCallId: context.invocation.toolCallId }),
     ...(context.invocation.workflowId && { workflowId: context.invocation.workflowId }),
     ...(context.invocation.workflowRunId && { workflowRunId: context.invocation.workflowRunId }),
-  }
-
-  const prefix = `[${JSON.stringify(contextPrefix)}]`
-
-  // Stringify all arguments into a single line to ensure context appears on every log line
-  // This prevents multi-line object formatting from splitting logs across lines
-  const messageParts = args.map(arg => {
-    if (typeof arg === 'string') return arg
-    return safeStringify(arg)
-  })
-
-  return [`${prefix} ${messageParts.join(' ')}`]
+    msg: messageParts.join(' '),
+  }]
 }
 
 // Store original console methods
