@@ -53,10 +53,24 @@ export const FilterOperatorSchema = z.enum([
 
 export type FilterOperator = z.infer<typeof FilterOperatorSchema>
 
-export const FilterConditionSchema = z.record(
-  FilterOperatorSchema,
-  PrimitiveOrArraySchema,
-)
+export const FilterConditionSchema = z.object({
+  eq: PrimitiveOrArraySchema,
+  neq: PrimitiveOrArraySchema,
+  gt: PrimitiveOrArraySchema,
+  gte: PrimitiveOrArraySchema,
+  lt: PrimitiveOrArraySchema,
+  lte: PrimitiveOrArraySchema,
+  in: PrimitiveOrArraySchema,
+  contains: PrimitiveOrArraySchema,
+  notContains: PrimitiveOrArraySchema,
+  not_contains: PrimitiveOrArraySchema,
+  startsWith: PrimitiveOrArraySchema,
+  starts_with: PrimitiveOrArraySchema,
+  endsWith: PrimitiveOrArraySchema,
+  ends_with: PrimitiveOrArraySchema,
+  isEmpty: PrimitiveOrArraySchema,
+  isNotEmpty: PrimitiveOrArraySchema,
+}).partial()
 
 export type FilterCondition = z.infer<typeof FilterConditionSchema>
 
