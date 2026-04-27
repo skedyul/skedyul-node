@@ -89,6 +89,29 @@ export {
   getRequiredInstallEnvKeys,
 } from './config'
 
+// CRM Schema exports (for workplace-level migrations)
+export {
+  defineSchema,
+  validateCRMSchema,
+  parseCRMSchema,
+  safeParseCRMSchema,
+} from './schemas'
+
+export type {
+  CRMFieldType,
+  CRMFieldRequirement,
+  CRMFieldOption,
+  CRMFieldDefinition,
+  CRMFieldSchema,
+  CRMModelSchema,
+  CRMCardinality,
+  CRMOnDelete,
+  CRMRelationshipLink,
+  CRMRelationshipSchema,
+  CRMSchema,
+  CRMSchemaValidationResult,
+} from './schemas'
+
 export type {
   // App config
   SkedyulConfig,

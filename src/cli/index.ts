@@ -16,6 +16,9 @@ import { installCommand } from './commands/install'
 import { instancesCommand } from './commands/instances'
 import { buildCommand } from './commands/build'
 import { smokeTestCommand } from './commands/smoke-test'
+import { crmCommand } from './commands/crm'
+import { agentsCommand } from './commands/agents'
+import { chatCommand } from './commands/chat'
 
 const args = process.argv.slice(2)
 
@@ -40,9 +43,12 @@ USAGE
 COMMANDS
   auth       Authenticate with Skedyul (login, logout, status)
   config     Manage global CLI configuration (ngrok, server URL)
+  chat       Interactive chat with an agent (fast testing)
   build      Build your integration using skedyul.config.ts
   invoke     Invoke a tool on a hosted app version
   instances  Manage CRM instances (list, get, create, update, delete)
+  crm        Manage CRM schemas (push, pull, diff, models)
+  agents     Manage agents (list, get, push)
   dev        Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -57,6 +63,14 @@ GETTING STARTED
 
   4. Start local development server:
      $ skedyul dev serve --workplace <subdomain>
+
+CRM SCHEMAS
+  Manage CRM schemas for workplaces:
+
+  $ skedyul crm push --schema ./gym.schema.ts --workplace <subdomain>
+  $ skedyul crm pull --workplace <subdomain> --output ./current.schema.json
+  $ skedyul crm diff --schema ./gym.schema.ts --workplace <subdomain>
+  $ skedyul crm models --workplace <subdomain>
 
 CRM INSTANCES
   Manage CRM data directly from the command line:
@@ -84,6 +98,9 @@ MORE HELP
   $ skedyul config --help     Show configuration commands
   $ skedyul invoke --help     Show invoke command options
   $ skedyul instances --help  Show instances command options
+  $ skedyul crm --help        Show CRM schema commands
+  $ skedyul agents --help     Show agent management commands
+  $ skedyul chat --help       Show chat command options
   $ skedyul dev --help        Show development commands
   $ skedyul <cmd> --help      Show help for specific command
 
@@ -223,6 +240,21 @@ async function main(): Promise<void> {
 
   if (command === 'instances') {
     await instancesCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'crm') {
+    await crmCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'agents') {
+    await agentsCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'chat') {
+    await chatCommand(args.slice(1))
     return
   }
 

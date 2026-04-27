@@ -37,6 +37,7 @@ export { isProvisionContext, isRuntimeContext } from './tool-context'
 // Tool types
 export type {
   BillingInfo,
+  ToolCompletionHints,
   ToolResponseMeta,
   ToolEffect,
   ToolError,

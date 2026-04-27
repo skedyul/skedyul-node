@@ -31,6 +31,12 @@
       "types": "./dist/cli/utils/auth.d.ts",
       "require": "./dist/cli/utils/auth.js",
       "default": "./dist/cli/utils/auth.js"
+    },
+    "./schemas/agent-schema": {
+      "types": "./dist/schemas/agent-schema.d.ts",
+      "import": "./dist/schemas/agent-schema.mjs",
+      "require": "./dist/schemas/agent-schema.js",
+      "default": "./dist/schemas/agent-schema.js"
     }
   },
   "files": [

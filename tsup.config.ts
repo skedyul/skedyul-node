@@ -29,6 +29,41 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, ...cliExternals],
   },
+  // CLI utils build (for skedyul-mcp and other packages that need auth utilities)
+  // Exported via package.json "exports" field as "./cli/utils/auth"
+  {
+    entry: { 'cli/utils/auth': 'src/cli/utils/auth.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, ...cliExternals],
+  },
+  // Schemas build (for agent-schema and other shared schemas)
+  // Exported via package.json "exports" field as "./schemas/agent-schema"
+  {
+    entry: { 'schemas/agent-schema': 'src/schemas/agent-schema.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, 'zod', 'zod/v4'],
+  },
+  // Schemas ESM build (for ESM packages like skedyul-mcp)
+  {
+    entry: { 'agent-schema': 'src/schemas/agent-schema.ts' },
+    format: ['esm'],
+    outDir: 'dist/schemas',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...esmExternals],
+    banner: {
+      js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+    },
+  },
   // Main ESM build for integrations that use "type": "module"
   // This prevents double-loading when serverless integrations import from 'skedyul'
   {

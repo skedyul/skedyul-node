@@ -995,17 +995,33 @@ export const MessageSendContactSchema = z.object({
   name: z.string().optional(),
 })
 
+export const MessageSendRecipientSchema = z.object({
+  address: z.string(),
+  name: z.string().optional(),
+  participantId: z.string().optional(),
+  contactId: z.string().optional(),
+})
+
+export const MessageSendAttachmentSchema = z.object({
+  filename: z.string(),
+  url: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+})
+
 export const MessageSendMessageSchema = z.object({
   id: z.string(),
   content: z.string(),
   contentRaw: z.string().optional(),
   title: z.string().optional(),
+  attachments: z.array(MessageSendAttachmentSchema).optional(),
 })
 
 export const MessageSendInputSchema = z.object({
   channel: MessageSendChannelSchema,
-  subscription: MessageSendSubscriptionSchema,
-  contact: MessageSendContactSchema,
+  subscription: MessageSendSubscriptionSchema.optional(),
+  contact: MessageSendContactSchema.optional(),
+  recipient: MessageSendRecipientSchema.optional(),
   message: MessageSendMessageSchema,
 })
 
@@ -1017,6 +1033,8 @@ export const MessageSendOutputSchema = z.object({
 export type MessageSendChannel = z.infer<typeof MessageSendChannelSchema>
 export type MessageSendSubscription = z.infer<typeof MessageSendSubscriptionSchema>
 export type MessageSendContact = z.infer<typeof MessageSendContactSchema>
+export type MessageSendRecipient = z.infer<typeof MessageSendRecipientSchema>
+export type MessageSendAttachment = z.infer<typeof MessageSendAttachmentSchema>
 export type MessageSendMessage = z.infer<typeof MessageSendMessageSchema>
 export type MessageSendInput = z.infer<typeof MessageSendInputSchema>
 export type MessageSendOutput = z.infer<typeof MessageSendOutputSchema>
@@ -1036,3 +1054,42 @@ export function isChannelDependency(dep: ResourceDependency): dep is ChannelDepe
 export function isWorkflowDependency(dep: ResourceDependency): dep is WorkflowDependency {
   return 'workflow' in dep
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CRM Schema Exports (for workplace-level migrations)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export {
+  // Zod schemas
+  CRMFieldTypeSchema,
+  CRMFieldRequirementSchema,
+  CRMFieldOptionSchema,
+  CRMFieldDefinitionSchema,
+  CRMFieldSchemaZ,
+  CRMModelSchemaZ,
+  CRMCardinalitySchema,
+  CRMOnDeleteSchema,
+  CRMRelationshipLinkSchema,
+  CRMRelationshipSchemaZ,
+  CRMSchemaZ,
+  // Functions
+  defineSchema,
+  validateCRMSchema,
+  parseCRMSchema,
+  safeParseCRMSchema,
+} from './schemas/index'
+
+export type {
+  CRMFieldType,
+  CRMFieldRequirement,
+  CRMFieldOption,
+  CRMFieldDefinition,
+  CRMFieldSchema,
+  CRMModelSchema,
+  CRMCardinality,
+  CRMOnDelete,
+  CRMRelationshipLink,
+  CRMRelationshipSchema,
+  CRMSchema,
+  CRMSchemaValidationResult,
+} from './schemas/index'

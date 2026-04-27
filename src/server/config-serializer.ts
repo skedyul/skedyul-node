@@ -25,8 +25,8 @@ export function serializeConfig(config: SkedyulConfig): SerializableSkedyulConfi
       ? Object.entries(registry).map(([key, tool]) => ({
           name: tool.name || key,
           description: tool.description,
-          timeout: tool.timeout as number | undefined,
-          retries: tool.retries as number | undefined,
+          timeout: tool.config?.timeout as number | undefined,
+          retries: tool.config?.retries as number | undefined,
         }))
       : [],
     webhooks: webhookRegistry

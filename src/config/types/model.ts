@@ -87,6 +87,35 @@ export interface FieldVisibility {
 }
 
 /**
+ * Field mutability - controls which operations can modify this field.
+ * Used to generate different tool schemas for different agent types.
+ * - 'always': Field can be set on create and updated anytime (default)
+ * - 'restricted': Field can be set on create, but updates require a dedicated tool
+ *                 (generates individual update tools like update_email, update_phone)
+ * - 'create_only': Field can only be set on create, excluded from all update tools
+ * - 'immutable': Field cannot be set by agents (system-managed)
+ */
+export type FieldMutability = 'always' | 'restricted' | 'create_only' | 'immutable'
+
+/**
+ * AI-specific metadata for fields.
+ * Controls how AI agents understand and interact with fields.
+ */
+export interface FieldAIMeta {
+  /** AI-specific description explaining how to populate this field */
+  description?: string
+
+  /**
+   * Field mutability - controls which operations can modify this field.
+   * - 'always': Included in create and update tools (default)
+   * - 'restricted': Included in create, generates dedicated update tool
+   * - 'create_only': Included in create only, excluded from all update tools
+   * - 'immutable': Excluded from all agent tools (system-managed)
+   */
+  mutability?: FieldMutability
+}
+
+/**
  * Field definition within a model.
  */
 export interface FieldDefinition {
@@ -129,6 +158,8 @@ export interface FieldDefinition {
   visibility?: FieldVisibility
   /** Who controls the field definition: 'app' or 'shared' */
   owner?: FieldOwner
+  /** AI-specific metadata for agent interactions */
+  aiMeta?: FieldAIMeta
 }
 
 /**

@@ -16,6 +16,34 @@ export interface BillingInfo {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Completion Hints
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Hints for controlling tool completion behavior in agent loops.
+ * Used to prevent duplicate calls and determine when to stop tool execution.
+ */
+export interface ToolCompletionHints {
+  /** Maximum times this tool can be called per agent run. Default: unlimited */
+  maxCallsPerRun?: number
+  /** If true, tool is safe to call multiple times with same args (no side effects) */
+  idempotent?: boolean
+}
+
+/**
+ * Configuration options for tool execution behavior.
+ * Groups timeout, retry, and completion hint settings.
+ */
+export interface ToolConfig {
+  /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
+  timeout?: number
+  /** Maximum retry attempts. Defaults to 1 (no retries) if not specified. */
+  retries?: number
+  /** Hints for controlling tool completion behavior in agent loops */
+  completionHints?: ToolCompletionHints
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tool Response Meta
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -93,10 +121,8 @@ export interface ToolDefinition<
   inputSchema: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
-  /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
-  timeout?: number
-  /** Maximum retry attempts. Defaults to 1 (no retries) if not specified. */
-  retries?: number
+  /** Tool execution configuration (timeout, retries, completion hints) */
+  config?: ToolConfig
   [key: string]: unknown
 }
 
@@ -107,6 +133,8 @@ export interface ToolRegistryEntry {
   inputSchema: ToolSchema
   handler: unknown
   outputSchema?: ToolSchema
+  /** Tool execution configuration (timeout, retries, completion hints) */
+  config?: ToolConfig
   [key: string]: unknown
 }
 
@@ -120,10 +148,8 @@ export interface ToolMetadata {
   description: string
   inputSchema?: Record<string, unknown>
   outputSchema?: Record<string, unknown>
-  /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
-  timeout?: number
-  /** Maximum retry attempts. Defaults to 1 (no retries) if not specified. */
-  retries?: number
+  /** Tool execution configuration (timeout, retries, completion hints) */
+  config?: ToolConfig
 }
 
 /**

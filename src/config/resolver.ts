@@ -107,8 +107,8 @@ export function serializeResolvedConfig(config: ResolvedConfig): SerializableSke
       ? Object.entries(config.tools).map(([key, tool]) => ({
           name: tool.name || key,
           description: tool.description,
-          timeout: tool.timeout as number | undefined,
-          retries: tool.retries as number | undefined,
+          timeout: tool.config?.timeout as number | undefined,
+          retries: tool.config?.retries as number | undefined,
         }))
       : [],
     webhooks: config.webhooks

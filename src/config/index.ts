@@ -37,6 +37,24 @@ export {
 // Re-export loader utilities
 export { CONFIG_FILE_NAMES, loadConfig, validateConfig } from './loader'
 
+// Re-export schema loader utilities (for CRM migrations)
+export {
+  SCHEMA_FILE_EXTENSIONS,
+  loadSchema,
+  saveSchema,
+  serializeSchemaToJson,
+  serializeSchemaToTypeScript,
+  transformToBackendSchema,
+  transformFromBackendSchema,
+  type LoadSchemaOptions,
+  type LoadSchemaResult,
+  type SerializeSchemaOptions,
+  type BackendModelDefinition,
+  type BackendFieldDefinition,
+  type BackendRelationshipDefinition,
+  type BackendDesiredSchema,
+} from './schema-loader'
+
 // Re-export resolver utilities for build-time config export
 export { loadAndResolveConfig, serializeResolvedConfig, type ResolvedConfig } from './resolver'
 
