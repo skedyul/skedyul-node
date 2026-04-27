@@ -501,28 +501,94 @@ async function handleMcpToolsCall(
     })
 
     let result: unknown
-    if (toolResult.error) {
-      const errorOutput = { error: toolResult.error }
+
+    // Detect failure using multiple patterns for backward compatibility:
+    // 1. New shape: success === false (discriminated union)
+    // 2. Legacy shape: error field is set
+    // 3. Legacy shape: meta.success === false
+    const isNewShapeFailure = 'success' in toolResult && toolResult.success === false
+    const isLegacyErrorFailure = 'error' in toolResult && toolResult.error != null
+    const isLegacyMetaFailure =
+      'meta' in toolResult &&
+      toolResult.meta != null &&
+      typeof toolResult.meta === 'object' &&
+      'success' in toolResult.meta &&
+      toolResult.meta.success === false
+
+    const isFailure = isNewShapeFailure || isLegacyErrorFailure || isLegacyMetaFailure
+
+    if (isFailure) {
+      // Build error output from available error information
+      let errorOutput: { error: unknown; retry?: unknown }
+
+      if (isNewShapeFailure && 'error' in toolResult) {
+        // New shape: use the structured error directly
+        errorOutput = {
+          error: toolResult.error,
+          retry: 'retry' in toolResult ? toolResult.retry : undefined,
+        }
+      } else if (isLegacyErrorFailure && 'error' in toolResult) {
+        // Legacy shape with error field
+        errorOutput = { error: toolResult.error }
+      } else if (isLegacyMetaFailure && 'meta' in toolResult && toolResult.meta) {
+        // Legacy shape with meta.success === false - construct error from meta.message
+        const meta = toolResult.meta as { message?: string }
+        errorOutput = {
+          error: {
+            code: 'TOOL_FAILED',
+            message: meta.message ?? 'Tool execution failed',
+            category: 'internal',
+          },
+        }
+      } else {
+        // Fallback
+        errorOutput = {
+          error: {
+            code: 'TOOL_FAILED',
+            message: 'Tool execution failed',
+            category: 'internal',
+          },
+        }
+      }
+
       result = {
         content: [{ type: 'text', text: JSON.stringify(errorOutput) }],
         structuredContent: hasOutputSchema ? undefined : errorOutput,
         isError: true,
-        billing: toolResult.billing,
+        billing: 'billing' in toolResult ? toolResult.billing : undefined,
       }
     } else {
-      const outputData = toolResult.output as Record<string, unknown> | null
+      // Success case - handle both new and legacy shapes
+      const outputData =
+        'output' in toolResult
+          ? (toolResult.output as Record<string, unknown> | null)
+          : null
+      const effect = 'effect' in toolResult ? toolResult.effect : undefined
+      const warnings = 'warnings' in toolResult ? toolResult.warnings : undefined
+      const pagination = 'pagination' in toolResult ? toolResult.pagination : undefined
+
       let structuredContent: Record<string, unknown> | undefined
       if (outputData) {
-        structuredContent = { ...outputData, __effect: toolResult.effect }
-      } else if (toolResult.effect) {
-        structuredContent = { __effect: toolResult.effect }
+        structuredContent = {
+          ...outputData,
+          __effect: effect,
+          __warnings: warnings,
+          __pagination: pagination,
+        }
+      } else if (effect || warnings || pagination) {
+        structuredContent = {
+          __effect: effect,
+          __warnings: warnings,
+          __pagination: pagination,
+        }
       } else if (hasOutputSchema) {
         structuredContent = {}
       }
+
       result = {
-        content: [{ type: 'text', text: JSON.stringify(toolResult.output) }],
+        content: [{ type: 'text', text: JSON.stringify(outputData) }],
         structuredContent,
-        billing: toolResult.billing,
+        billing: 'billing' in toolResult ? toolResult.billing : undefined,
       }
     }
 

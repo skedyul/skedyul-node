@@ -36,6 +36,18 @@ export { isProvisionContext, isRuntimeContext } from './tool-context'
 
 // Tool types
 export type {
+  // New discriminated union types
+  ToolResult,
+  ToolSuccess,
+  ToolFailure,
+  ErrorCode,
+  ErrorCategory,
+  ToolWarning,
+  ToolPagination,
+  ToolBilling,
+  ToolRetry,
+  ToolTiming,
+  // Legacy types (backward compatibility)
   BillingInfo,
   ToolCompletionHints,
   ToolResponseMeta,
@@ -53,6 +65,28 @@ export type {
   ToolCallResponse,
 } from './tool'
 export { ToolResponseMetaSchema } from './tool'
+
+// Tool response helpers
+export {
+  // Success helpers
+  createSuccessResponse,
+  createListResponse,
+  // Error helpers
+  createErrorResponse,
+  createValidationError,
+  createNotFoundError,
+  createAuthError,
+  createRateLimitError,
+  createExternalError,
+  createTimeoutError,
+  createPermissionError,
+  createConflictError,
+  // Type guards
+  isSuccess,
+  isFailure,
+  isRetryable,
+  getRetryDelay,
+} from './tool-response'
 
 // Server types
 export type {
