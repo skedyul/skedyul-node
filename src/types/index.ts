@@ -47,9 +47,11 @@ export type {
   ToolBilling,
   ToolRetry,
   ToolTiming,
+  // Tool configuration
+  ToolCompletionHints,
+  ToolConfig,
   // Legacy types (backward compatibility)
   BillingInfo,
-  ToolCompletionHints,
   ToolResponseMeta,
   ToolEffect,
   ToolError,

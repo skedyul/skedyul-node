@@ -11,8 +11,111 @@ import type { ToolExecutionContext } from './tool-context'
  */
 export type ProvisionToolInput = Record<string, never>
 
-export interface BillingInfo {
+// ─────────────────────────────────────────────────────────────────────────────
+// New Tool Result Types (Discriminated Union)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Standardized error codes for consistent handling across tools.
+ * Custom codes are allowed for tool-specific errors.
+ */
+export type ErrorCode =
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'AUTH_INVALID'
+  | 'AUTH_EXPIRED'
+  | 'PERMISSION_DENIED'
+  | 'RATE_LIMITED'
+  | 'TIMEOUT'
+  | 'EXTERNAL_SERVICE_ERROR'
+  | 'INTERNAL_ERROR'
+  | 'QUOTA_EXCEEDED'
+  | 'CONFLICT'
+  | string
+
+/**
+ * Error category for smart retry logic.
+ * - validation: Don't retry, fix the input
+ * - auth: May need user action (re-login)
+ * - network: Retry with backoff
+ * - timeout: Retry with longer timeout
+ * - external: Retry with backoff
+ * - internal: May retry, but likely a bug
+ */
+export type ErrorCategory =
+  | 'validation'
+  | 'auth'
+  | 'network'
+  | 'timeout'
+  | 'external'
+  | 'internal'
+
+/**
+ * Structured error information with category for smart retry logic.
+ */
+export interface ToolError {
+  code: ErrorCode
+  message: string
+  category?: ErrorCategory
+  field?: string
+  details?: Record<string, unknown>
+}
+
+/**
+ * Retry guidance for transient failures.
+ */
+export interface ToolRetry {
+  allowed: boolean
+  afterMs?: number
+  maxAttempts?: number
+}
+
+/**
+ * Non-fatal warning that doesn't prevent success.
+ */
+export interface ToolWarning {
+  code: string
+  message: string
+  field?: string
+}
+
+/**
+ * Pagination metadata for list operations.
+ */
+export interface ToolPagination {
+  hasMore: boolean
+  total?: number
+  nextCursor?: string
+  page?: number
+  limit?: number
+}
+
+/**
+ * Billing/usage information.
+ */
+export interface ToolBilling {
   credits: number
+  tokens?: number
+  cost?: number
+}
+
+/**
+ * Client-side effects to execute after tool completion.
+ */
+export interface ToolEffect {
+  redirect?: string
+  toast?: {
+    type: 'success' | 'error' | 'warning' | 'info'
+    message: string
+  }
+  refresh?: string[]
+}
+
+/**
+ * Execution timing for observability.
+ */
+export interface ToolTiming {
+  durationMs: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,53 +146,85 @@ export interface ToolConfig {
   completionHints?: ToolCompletionHints
 }
 
+/**
+ * Successful tool execution result.
+ * Output is guaranteed to exist.
+ */
+export interface ToolSuccess<T = unknown> {
+  success: true
+  output: T
+  warnings?: ToolWarning[]
+  pagination?: ToolPagination
+  billing?: ToolBilling
+  effect?: ToolEffect
+  timing?: ToolTiming
+}
+
+/**
+ * Failed tool execution result.
+ * Error is guaranteed to exist, output is not available.
+ */
+export interface ToolFailure {
+  success: false
+  error: ToolError
+  retry?: ToolRetry
+  partialOutput?: unknown
+  billing?: ToolBilling
+  effect?: ToolEffect
+  timing?: ToolTiming
+}
+
+/**
+ * Tool execution result - either success or failure.
+ * Use `result.success` to narrow the type.
+ *
+ * @example
+ * ```ts
+ * const result = await tool.handler(input, context)
+ * if (result.success) {
+ *   console.log(result.output) // TypeScript knows output exists
+ * } else {
+ *   console.log(result.error.code) // TypeScript knows error exists
+ * }
+ * ```
+ */
+export type ToolResult<T = unknown> = ToolSuccess<T> | ToolFailure
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Tool Response Meta
+// Legacy Types (Backward Compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @deprecated Use ToolBilling instead
+ */
+export interface BillingInfo {
+  credits: number
+}
 
 /**
  * Standardized metadata for tool responses.
- * Provides consistent structure for AI evaluation, logging, and debugging.
+ * @deprecated Use ToolResult discriminated union instead
  */
 export const ToolResponseMetaSchema = z.object({
-  /** Whether the tool execution succeeded */
   success: z.boolean(),
-  /** Human-readable message describing the result or error */
   message: z.string(),
-  /** Name of the tool that was executed */
   toolName: z.string(),
 })
 
+/**
+ * @deprecated Use ToolResult discriminated union instead
+ */
 export type ToolResponseMeta = z.infer<typeof ToolResponseMetaSchema>
 
 /**
- * Client-side effects that the tool wants the UI to execute.
- * These are separate from the data output and represent navigation/UI actions.
+ * Legacy tool execution result type.
+ * @deprecated Use ToolResult<T> instead. This type is kept for backward compatibility.
  */
-export interface ToolEffect {
-  /** URL to navigate to after the tool completes */
-  redirect?: string
-}
-
-/**
- * Structured error information for tool execution results.
- * Uses codes for serialization and workflow detection.
- */
-export interface ToolError {
-  code: string
-  message: string
-}
-
 export interface ToolExecutionResult<Output = unknown> {
-  /** Tool-specific output data. Null on error. */
   output: Output | null
-  /** Billing information */
   billing: BillingInfo
-  /** Standardized response metadata for AI evaluation and debugging */
   meta: ToolResponseMeta
-  /** Optional client-side effects to execute */
   effect?: ToolEffect
-  /** Structured error information (null/undefined if no error) */
   error?: ToolError | null
 }
 
@@ -103,11 +238,12 @@ export type ToolSchema<Schema extends z.ZodTypeAny = z.ZodTypeAny> = Schema | To
 /**
  * Tool handler function signature.
  * Receives tool-specific input as first argument and standardized context as second.
+ * Supports both new ToolResult and legacy ToolExecutionResult return types.
  */
 export type ToolHandler<Input, Output> = (
   input: Input,
   context: ToolExecutionContext,
-) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
+) => Promise<ToolResult<Output> | ToolExecutionResult<Output>> | ToolResult<Output> | ToolExecutionResult<Output>
 
 export interface ToolDefinition<
   Input = unknown,
