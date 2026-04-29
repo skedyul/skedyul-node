@@ -396,9 +396,9 @@ export type StageAgentDefinition = z.infer<typeof StageAgentDefinitionZ>
  */
 const AgentStageBaseZ = StageBaseZ.extend({
   type: z.literal('agent'),
-  /** Inline agent definition (preferred - contains full agent config) */
-  agent: StageAgentDefinitionZ.optional(),
-  /** External agent reference by handle (legacy - for referencing DB agents) */
+  /** Inline agent definition via props (preferred - contains full agent config) */
+  props: StageAgentDefinitionZ.optional(),
+  /** External agent reference by handle (for referencing DB agents) */
   resource: z.string().optional(),
   /** Prompt template - Liquid template for the user message */
   prompt: z.string().optional(),
@@ -411,12 +411,12 @@ const AgentStageBaseZ = StageBaseZ.extend({
 /**
  * Agent stage - runs an agent with inline definition or external reference
  * 
- * New format: Use `agent` object with full agent definition inline
+ * New format: Use `props` object with full agent definition inline
  * Legacy format: Use `resource` string to reference an agent by handle
  */
 const AgentStageZ = AgentStageBaseZ.refine(
-  (data) => data.agent || data.resource,
-  { message: "Either 'agent' (inline definition) or 'resource' (external reference) must be provided" }
+  (data) => data.props || data.resource,
+  { message: "Either 'props' (inline definition) or 'resource' (external reference) must be provided" }
 )
 
 /**
@@ -603,6 +603,73 @@ export type AgentInputOption = z.infer<typeof AgentInputOptionZ>
 export type AgentInputField = z.infer<typeof AgentInputFieldZ>
 
 /**
+ * Persona voice format configuration for message formatting rules.
+ */
+const PersonaVoiceFormatZ = z.object({
+  /** Maximum character count for messages */
+  maxChars: z.number().optional(),
+  /** Whether to avoid emojis */
+  noEmojis: z.boolean().optional(),
+  /** Whether to avoid hyphens */
+  noHyphens: z.boolean().optional(),
+  /** Whether to avoid bullet points */
+  noBulletPoints: z.boolean().optional(),
+  /** Maximum questions per message */
+  maxQuestionsPerMessage: z.number().optional(),
+  /** Whether to avoid sign-offs like "Cheers" or "Thanks" */
+  noSignOffs: z.boolean().optional(),
+})
+
+/**
+ * Persona voice configuration for agent message styling.
+ */
+const PersonaVoiceZ = z.object({
+  /** Style guidelines as a single string (voice, tone, personality) */
+  style: z.string(),
+  /** Formatting constraints */
+  format: PersonaVoiceFormatZ.optional(),
+})
+
+/**
+ * Persona configuration for agent voice and formatting.
+ */
+const PersonaZ = z.object({
+  /** Display name for the persona (e.g., "Brett") */
+  name: z.string(),
+  /** Voice configuration with style and format rules */
+  voice: PersonaVoiceZ,
+})
+
+export type PersonaVoiceFormat = z.infer<typeof PersonaVoiceFormatZ>
+export type PersonaVoice = z.infer<typeof PersonaVoiceZ>
+export type Persona = z.infer<typeof PersonaZ>
+
+/**
+ * Respond block for explicit message output.
+ * Must have either `content` (direct message) or `instructions` (persona transformation).
+ */
+const RespondBlockZ = z.object({
+  /** Optional Liquid condition - if false, no message is sent */
+  if: z.string().optional(),
+  /** Direct message content (no persona transformation) - mutually exclusive with instructions */
+  content: z.string().optional(),
+  /** Instructions for persona to write message (Liquid template) - mutually exclusive with content */
+  instructions: z.string().optional(),
+  /** If true, message requires human approval before sending */
+  requiresApproval: z.boolean().optional(),
+}).refine(
+  (data) => {
+    const hasContent = !!data.content
+    const hasInstructions = !!data.instructions
+    // Must have exactly one of content or instructions (or neither if respond block is optional)
+    return (hasContent && !hasInstructions) || (!hasContent && hasInstructions) || (!hasContent && !hasInstructions)
+  },
+  { message: 'respond must have either content or instructions, but not both' }
+)
+
+export type RespondBlock = z.infer<typeof RespondBlockZ>
+
+/**
  * Base agent schema fields shared by both single and multi-stage agents.
  */
 const AgentBaseZ = z.object({
@@ -666,6 +733,10 @@ const MultiStageAgentZ = AgentBaseZ.extend({
   })).optional(),
   /** Error handling strategy */
   onError: z.enum(['fail', 'skip', 'retry']).optional(),
+  /** Persona configuration for voice and formatting */
+  persona: PersonaZ.optional(),
+  /** Respond block for explicit message output */
+  respond: RespondBlockZ.optional(),
 })
 
 /**
