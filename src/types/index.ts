@@ -155,3 +155,17 @@ export type {
   MCPResponse,
   MCPRequest,
 } from './mcp-protocol'
+
+// Data block types (for rich UI rendering)
+export type {
+  DataBlock,
+  DataBlockLink,
+  SpreadsheetBlock,
+  SpreadsheetColumn,
+  ProfileBlock,
+  ProfileAvatar,
+  ProfileField,
+  FieldChangesBlock,
+  FieldChangeItem,
+  DateTimeBlock,
+} from './data-blocks'

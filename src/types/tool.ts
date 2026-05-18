@@ -153,6 +153,8 @@ export interface ToolConfig {
 export interface ToolSuccess<T = unknown> {
   success: true
   output: T
+  /** Rich data blocks for UI rendering (profiles, spreadsheets, datetime cards) */
+  dataBlocks?: import('./data-blocks').DataBlock[]
   warnings?: ToolWarning[]
   pagination?: ToolPagination
   billing?: ToolBilling

@@ -10,6 +10,7 @@ import type {
   ToolEffect,
   ToolRetry,
 } from './tool'
+import type { DataBlock } from './data-blocks'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Success Helpers
@@ -23,11 +24,26 @@ import type {
  * import { createSuccessResponse } from 'skedyul'
  *
  * return createSuccessResponse({ order: orderData })
+ *
+ * // With dataBlocks for rich UI rendering
+ * return createSuccessResponse(
+ *   { booking: bookingData },
+ *   {
+ *     dataBlocks: [{
+ *       type: 'dateTime',
+ *       title: 'Booking Confirmed',
+ *       datetime: '2026-05-20T14:00:00',
+ *       status: 'confirmed',
+ *     }]
+ *   }
+ * )
  * ```
  */
 export function createSuccessResponse<T>(
   output: T,
   options?: {
+    /** Rich data blocks for UI rendering (profiles, spreadsheets, datetime cards) */
+    dataBlocks?: DataBlock[]
     warnings?: ToolWarning[]
     pagination?: ToolPagination
     billing?: ToolBilling
