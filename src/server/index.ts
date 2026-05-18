@@ -248,16 +248,24 @@ export function createSkedyulServer(
         }
 
         // Transform internal format to MCP protocol format
-        // Note: effect is embedded in structuredContent because the MCP SDK
+        // Note: effect and dataBlocks are embedded in structuredContent because the MCP SDK
         // transport strips custom top-level fields in dedicated mode
         const outputData = result.output as Record<string, unknown> | null
+        const dataBlocks = result.dataBlocks as unknown[] | undefined
         // MCP SDK requires structuredContent when outputSchema is defined
         // Always provide it (even as empty object) to satisfy validation
         let structuredContent: Record<string, unknown> | undefined
         if (outputData) {
-          structuredContent = { ...outputData, __effect: result.effect }
-        } else if (result.effect) {
-          structuredContent = { __effect: result.effect }
+          structuredContent = {
+            ...outputData,
+            __effect: result.effect,
+            __dataBlocks: dataBlocks,
+          }
+        } else if (result.effect || dataBlocks) {
+          structuredContent = {
+            __effect: result.effect,
+            __dataBlocks: dataBlocks,
+          }
         } else if (hasOutputSchema) {
           // Tool has outputSchema but returned null/undefined output
           // Provide empty object to satisfy MCP SDK validation

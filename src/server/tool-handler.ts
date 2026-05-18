@@ -199,6 +199,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
           toolName,
         },
         effect: functionResult.effect,
+        dataBlocks: functionResult.dataBlocks,
       }
     } catch (error) {
       // Check if it's an AppAuthInvalidError

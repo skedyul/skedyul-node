@@ -228,6 +228,8 @@ export interface ToolExecutionResult<Output = unknown> {
   meta: ToolResponseMeta
   effect?: ToolEffect
   error?: ToolError | null
+  /** Rich data blocks for UI rendering (profiles, spreadsheets, datetime cards) */
+  dataBlocks?: import('./data-blocks').DataBlock[]
 }
 
 export interface ToolSchemaWithJson<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
