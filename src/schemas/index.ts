@@ -31,3 +31,42 @@ export {
   parseCRMSchema,
   safeParseCRMSchema,
 } from './crm-schema'
+
+// Agent Schema v3 exports (skills-based, no stages)
+export {
+  // Constants
+  AGENT_SCHEMA_VERSION_V3,
+  // Schemas
+  PersonaVoiceFormatV3Schema,
+  PersonaVoiceV3Schema,
+  PersonaV3Schema,
+  ToolApprovalConfigSchema,
+  ToolRefV3Schema,
+  WorkingMemoryConfigSchema,
+  ExternalMemoryConfigSchema,
+  SemanticMemoryConfigSchema,
+  MemoryConfigV3Schema,
+  ResponsePolicySchema,
+  PoliciesConfigV3Schema,
+  RuntimeConfigV3Schema,
+  AgentConfigV3Schema,
+  AgentYAMLV3Schema,
+  // Types
+  type PersonaVoiceFormatV3,
+  type PersonaVoiceV3,
+  type PersonaV3,
+  type ToolApprovalConfig,
+  type ToolRefV3,
+  type WorkingMemoryConfig,
+  type ExternalMemoryConfig,
+  type SemanticMemoryConfig,
+  type MemoryConfigV3,
+  type ResponsePolicy,
+  type PoliciesConfigV3,
+  type RuntimeConfigV3,
+  type AgentConfigV3,
+  type AgentYAMLV3,
+  // Functions
+  defineAgentV3,
+  validateAgentYAMLV3,
+} from './agent-schema-v3'

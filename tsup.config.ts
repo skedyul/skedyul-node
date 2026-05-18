@@ -51,11 +51,57 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, 'zod', 'zod/v4'],
   },
+  // Agent Schema v3 CJS build
+  {
+    entry: { 'schemas/agent-schema-v3': 'src/schemas/agent-schema-v3.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, 'zod', 'zod/v4'],
+  },
+  // Skills types CJS build
+  {
+    entry: { 'skills/types': 'src/skills/types.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, 'zod', 'zod/v4'],
+  },
   // Schemas ESM build (for ESM packages like skedyul-mcp)
   {
     entry: { 'agent-schema': 'src/schemas/agent-schema.ts' },
     format: ['esm'],
     outDir: 'dist/schemas',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...esmExternals],
+    banner: {
+      js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+    },
+  },
+  // Agent Schema v3 ESM build
+  {
+    entry: { 'agent-schema-v3': 'src/schemas/agent-schema-v3.ts' },
+    format: ['esm'],
+    outDir: 'dist/schemas',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...esmExternals],
+    banner: {
+      js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+    },
+  },
+  // Skills types ESM build
+  {
+    entry: { types: 'src/skills/types.ts' },
+    format: ['esm'],
+    outDir: 'dist/skills',
     dts: false,
     splitting: false,
     clean: false,

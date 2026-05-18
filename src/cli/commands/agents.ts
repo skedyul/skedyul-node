@@ -9,6 +9,11 @@ import {
   type AgentSchema,
   isMultiStageAgent,
 } from '../../schemas/agent-schema'
+import {
+  AgentYAMLV3Schema,
+  validateAgentYAMLV3,
+  type AgentYAMLV3,
+} from '../../schemas/agent-schema-v3'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -136,6 +141,9 @@ Deploy Options:
   --draft           Deploy as draft (not published)
   --json            Output as JSON
 
+  Supports both legacy (multi-stage) and v3 (skills-based) agent formats.
+  V3 agents use skills, events, and memory instead of stages.
+
 Publish Options:
   --workplace, -w   Workplace subdomain (required)
   --version, -v     Version number to publish (default: latest draft)
@@ -164,7 +172,7 @@ Examples:
   # Get details of a specific agent
   skedyul agents get sales-agent --workplace gym-demo
 
-  # Deploy an agent from YAML (creates new version)
+  # Deploy a v3 skills-based agent
   skedyul agents deploy --file ./sales-agent.agent.yml --workplace gym-demo
 
   # Deploy as draft (not published)
@@ -214,7 +222,29 @@ function ensureAuth(): { token: string; serverUrl: string } {
 // Agent File Loading
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function loadAgentFile(filePath: string): Promise<{ agent: AgentSchema; content: string }> {
+/**
+ * Result of loading an agent file - supports both v3 and legacy schemas
+ */
+interface LoadAgentResult {
+  agent: AgentSchema | AgentYAMLV3
+  content: string
+  isV3: boolean
+}
+
+/**
+ * Check if an agent is v3 format (has skills, no stages)
+ */
+function isAgentV3(agent: unknown): boolean {
+  if (typeof agent !== 'object' || agent === null) return false
+  const obj = agent as Record<string, unknown>
+  // V3 agents have skills OR $schema pointing to v3
+  if ('skills' in obj) return true
+  if (obj.$schema && typeof obj.$schema === 'string' && obj.$schema.includes('/v3')) return true
+  // V3 agents have handle but no stages and no agents (multi-stage)
+  return 'handle' in obj && !('stages' in obj) && !('agents' in obj)
+}
+
+async function loadAgentFile(filePath: string): Promise<LoadAgentResult> {
   const absolutePath = path.resolve(filePath)
 
   if (!fs.existsSync(absolutePath)) {
@@ -237,15 +267,48 @@ async function loadAgentFile(filePath: string): Promise<{ agent: AgentSchema; co
     )
   }
 
+  const detectedV3 = isAgentV3(rawAgent)
+
+  // Try v3 schema first if it looks like a v3 agent
+  if (detectedV3) {
+    const v3Result = validateAgentYAMLV3(rawAgent)
+    if (v3Result.success) {
+      return { agent: v3Result.data, content, isV3: true }
+    }
+    // If v3 validation failed, show v3 errors with more detail
+    const errorMessages = v3Result.error.issues
+      .map((e) => {
+        const path = e.path.length > 0 ? e.path.join('.') : '(root)'
+        return `  - ${path}: ${e.message}`
+      })
+      .join('\n')
+    throw new Error(`Agent v3 validation failed:\n${errorMessages}`)
+  }
+
+  // Fall back to legacy validation
   const validation = validateAgentSchema(rawAgent)
   if (!validation.success) {
+    // Try v3 validation anyway to give better error messages if it looks like v3
+    const obj = rawAgent as Record<string, unknown>
+    if (obj && (obj.skills || (obj.$schema && String(obj.$schema).includes('/v3')))) {
+      const v3Result = validateAgentYAMLV3(rawAgent)
+      if (!v3Result.success) {
+        const errorMessages = v3Result.error.issues
+          .map((e) => {
+            const path = e.path.length > 0 ? e.path.join('.') : '(root)'
+            return `  - ${path}: ${e.message}`
+          })
+          .join('\n')
+        throw new Error(`Agent v3 validation failed:\n${errorMessages}`)
+      }
+    }
     const errorMessages = validation.errors
-      ?.map((e) => `  - ${e.path}: ${e.message}`)
+      ?.map((e) => `  - ${e.path || '(root)'}: ${e.message}`)
       .join('\n')
     throw new Error(`Agent validation failed:\n${errorMessages}`)
   }
 
-  return { agent: validation.data!, content }
+  return { agent: validation.data!, content, isV3: false }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -476,12 +539,14 @@ async function handleDeploy(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  let agent: AgentSchema
+  let agent: AgentSchema | AgentYAMLV3
   let content: string
+  let isV3: boolean
   try {
     const result = await loadAgentFile(filePath)
     agent = result.agent
     content = result.content
+    isV3 = result.isV3
   } catch (error) {
     if (jsonOutput) {
       console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
@@ -506,7 +571,12 @@ async function handleDeploy(args: string[]): Promise<void> {
   }
 
   if (!jsonOutput) {
-    const agentType = isMultiStageAgent(agent) ? 'multi-stage' : 'single-stage'
+    let agentType: string
+    if (isV3) {
+      agentType = 'v3 (skills-based)'
+    } else {
+      agentType = isMultiStageAgent(agent as AgentSchema) ? 'multi-stage' : 'single-stage'
+    }
     console.log('')
     console.log(`Deploying ${agentType} agent "${agent.name}" to ${workplace}${isDraft ? ' (draft)' : ''}`)
     console.log('')

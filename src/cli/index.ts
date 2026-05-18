@@ -19,6 +19,7 @@ import { smokeTestCommand } from './commands/smoke-test'
 import { crmCommand } from './commands/crm'
 import { agentsCommand } from './commands/agents'
 import { chatCommand } from './commands/chat'
+import { skillsCommand } from './commands/skills'
 
 const args = process.argv.slice(2)
 
@@ -49,6 +50,7 @@ COMMANDS
   instances  Manage CRM instances (list, get, create, update, delete)
   crm        Manage CRM schemas (push, pull, diff, models)
   agents     Manage agents (list, get, push)
+  skills     Manage skills (list, get, deploy, publish, versions, delete)
   dev        Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -100,6 +102,7 @@ MORE HELP
   $ skedyul instances --help  Show instances command options
   $ skedyul crm --help        Show CRM schema commands
   $ skedyul agents --help     Show agent management commands
+  $ skedyul skills --help     Show skill management commands
   $ skedyul chat --help       Show chat command options
   $ skedyul dev --help        Show development commands
   $ skedyul <cmd> --help      Show help for specific command
@@ -255,6 +258,11 @@ async function main(): Promise<void> {
 
   if (command === 'chat') {
     await chatCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'skills') {
+    await skillsCommand(args.slice(1))
     return
   }
 

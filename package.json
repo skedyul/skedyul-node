@@ -37,6 +37,18 @@
       "import": "./dist/schemas/agent-schema.mjs",
       "require": "./dist/schemas/agent-schema.js",
       "default": "./dist/schemas/agent-schema.js"
+    },
+    "./schemas/agent-schema-v3": {
+      "types": "./dist/schemas/agent-schema-v3.d.ts",
+      "import": "./dist/schemas/agent-schema-v3.mjs",
+      "require": "./dist/schemas/agent-schema-v3.js",
+      "default": "./dist/schemas/agent-schema-v3.js"
+    },
+    "./skills/types": {
+      "types": "./dist/skills/types.d.ts",
+      "import": "./dist/skills/types.mjs",
+      "require": "./dist/skills/types.js",
+      "default": "./dist/skills/types.js"
     }
   },
   "files": [

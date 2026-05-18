@@ -97,6 +97,231 @@ export {
   safeParseCRMSchema,
 } from './schemas'
 
+// ─────────────────────────────────────────────────────────────────
+// Event System (Thread Events)
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Event type schemas
+  ThreadEventTypeSchema,
+  CustomEventTypeSchema,
+  EventTypeSchema,
+  ParticipantKindSchema,
+  // Event payload schemas
+  BaseEventPayloadSchema,
+  MessageEventPayloadSchema,
+  ParticipantEventPayloadSchema,
+  ContextChangedPayloadSchema,
+  StatusChangedPayloadSchema,
+  ScheduledEventPayloadSchema,
+  AgentWorkflowEventPayloadSchema,
+  CustomEventPayloadSchema,
+  ThreadEventPayloadSchema,
+  // Full event schemas
+  ThreadEventSchema,
+  CreateThreadEventInputSchema,
+  // Configuration schemas
+  EventSubscriptionSchema,
+  EventWaitSchema,
+  EventsConfigSchema,
+} from './events'
+
+export type {
+  ThreadEventType,
+  CustomEventType,
+  EventType,
+  ParticipantKind,
+  BaseEventPayload,
+  MessageEventPayload,
+  ParticipantEventPayload,
+  ContextChangedPayload,
+  StatusChangedPayload,
+  ScheduledEventPayload,
+  AgentWorkflowEventPayload,
+  CustomEventPayload,
+  ThreadEventPayload,
+  ThreadEvent,
+  CreateThreadEventInput,
+  EventSubscription,
+  EventWait,
+  EventsConfig,
+} from './events'
+
+// ─────────────────────────────────────────────────────────────────
+// Trigger System (Workflow Bindings)
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Context schemas
+  CRMDataSchema,
+  SenderContextSchema as TriggerSenderContextSchema,
+  ThreadContextItemSchema as TriggerThreadContextItemSchema,
+  ParticipantContextSchema,
+  TriggerContextSchema,
+  // Mapping schemas
+  InputMappingSchema,
+  EventConditionsSchema,
+  // Trigger schemas
+  TriggerConfigSchema,
+  ResolvedTriggerSchema,
+  // Workflow input schemas
+  WorkflowInputDefinitionSchema,
+  WorkflowInputSchemaSchema,
+  // Error class
+  TriggerResolutionError,
+  // Resolver functions
+  evaluateTemplate,
+  evaluateCondition,
+  resolveInputMappings,
+  matchesTrigger,
+} from './triggers'
+
+export type {
+  CRMData,
+  SenderContext as TriggerSenderContext,
+  ThreadContextItem as TriggerThreadContextItem,
+  ParticipantContext,
+  TriggerContext,
+  InputMapping,
+  EventConditions,
+  TriggerConfig,
+  ResolvedTrigger,
+  WorkflowInputDefinition,
+  WorkflowInputSchema as TriggerWorkflowInputSchema,
+} from './triggers'
+
+// ─────────────────────────────────────────────────────────────────
+// Workflow System (Event-Driven Workflows v2)
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Constants
+  WORKFLOW_SCHEMA_VERSION,
+  // Schemas
+  WorkflowInputSchema as WorkflowYAMLInputSchema,
+  WorkflowStepInputSchema,
+  WorkflowStepSchema,
+  WorkflowRuntimeSchema,
+  WorkflowYAMLSchema,
+  WorkflowMetadataSchema,
+  WorkflowExecutionStatusSchema,
+  WorkflowExecutionResultSchema,
+  // Helper functions
+  defineWorkflowYAML,
+  validateWorkflowYAML,
+} from './workflows'
+
+export type {
+  WorkflowInput as WorkflowYAMLInput,
+  WorkflowStepInput,
+  WorkflowStep,
+  WorkflowRuntime,
+  WorkflowYAML,
+  WorkflowMetadata,
+  WorkflowExecutionStatus,
+  WorkflowExecutionResult,
+} from './workflows'
+
+// ─────────────────────────────────────────────────────────────────
+// Skills System
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Constants
+  SKILL_SCHEMA_VERSION,
+  // Schemas
+  SkillSourceSchema,
+  SkillToolRequirementSchema,
+  SkillExampleSchema,
+  SkillEvaluationMetricSchema,
+  SkillYAMLSchema,
+  SkillRefSchema,
+  SkillMetadataSchema,
+  ResolvedSkillSchema,
+  // Helper functions
+  defineSkill,
+  validateSkillYAML,
+  formatSkillInstructions,
+} from './skills'
+
+export type {
+  SkillSource,
+  SkillToolRequirement,
+  SkillExample,
+  SkillEvaluationMetric,
+  SkillYAML,
+  SkillRef,
+  SkillMetadata,
+  ResolvedSkill,
+} from './skills'
+
+// ─────────────────────────────────────────────────────────────────
+// Context System (Agent Context Resolution)
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Schemas
+  CRMContextSchema,
+  SenderContextSchema,
+  ThreadContextItemSchema,
+  ThreadInfoSchema,
+  AgentContextSchema,
+  MockSenderContextSchema,
+  MockThreadContextSchema,
+  MockContextSchema,
+  SandboxConfigSchema,
+  // Resolver functions
+  buildAgentContext,
+  buildContextFromMock,
+  formatContextForPrompt,
+  getContextByHandle,
+  getContextByModel,
+} from './context'
+
+export type {
+  CRMContext,
+  SenderContext,
+  ThreadContextItem,
+  ThreadInfo,
+  AgentContext,
+  MockSenderContext,
+  MockThreadContext,
+  MockContext,
+  SandboxConfig,
+} from './context'
+
+// ─────────────────────────────────────────────────────────────────
+// Memory System (Agent Memory)
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Schemas
+  MemoryEntryTypeSchema,
+  MemoryEntrySchema,
+  WorkingMemoryConfigSchema,
+  SemanticMemoryConfigSchema,
+  ExternalMemoryConfigSchema,
+  MemoryConfigSchema,
+  MemoryScopeSchema,
+  MemoryQueryOptionsSchema,
+  ConversationSummarySchema,
+  AgentObservationSchema,
+  ExternalDataCacheSchema,
+  // Service
+  MemoryService,
+  InMemoryStore,
+  createInMemoryService,
+} from './memory'
+
+export type {
+  MemoryEntryType,
+  MemoryEntry,
+  WorkingMemoryConfig as MemoryWorkingConfig,
+  SemanticMemoryConfig as MemorySemanticConfig,
+  ExternalMemoryConfig as MemoryExternalConfig,
+  MemoryConfig,
+  MemoryScope,
+  MemoryQueryOptions,
+  ConversationSummary,
+  AgentObservation,
+  ExternalDataCache,
+  MemoryStore,
+} from './memory'
+
 export type {
   CRMFieldType,
   CRMFieldRequirement,
@@ -219,3 +444,23 @@ export type {
   WorkflowDependency,
   ResourceDependency,
 } from './config'
+
+// ─────────────────────────────────────────────────────────────────
+// Compiler (YAML to IR)
+// ─────────────────────────────────────────────────────────────────
+export { compileAgent, compileWorkflow } from './compiler'
+
+export type {
+  ValidationError,
+  ValidationWarning,
+  ResolvedPersona,
+  ResolvedTool,
+  EventConfig as CompilerEventConfig,
+  IRMemoryConfig,
+  PolicyConfig,
+  IRRuntimeConfig,
+  AgentIR,
+  WorkflowStepIR,
+  WorkflowIR,
+  CompilationResult,
+} from './compiler'

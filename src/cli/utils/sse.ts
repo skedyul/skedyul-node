@@ -145,6 +145,14 @@ export interface ChatEvent {
     args?: Record<string, unknown>
     durationMs?: number
     resultSummary?: string
+    autoApproved?: boolean
+  }
+  /** Pending approval request for a tool that requires user confirmation */
+  pendingApproval?: {
+    toolCallId: string
+    toolName: string
+    displayName: string
+    args: Record<string, unknown>
   }
   /** Name of the agent currently responding (for multi-stage agent runs) */
   agentName?: string
@@ -155,4 +163,32 @@ export interface ChatEvent {
   done?: boolean
   initial?: boolean
   error?: string
+  sandbox?: boolean
+  /** Updated mock context after tool execution (sandbox mode only) */
+  updatedMockContext?: {
+    sender: {
+      displayName?: string
+      kind: 'contact' | 'member'
+      role?: string
+      permissions?: string[]
+      crm?: {
+        model: string
+        data: Record<string, unknown>
+      }
+    }
+    contexts?: Array<{
+      handle: string
+      model: string
+      data: Record<string, unknown>
+    }>
+  }
+  /** Tool calls from this turn with their results (for accumulating tool history) */
+  toolCalls?: Array<{
+    toolCallId: string
+    toolName: string
+    args: Record<string, unknown>
+    result: unknown
+    /** Provider-specific options (e.g., Gemini's thought_signature for tool call replay) */
+    providerOptions?: Record<string, unknown>
+  }>
 }
