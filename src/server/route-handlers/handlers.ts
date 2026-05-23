@@ -618,6 +618,157 @@ async function handleMcpToolsCall(
   }
 }
 
+type BatchToolCall = {
+  name: string
+  arguments: Record<string, unknown>
+  id?: string
+}
+
+type BatchRequest = {
+  calls: BatchToolCall[]
+  deadline?: number
+  env?: Record<string, string>
+  context?: Record<string, unknown>
+}
+
+type BatchCallResult = {
+  id?: string
+  success: boolean
+  result?: unknown
+  error?: string
+  timedOut?: boolean
+}
+
+/**
+ * Handle POST /mcp/batch
+ *
+ * Process multiple tool calls in parallel with per-call timeout support.
+ * This is used by the message outbox processor for efficient batched delivery.
+ */
+export async function handleMcpBatchRoute(
+  req: UnifiedRequest,
+  ctx: RouteContext,
+): Promise<UnifiedResponse> {
+  const parseResult = parseJsonBody<BatchRequest>(req)
+  if (!parseResult.success) {
+    return parseResult.error
+  }
+
+  const { calls, deadline, env: batchEnv, context: batchContext } = parseResult.data
+
+  if (!calls || !Array.isArray(calls) || calls.length === 0) {
+    return {
+      status: 400,
+      body: {
+        error: {
+          code: -32602,
+          message: 'Missing or invalid calls array',
+        },
+      },
+    }
+  }
+
+  const perCallTimeoutMs = deadline ? Math.min(deadline, 25000) : 25000
+
+  const executeWithTimeout = async (
+    call: BatchToolCall,
+    timeoutMs: number,
+  ): Promise<BatchCallResult> => {
+    return new Promise(async (resolve) => {
+      const timeoutHandle = setTimeout(() => {
+        resolve({
+          id: call.id,
+          success: false,
+          error: 'Timeout',
+          timedOut: true,
+        })
+      }, timeoutMs)
+
+      try {
+        const toolName = call.name
+        const toolArgs = call.arguments ?? {}
+
+        let toolKey: string | null = null
+        let tool: ToolRegistryEntry | null = null
+
+        for (const [key, t] of Object.entries(ctx.registry)) {
+          if (t.name === toolName || key === toolName) {
+            toolKey = key
+            tool = t
+            break
+          }
+        }
+
+        if (!tool || !toolKey) {
+          clearTimeout(timeoutHandle)
+          resolve({
+            id: call.id,
+            success: false,
+            error: `Tool "${toolName}" not found`,
+          })
+          return
+        }
+
+        const inputSchema = getZodSchema(tool.inputSchema)
+        const validatedInputs = inputSchema ? inputSchema.parse(toolArgs) : toolArgs
+
+        const toolResult = await ctx.callTool(toolKey, {
+          inputs: validatedInputs,
+          context: batchContext,
+          env: batchEnv,
+        })
+
+        clearTimeout(timeoutHandle)
+
+        const isFailure =
+          ('success' in toolResult && toolResult.success === false) ||
+          ('error' in toolResult && toolResult.error != null)
+
+        if (isFailure) {
+          resolve({
+            id: call.id,
+            success: false,
+            error:
+              'error' in toolResult && toolResult.error
+                ? typeof toolResult.error === 'string'
+                  ? toolResult.error
+                  : JSON.stringify(toolResult.error)
+                : 'Tool execution failed',
+          })
+        } else {
+          resolve({
+            id: call.id,
+            success: true,
+            result: 'output' in toolResult ? toolResult.output : toolResult,
+          })
+        }
+      } catch (err) {
+        clearTimeout(timeoutHandle)
+        resolve({
+          id: call.id,
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    })
+  }
+
+  const results = await Promise.all(
+    calls.map((call) => executeWithTimeout(call, perCallTimeoutMs)),
+  )
+
+  return {
+    status: 200,
+    body: {
+      results,
+      totalCalls: calls.length,
+      successCount: results.filter((r) => r.success).length,
+      failedCount: results.filter((r) => !r.success).length,
+      timedOutCount: results.filter((r) => r.timedOut).length,
+    },
+  }
+}
+
 /**
  * Create a 404 Not Found response in JSON-RPC format.
  */

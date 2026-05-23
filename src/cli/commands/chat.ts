@@ -3,7 +3,7 @@ import { parseArgs } from '../utils'
 import { getCredentials, getServerUrl } from '../utils/auth'
 import { getLinkConfig, listLinkedWorkplaces } from '../utils/link'
 import { parseSSEStream, type ChatEvent } from '../utils/sse'
-import { loadMockContext, parseMockSender, buildMockContext } from '../utils/mock-context'
+import { loadMockContext, parseMockSender, buildMockContext, getProspectData } from '../utils/mock-context'
 import type { MockContext } from '../../context/types'
 
 function printHelp(): void {
@@ -96,6 +96,8 @@ interface ToolHistoryEntry {
   timestamp: number
   /** Provider-specific options (e.g., Gemini's thought_signature for tool call replay) */
   providerOptions?: Record<string, unknown>
+  /** AI SDK tool handle (e.g., "load_skill" for "system:skill:load") - needed for correct message replay */
+  handle?: string
 }
 
 /**
@@ -1113,9 +1115,9 @@ export async function chatCommand(args: string[]): Promise<void> {
                 // Update mock context with server's updated version (for sandbox mode)
                 // This preserves CRM updates across conversation turns
                 if (sandbox && event.updatedMockContext) {
-                  const oldGoals = mockContext?.contexts?.find(c => c.model === 'prospect')?.data?.goals
+                  const oldGoals = getProspectData(mockContext)?.goals
                   mockContext = event.updatedMockContext as MockContext
-                  const newGoals = mockContext?.contexts?.find(c => c.model === 'prospect')?.data?.goals
+                  const newGoals = getProspectData(mockContext)?.goals
                   debug('Mock context updated from server. Old goals:', JSON.stringify(oldGoals), 'New goals:', JSON.stringify(newGoals))
                 } else if (sandbox) {
                   debug('No updatedMockContext in event. Event keys:', Object.keys(event))
@@ -1137,10 +1139,10 @@ export async function chatCommand(args: string[]): Promise<void> {
                     result: tc.result,
                     timestamp: Date.now(),
                     providerOptions: tc.providerOptions,
+                    handle: tc.handle, // Include AI SDK handle for correct message replay
                   }))
                   toolHistory.push(...newToolCalls)
                   debug('Tool history updated, now', toolHistory.length, 'tool calls')
-                  
                 }
                 
                 break

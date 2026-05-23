@@ -95,11 +95,37 @@ export const SkillEvaluationMetricSchema = z.object({
 export type SkillEvaluationMetric = z.infer<typeof SkillEvaluationMetricSchema>
 
 /**
+ * Field requirements for a CRM model in skill context.
+ * - required: Fields that MUST have a value or agent will fail (ERROR)
+ * - recommended: Fields that SHOULD have a value for optimal performance (WARNING)
+ * - Fields not listed are optional (no validation)
+ */
+export const CRMModelFieldRequirementsSchema = z.object({
+  required: z.array(z.string()).optional(),
+  recommended: z.array(z.string()).optional(),
+})
+
+export type CRMModelFieldRequirements = z.infer<typeof CRMModelFieldRequirementsSchema>
+
+/**
  * CRM context configuration - specifies which models and fields to include
- * in the CRM schema when loading this skill.
+ * in the CRM schema when loading this skill, with requirement levels.
+ *
+ * Example:
+ * ```yaml
+ * crmContext:
+ *   models:
+ *     prospect:
+ *       required:
+ *         - stage
+ *         - intent_score
+ *       recommended:
+ *         - goals
+ *         - desired_frequency
+ * ```
  */
 export const CRMContextSchema = z.object({
-  models: z.record(z.string(), z.array(z.string())), // { modelHandle: [fieldHandles] }
+  models: z.record(z.string(), CRMModelFieldRequirementsSchema),
 })
 
 export type CRMContext = z.infer<typeof CRMContextSchema>

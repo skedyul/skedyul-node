@@ -255,34 +255,66 @@ export type {
 // Context System (Agent Context Resolution)
 // ─────────────────────────────────────────────────────────────────
 export {
-  // Schemas
+  // Core Schemas
   CRMContextSchema,
   SenderContextSchema,
   ThreadContextItemSchema,
   ThreadInfoSchema,
+  SandboxConfigSchema,
+  
+  // Agent Context Schemas (unified for sandbox and production)
+  SubscriptionSchema,
+  AssociationSchema,
+  ContactSchema,
+  AgentSenderContextSchema,
+  AgentThreadContextSchema,
   AgentContextSchema,
+  
+  // Context Validation Schemas
+  ContextIssueSeveritySchema,
+  ContextIssueTypeSchema,
+  ContextIssueSchema,
+  ContextValidationResultSchema,
+  
+  // Legacy Mock* aliases (deprecated, kept for backwards compatibility)
   MockSenderContextSchema,
   MockThreadContextSchema,
   MockContextSchema,
-  SandboxConfigSchema,
+  
   // Resolver functions
   buildAgentContext,
-  buildContextFromMock,
   formatContextForPrompt,
   getContextByHandle,
   getContextByModel,
+  getAssociationByModel,
 } from './context'
 
 export type {
+  // Core Types
   CRMContext,
   SenderContext,
   ThreadContextItem,
   ThreadInfo,
+  SandboxConfig,
+  
+  // Agent Context Types (unified for sandbox and production)
+  Subscription,
+  Association,
+  Contact,
+  AgentSenderContext,
+  AgentThreadContext,
   AgentContext,
+  
+  // Context Validation Types
+  ContextIssueSeverity,
+  ContextIssueType,
+  ContextIssue,
+  ContextValidationResult,
+  
+  // Legacy Mock* type aliases (deprecated)
   MockSenderContext,
   MockThreadContext,
   MockContext,
-  SandboxConfig,
 } from './context'
 
 // ─────────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import {
   handleOAuthCallbackRoute,
   handleWebhookRoute,
   handleMcpRoute,
+  handleMcpBatchRoute,
   createNotFoundResponse,
   createOptionsResponse,
   createErrorResponse,
@@ -81,6 +82,10 @@ export async function routeRequest(
 
     if (req.path === '/mcp' && req.method === 'POST') {
       return handleMcpRoute(req, ctx)
+    }
+
+    if (req.path === '/mcp/batch' && req.method === 'POST') {
+      return handleMcpBatchRoute(req, ctx)
     }
 
     return createNotFoundResponse()

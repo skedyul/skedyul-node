@@ -190,5 +190,7 @@ export interface ChatEvent {
     result: unknown
     /** Provider-specific options (e.g., Gemini's thought_signature for tool call replay) */
     providerOptions?: Record<string, unknown>
+    /** AI SDK tool handle (e.g., "load_skill" for "system:skill:load") - needed for correct message replay */
+    handle?: string
   }>
 }

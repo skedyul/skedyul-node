@@ -1,15 +1,15 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { MockContextSchema, type MockContext } from '../../context/types'
+import { AgentContextSchema, type AgentContext } from '../../context/types'
 
 /**
- * Load mock context from a JSON file
+ * Load agent context from a JSON file
  */
-export function loadMockContext(filePath: string): MockContext {
+export function loadContext(filePath: string): AgentContext {
   const absolutePath = path.resolve(filePath)
 
   if (!fs.existsSync(absolutePath)) {
-    throw new Error(`Mock context file not found: ${absolutePath}`)
+    throw new Error(`Context file not found: ${absolutePath}`)
   }
 
   const content = fs.readFileSync(absolutePath, 'utf-8')
@@ -18,38 +18,53 @@ export function loadMockContext(filePath: string): MockContext {
   try {
     rawContext = JSON.parse(content)
   } catch (error) {
-    throw new Error(`Failed to parse mock context JSON: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(`Failed to parse context JSON: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  const result = MockContextSchema.safeParse(rawContext)
+  const result = AgentContextSchema.safeParse(rawContext)
   if (!result.success) {
     const errorMessages = result.error.issues
       .map((e) => `  - ${e.path.join('.')}: ${e.message}`)
       .join('\n')
-    throw new Error(`Invalid mock context:\n${errorMessages}`)
+    throw new Error(`Invalid context:\n${errorMessages}`)
   }
 
   return result.data
 }
 
+/** @deprecated Use loadContext instead */
+export const loadMockContext = loadContext
+
+/** Read prospect CRM data from context (associations shape or legacy contexts). */
+export function getProspectData(
+  context: AgentContext | null | undefined,
+): Record<string, unknown> | undefined {
+  const fromAssociations =
+    context?.sender?.contact?.associations?.prospect?.data
+  if (fromAssociations) {
+    return fromAssociations
+  }
+  return context?.contexts?.find((c) => c.model === 'prospect')?.data
+}
+
 /**
- * Parse a quick mock sender string
+ * Parse a quick sender string
  * Format: "Display Name:kind" or "Display Name:kind:model"
  * Examples:
  *   "John Smith:contact"
  *   "John Smith:contact:customer"
  *   "Sarah Jones:member"
  */
-export function parseMockSender(input: string): MockContext['sender'] {
+export function parseSender(input: string): AgentContext['sender'] {
   const parts = input.split(':')
   
   if (parts.length < 2) {
     throw new Error(
-      'Invalid mock sender format. Expected "Display Name:kind" or "Display Name:kind:model"\n' +
+      'Invalid sender format. Expected "Display Name:kind" or "Display Name:kind:model"\n' +
       'Examples:\n' +
-      '  --mock-sender "John Smith:contact"\n' +
-      '  --mock-sender "John Smith:contact:customer"\n' +
-      '  --mock-sender "Sarah Jones:member"'
+      '  --sender "John Smith:contact"\n' +
+      '  --sender "John Smith:contact:customer"\n' +
+      '  --sender "Sarah Jones:member"'
     )
   }
 
@@ -58,14 +73,14 @@ export function parseMockSender(input: string): MockContext['sender'] {
   const model = parts[2]?.trim()
 
   if (!displayName) {
-    throw new Error('Mock sender display name cannot be empty')
+    throw new Error('Sender display name cannot be empty')
   }
 
   if (kind !== 'contact' && kind !== 'member') {
     throw new Error(`Invalid sender kind: "${kind}". Must be "contact" or "member"`)
   }
 
-  const sender: MockContext['sender'] = {
+  const sender: AgentContext['sender'] = {
     displayName,
     kind: kind as 'contact' | 'member',
   }
@@ -87,26 +102,32 @@ export function parseMockSender(input: string): MockContext['sender'] {
   return sender
 }
 
+/** @deprecated Use parseSender instead */
+export const parseMockSender = parseSender
+
 /**
- * Build a complete mock context from sender and optional contexts
+ * Build a complete context from sender and optional contexts
  */
-export function buildMockContext(
-  sender: MockContext['sender'],
-  contexts?: MockContext['contexts'],
-): MockContext {
+export function buildContext(
+  sender: AgentContext['sender'],
+  contexts?: AgentContext['contexts'],
+): AgentContext {
   return {
     sender,
     contexts,
   }
 }
 
+/** @deprecated Use buildContext instead */
+export const buildMockContext = buildContext
+
 /**
- * Merge mock context with defaults
+ * Merge context with defaults
  */
-export function mergeMockContext(
-  base: Partial<MockContext>,
-  overrides: Partial<MockContext>,
-): MockContext {
+export function mergeContext(
+  base: Partial<AgentContext>,
+  overrides: Partial<AgentContext>,
+): AgentContext {
   return {
     sender: overrides.sender ?? base.sender ?? {
       displayName: 'Test User',
@@ -115,3 +136,6 @@ export function mergeMockContext(
     contexts: overrides.contexts ?? base.contexts,
   }
 }
+
+/** @deprecated Use mergeContext instead */
+export const mergeMockContext = mergeContext

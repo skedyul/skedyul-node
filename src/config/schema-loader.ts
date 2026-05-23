@@ -294,6 +294,7 @@ export interface BackendFieldDefinition {
   definition?: string | {
     type: string
     options?: Array<{ value: string; label: string; color?: string | null }>
+    limitChoices?: number
   }
 }
 
@@ -403,6 +404,7 @@ export function transformToBackendSchema(schema: CRMSchema): BackendDesiredSchem
               label: opt.label,
               color: opt.color || null,
             })),
+            limitChoices: field.definition.limitChoices,
           }
 
           // Also add to top-level field definitions

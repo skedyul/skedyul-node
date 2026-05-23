@@ -85,7 +85,7 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
       }
     }
 
-    const module = await import(moduleToLoad)
+    const module = await import(/* webpackIgnore: true */ moduleToLoad)
     const config = module.default || module
 
     if (!config || typeof config !== 'object') {

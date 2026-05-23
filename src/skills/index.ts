@@ -12,6 +12,8 @@ export {
   SkillVersionWeightSchema,
   SkillMetadataSchema,
   ResolvedSkillSchema,
+  CRMModelFieldRequirementsSchema,
+  CRMContextSchema as SkillCRMContextSchema,
 
   // Types
   type SkillSource,
@@ -24,6 +26,8 @@ export {
   type SkillMetadata,
   type ResolvedSkill,
   type SkillDiscoveryInfo,
+  type CRMModelFieldRequirements,
+  type CRMContext as SkillCRMContext,
 
   // Helper functions
   defineSkill,
