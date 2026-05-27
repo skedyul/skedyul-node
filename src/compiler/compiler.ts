@@ -331,6 +331,12 @@ function resolvePolicies(policies: AgentYAMLV3['policies'] | undefined): PolicyC
           conditions: policies.response.requiresApprovalIf,
         }
       : undefined,
+    tools: policies?.tools
+      ? {
+          externalRequiresApproval: policies.tools.externalRequiresApproval,
+          systemRequiresApproval: policies.tools.systemRequiresApproval,
+        }
+      : undefined,
     rules: policies?.rules ?? [],
   }
 }

@@ -90,6 +90,10 @@ export interface PolicyConfig {
     requiresApproval: boolean
     conditions?: string[]
   }
+  tools?: {
+    externalRequiresApproval?: boolean
+    systemRequiresApproval?: boolean
+  }
   rules: string[]
 }
 

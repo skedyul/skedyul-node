@@ -1062,6 +1062,36 @@ export async function chatCommand(args: string[]): Promise<void> {
           }
         }
 
+        // Handle explicit message events (from message tool architecture)
+        if (event.sentMessage) {
+          // Clear any in-progress thought
+          if (currentThought) {
+            clearLine()
+            currentThought = ''
+            thoughtStartTime = null
+          }
+          
+          const msg = event.sentMessage
+          const indent = event.isChildAgent ? '      ' : '  '
+          const displayName = currentAgentName || 'Agent'
+          
+          // Display message with type label
+          if (msg.type === 'intermediate') {
+            console.log(`\n\x1b[2m${indent}[INTERMEDIATE]\x1b[0m`)
+            console.log(`\x1b[1m${displayName}:\x1b[0m ${msg.content}`)
+          } else if (msg.type === 'scheduled') {
+            console.log(`\n\x1b[33m${indent}[SCHEDULED ${msg.scheduledFor || 'later'}]\x1b[0m`)
+            console.log(`\x1b[1m${displayName}:\x1b[0m ${msg.content}`)
+            console.log(`\x1b[33m${indent}  ⏳ Pending approval...\x1b[0m`)
+          } else if (msg.type === 'final') {
+            // Final messages are shown at the end, but we can mark them here too
+            console.log(`\n\x1b[32m${indent}[FINAL]\x1b[0m`)
+            console.log(`\x1b[1m${displayName}:\x1b[0m ${msg.content}`)
+            lastMessage = msg.content // Track for legacy compatibility
+            messageStarted = true
+          }
+        }
+
         // Handle message events - since we sanitize on the server, just track the latest message
         // and display it when done (no streaming needed)
         if (event.message !== undefined && event.message !== lastMessage) {
@@ -1083,14 +1113,51 @@ export async function chatCommand(args: string[]): Promise<void> {
                 // Debug: log the full event to see if updatedMockContext is present
                 debug('Final event received:', JSON.stringify(event).slice(0, 500))
                 
-                // Display the final sanitized message
-                if (lastMessage) {
-                  // Clear any in-progress thought before showing message
-                  if (currentThought) {
-                    clearLine()
-                    currentThought = ''
+                // Clear any in-progress thought before showing messages
+                if (currentThought) {
+                  clearLine()
+                  currentThought = ''
+                }
+                
+                const displayName = currentAgentName || 'Agent'
+                
+                // Handle explicit message mode: display all sentMessages in order
+                const sentMessages = (event as { sentMessages?: Array<{
+                  id: string
+                  rawContent: string
+                  transformedContent: string
+                  type: 'intermediate' | 'final' | 'scheduled'
+                  scheduledFor?: string
+                  timestamp: string
+                  index?: number
+                }> }).sentMessages
+                
+                if (sentMessages && sentMessages.length > 0) {
+                  // Display each message in order (sorted by runAgentDurable)
+                  for (const msg of sentMessages) {
+                    const content = msg.transformedContent || msg.rawContent
+                    
+                    if (msg.type === 'intermediate') {
+                      console.log(`\n\x1b[1m${displayName}:\x1b[0m ${content}`)
+                    } else if (msg.type === 'scheduled') {
+                      console.log(`\n\x1b[33m[Scheduled: ${msg.scheduledFor || 'later'}]\x1b[0m`)
+                      console.log(`\x1b[1m${displayName}:\x1b[0m ${content}`)
+                    } else if (msg.type === 'final') {
+                      console.log(`\n\x1b[1m${displayName}:\x1b[0m ${content}`)
+                      lastMessage = content // Track for legacy compatibility
+                    }
                   }
-                  const displayName = currentAgentName || 'Agent'
+                  // Use full ordered response for chat history replay
+                  const orderedContent = sentMessages
+                    .filter((m) => m.type !== 'scheduled')
+                    .map((m) => m.transformedContent || m.rawContent)
+                    .join('\n\n')
+                  if (orderedContent) {
+                    lastMessage = orderedContent
+                  }
+                  messageStarted = true
+                } else if (lastMessage) {
+                  // Legacy mode: display the final sanitized message
                   console.log(`\n\x1b[1m${displayName}:\x1b[0m ${lastMessage}`)
                 }
                 

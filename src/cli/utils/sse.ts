@@ -193,4 +193,21 @@ export interface ChatEvent {
     /** AI SDK tool handle (e.g., "load_skill" for "system:skill:load") - needed for correct message replay */
     handle?: string
   }>
+  /** Sent message event (explicit message mode) */
+  sentMessage?: {
+    messageId: string
+    content: string
+    type: 'intermediate' | 'final' | 'scheduled'
+    scheduledFor?: string
+  }
+  /** All messages sent during this turn (for explicit message mode) */
+  sentMessages?: Array<{
+    id: string
+    rawContent: string
+    transformedContent: string
+    type: 'intermediate' | 'final' | 'scheduled'
+    scheduledFor?: string
+    timestamp?: string
+    index?: number
+  }>
 }

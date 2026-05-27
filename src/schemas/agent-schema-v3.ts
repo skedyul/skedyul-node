@@ -68,8 +68,8 @@ export type ToolSandboxConfig = z.infer<typeof ToolSandboxConfigSchema>
 
 /**
  * Tool reference with optional approval and sandbox configuration
- * @deprecated Root-level tools on agents are deprecated. Use skills to own tools.
- * For always-available system tools, use bootstrapTools instead.
+ * @deprecated This schema is deprecated and kept only for backward compatibility.
+ * Use skills to own tools instead.
  */
 export const ToolRefV3Schema = z.union([
   z.string(),
@@ -85,10 +85,10 @@ export const ToolRefV3Schema = z.union([
 export type ToolRefV3 = z.infer<typeof ToolRefV3Schema>
 
 /**
- * Bootstrap tool reference - minimal config for always-available system tools
+ * Agent tool reference - minimal config for always-available tools
  * These tools are available before any skill is loaded (e.g., system:skill:load)
  */
-export const BootstrapToolRefSchema = z.union([
+export const AgentToolRefSchema = z.union([
   z.string(),
   z.object({
     tool: z.string(),
@@ -96,7 +96,17 @@ export const BootstrapToolRefSchema = z.union([
   }),
 ])
 
-export type BootstrapToolRef = z.infer<typeof BootstrapToolRefSchema>
+export type AgentToolRef = z.infer<typeof AgentToolRefSchema>
+
+/**
+ * @deprecated Use AgentToolRefSchema instead. This is kept for backward compatibility.
+ */
+export const BootstrapToolRefSchema = AgentToolRefSchema
+
+/**
+ * @deprecated Use AgentToolRef instead. This is kept for backward compatibility.
+ */
+export type BootstrapToolRef = AgentToolRef
 
 /**
  * Memory configuration for working memory
@@ -157,10 +167,56 @@ export const ResponsePolicySchema = z.object({
 export type ResponsePolicy = z.infer<typeof ResponsePolicySchema>
 
 /**
+ * Policy configuration for tool approvals
+ */
+export const ToolApprovalPolicySchema = z.object({
+  /** Whether external/MCP tools require approval (default: true) */
+  externalRequiresApproval: z.boolean().optional(),
+  /** Whether system tools require approval (default: false) */
+  systemRequiresApproval: z.boolean().optional(),
+})
+
+export type ToolApprovalPolicy = z.infer<typeof ToolApprovalPolicySchema>
+
+/**
+ * Message approval policy configuration
+ */
+export const MessageApprovalPolicySchema = z.object({
+  /**
+   * Policy for immediate messages (system:message:send)
+   */
+  send: z
+    .object({
+      /** Whether immediate messages require approval */
+      requiresApproval: z.boolean().optional(),
+      /** Action on rejection: skip (don't send), retry (agent rephrases), abort (fail run) */
+      onRejection: z.enum(['skip', 'retry', 'abort']).optional(),
+    })
+    .optional(),
+
+  /**
+   * Policy for scheduled messages (system:message:schedule)
+   */
+  schedule: z
+    .object({
+      /** Whether scheduled messages require approval (default: true) */
+      requiresApproval: z.boolean().optional(),
+      /** Action on rejection */
+      onRejection: z.enum(['skip', 'retry', 'abort']).optional(),
+    })
+    .optional(),
+})
+
+export type MessageApprovalPolicy = z.infer<typeof MessageApprovalPolicySchema>
+
+/**
  * Full policies configuration
  */
 export const PoliciesConfigV3Schema = z.object({
   response: ResponsePolicySchema.optional(),
+  tools: ToolApprovalPolicySchema.optional(),
+  /** Message tool approval policies */
+  messages: MessageApprovalPolicySchema.optional(),
   rules: z.array(z.string()).optional(),
 })
 
@@ -182,6 +238,78 @@ export const RuntimeConfigV3Schema = z.object({
 })
 
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
+
+/**
+ * Response behavior configuration
+ *
+ * Controls how agents send messages via explicit tool calls.
+ * - Intermediate messages: Progress updates ("Checking the calendar...")
+ * - Final message: Completes the user's request (always reserved)
+ * - Scheduled messages: Future follow-ups
+ */
+export const ResponsesBehaviorConfigSchema = z.object({
+  /**
+   * Maximum intermediate messages per agent run.
+   * Intermediate = progress updates, acknowledgments before task completion.
+   * The final message slot is always reserved separately.
+   * @default 2
+   */
+  maxIntermediate: z.number().optional(),
+
+  /**
+   * Whether a final message is required before the run completes.
+   * If true and no final message is sent, the run fails.
+   * @default true
+   */
+  requireFinal: z.boolean().optional(),
+
+  /**
+   * Whether the agent can schedule messages for future delivery.
+   * Scheduled messages typically require approval.
+   * @default false
+   */
+  allowSchedule: z.boolean().optional(),
+
+  /**
+   * Message splitting configuration.
+   * Controls whether and how the agent splits responses into multiple messages.
+   */
+  messageSplitting: z
+    .object({
+      /**
+       * Whether to allow natural message splitting.
+       * When true, the agent may split responses into multiple messages
+       * when it improves conversational flow.
+       */
+      enabled: z.boolean(),
+
+      /**
+       * Custom prompt to override the default message splitting guidance.
+       * If not provided, uses sensible defaults for when to split vs. keep together.
+       */
+      prompt: z.string().optional(),
+    })
+    .optional(),
+})
+
+export type ResponsesBehaviorConfig = z.infer<
+  typeof ResponsesBehaviorConfigSchema
+>
+
+/**
+ * Behavior configuration for agent runtime behavior.
+ * These settings control how the agent operates and responds.
+ */
+export const BehaviorConfigV3Schema = z.object({
+  /**
+   * Response behavior - controls message sending via tool calls.
+   * When configured, agents must explicitly call system:message:send
+   * instead of producing implicit final output.
+   */
+  responses: ResponsesBehaviorConfigSchema.optional(),
+})
+
+export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
 
 /**
  * Prompts configuration for agent-specific prompt injections.
@@ -211,8 +339,7 @@ export type AgentConfigV3 = z.infer<typeof AgentConfigV3Schema>
  * Tool Ownership Model:
  * - Skills own their tools (defined in skill files with full config)
  * - Agents reference skills, not individual tools
- * - bootstrapTools: Always-available system tools (e.g., system:skill:load)
- * - tools: DEPRECATED - kept for backward compatibility only
+ * - tools: Always-available tools before any skill loads (e.g., system:settings:business_information:get)
  */
 export const AgentYAMLV3Schema = z.object({
   $schema: z.string().optional(),
@@ -227,14 +354,9 @@ export const AgentYAMLV3Schema = z.object({
   // Skills - What the agent knows how to do (skills own their tools)
   skills: z.array(SkillRefSchema).optional(),
 
-  // Bootstrap tools - Always-available system tools before any skill loads
-  // Examples: system:skill:load, system:message:send
-  bootstrapTools: z.array(BootstrapToolRefSchema).optional(),
-
-  // Tools - DEPRECATED: Use skills to own tools instead
-  // Kept for backward compatibility during migration
-  // @deprecated Will be removed in a future version
-  tools: z.array(ToolRefV3Schema).optional(),
+  // Tools - Always-available tools before any skill loads
+  // Examples: system:settings:business_information:get
+  tools: z.array(AgentToolRefSchema).optional(),
 
   // Events - When the agent activates
   events: EventsConfigSchema.optional(),
@@ -253,6 +375,10 @@ export const AgentYAMLV3Schema = z.object({
   // followUp: Injected during follow-up passes when context needs updating
   // skillDiscoveryWorkflow: Custom workflow instructions for skill discovery
   prompts: PromptsConfigV3Schema.optional(),
+
+  // Behavior - Agent runtime behavior configuration
+  // responses: Controls message sending via explicit tool calls
+  behavior: BehaviorConfigV3Schema.optional(),
 
   // Config - Business-specific settings
   config: AgentConfigV3Schema.optional(),
