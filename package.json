@@ -49,6 +49,12 @@
       "import": "./dist/skills/types.mjs",
       "require": "./dist/skills/types.js",
       "default": "./dist/skills/types.js"
+    },
+    "./scheduling": {
+      "types": "./dist/scheduling/index.d.ts",
+      "import": "./dist/scheduling/index.mjs",
+      "require": "./dist/scheduling/index.js",
+      "default": "./dist/scheduling/index.js"
     }
   },
   "files": [

@@ -697,6 +697,30 @@ export async function chatCommand(args: string[]): Promise<void> {
   let threadId: string | undefined
   let chatHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
   let toolHistory: ToolHistoryEntry[] = []
+  
+  // Track pending scheduled messages for sandbox mode
+  interface PendingScheduledMessage {
+    id: string
+    content: string
+    scheduledFor: string
+    cancelOnActivity: boolean
+    createdAt: string
+    timeWindow?: string
+    sendAt?: {
+      mode: 'relative' | 'absolute'
+      amount?: number
+      unit?: string
+      timeWindow?: string
+      scheduleAt?: string
+    }
+  }
+  let pendingScheduledMessages: PendingScheduledMessage[] = []
+  // Default scheduling settings (can be overridden by agent config)
+  let schedulingDefaults = {
+    cancelOnActivity: true,
+    requiresApproval: true,
+    timeWindow: undefined as string | undefined,
+  }
 
   const processInput = async (input: string): Promise<boolean> => {
     const trimmed = input.trim()
@@ -719,6 +743,7 @@ export async function chatCommand(args: string[]): Promise<void> {
       console.log('  /inputs       Show current inputs')
       if (sandbox) {
         console.log('  /context      Show mock context')
+        console.log('  /scheduled, /s  Show pending scheduled messages')
       }
       console.log('  /help         Show this help')
       console.log('')
@@ -729,6 +754,7 @@ export async function chatCommand(args: string[]): Promise<void> {
       threadId = undefined
       chatHistory = []
       toolHistory = []
+      pendingScheduledMessages = []
       console.log('\n\x1b[2mConversation cleared.\x1b[0m\n')
       return true
     }
@@ -756,6 +782,40 @@ export async function chatCommand(args: string[]): Promise<void> {
         console.log('')
       }
       return true
+    }
+
+    if (trimmed === '/scheduled' || trimmed === '/s') {
+      if (!sandbox) {
+        console.log('\n\x1b[2mScheduled message tracking is only available in sandbox mode.\x1b[0m\n')
+      } else if (pendingScheduledMessages.length === 0) {
+        console.log('\n\x1b[2mNo pending scheduled messages.\x1b[0m\n')
+      } else {
+        console.log('')
+        console.log(`\x1b[1mPending Scheduled Messages (${pendingScheduledMessages.length}):\x1b[0m`)
+        for (const [i, m] of pendingScheduledMessages.entries()) {
+          const cancelTag = m.cancelOnActivity ? '\x1b[33m[auto-cancel on activity]\x1b[0m' : ''
+          const timeWindowTag = m.timeWindow ? `\x1b[36m[${m.timeWindow}]\x1b[0m ` : ''
+          console.log(`  ${i + 1}. ${timeWindowTag}${m.scheduledFor} ${cancelTag}`)
+          const contentPreview = m.content.length > 60 ? m.content.slice(0, 60) + '...' : m.content
+          console.log(`     "${contentPreview}"`)
+        }
+        console.log('')
+      }
+      return true
+    }
+
+    // Simulate cancelOnActivity in sandbox mode
+    if (sandbox && pendingScheduledMessages.length > 0) {
+      const toCancel = pendingScheduledMessages.filter(m => m.cancelOnActivity)
+      if (toCancel.length > 0) {
+        console.log(`\n\x1b[33m[Auto-cancelled ${toCancel.length} scheduled message(s) due to activity]\x1b[0m`)
+        for (const m of toCancel) {
+          const contentPreview = m.content.length > 50 ? m.content.slice(0, 50) + '...' : m.content
+          console.log(`  - "${contentPreview}" (was scheduled for ${m.scheduledFor})`)
+        }
+        pendingScheduledMessages = pendingScheduledMessages.filter(m => !m.cancelOnActivity)
+        console.log('')
+      }
     }
 
     console.log('')
@@ -1080,7 +1140,15 @@ export async function chatCommand(args: string[]): Promise<void> {
             console.log(`\n\x1b[2m${indent}[INTERMEDIATE]\x1b[0m`)
             console.log(`\x1b[1m${displayName}:\x1b[0m ${msg.content}`)
           } else if (msg.type === 'scheduled') {
-            console.log(`\n\x1b[33m${indent}[SCHEDULED ${msg.scheduledFor || 'later'}]\x1b[0m`)
+            // Enhanced scheduled message display with timeWindow info
+            const scheduledTime = msg.scheduledFor 
+              ? new Date(msg.scheduledFor).toLocaleString() 
+              : 'later'
+            const msgWithSendAt = msg as { scheduledFor?: string; sendAt?: { timeWindow?: string } }
+            const timeWindowInfo = msgWithSendAt.sendAt?.timeWindow 
+              ? ` (within ${msgWithSendAt.sendAt.timeWindow})` 
+              : ''
+            console.log(`\n\x1b[33m${indent}[SCHEDULED: ${scheduledTime}${timeWindowInfo}]\x1b[0m`)
             console.log(`\x1b[1m${displayName}:\x1b[0m ${msg.content}`)
             console.log(`\x1b[33m${indent}  ⏳ Pending approval...\x1b[0m`)
           } else if (msg.type === 'final') {
@@ -1122,7 +1190,7 @@ export async function chatCommand(args: string[]): Promise<void> {
                 const displayName = currentAgentName || 'Agent'
                 
                 // Handle explicit message mode: display all sentMessages in order
-                const sentMessages = (event as { sentMessages?: Array<{
+                type SentMessageWithSendAt = {
                   id: string
                   rawContent: string
                   transformedContent: string
@@ -1130,7 +1198,30 @@ export async function chatCommand(args: string[]): Promise<void> {
                   scheduledFor?: string
                   timestamp: string
                   index?: number
-                }> }).sentMessages
+                  sendAt?: {
+                    mode: 'relative' | 'absolute'
+                    amount?: number
+                    unit?: string
+                    timeWindow?: string
+                    scheduleAt?: string
+                  }
+                }
+                const sentMessages = (event as { sentMessages?: SentMessageWithSendAt[] }).sentMessages
+                
+                // Update scheduling defaults from server response (sandbox mode)
+                const eventSchedulingDefaults = (event as { schedulingDefaults?: {
+                  cancelOnActivity?: boolean
+                  requiresApproval?: boolean
+                  timeWindow?: string
+                } }).schedulingDefaults
+                if (sandbox && eventSchedulingDefaults) {
+                  schedulingDefaults = {
+                    cancelOnActivity: eventSchedulingDefaults.cancelOnActivity ?? true,
+                    requiresApproval: eventSchedulingDefaults.requiresApproval ?? true,
+                    timeWindow: eventSchedulingDefaults.timeWindow,
+                  }
+                  debug('Updated scheduling defaults:', schedulingDefaults)
+                }
                 
                 if (sentMessages && sentMessages.length > 0) {
                   // Display each message in order (sorted by runAgentDurable)
@@ -1140,13 +1231,40 @@ export async function chatCommand(args: string[]): Promise<void> {
                     if (msg.type === 'intermediate') {
                       console.log(`\n\x1b[1m${displayName}:\x1b[0m ${content}`)
                     } else if (msg.type === 'scheduled') {
-                      console.log(`\n\x1b[33m[Scheduled: ${msg.scheduledFor || 'later'}]\x1b[0m`)
+                      // Enhanced scheduled message display with timeWindow info
+                      const scheduledTime = msg.scheduledFor 
+                        ? new Date(msg.scheduledFor).toLocaleString() 
+                        : 'later'
+                      const timeWindowInfo = msg.sendAt?.timeWindow 
+                        ? ` (within ${msg.sendAt.timeWindow})` 
+                        : ''
+                      console.log(`\n\x1b[33m[Scheduled: ${scheduledTime}${timeWindowInfo}]\x1b[0m`)
                       console.log(`\x1b[1m${displayName}:\x1b[0m ${content}`)
                     } else if (msg.type === 'final') {
                       console.log(`\n\x1b[1m${displayName}:\x1b[0m ${content}`)
                       lastMessage = content // Track for legacy compatibility
                     }
                   }
+                  
+                  // Collect scheduled messages for sandbox tracking
+                  if (sandbox) {
+                    const newScheduled = sentMessages.filter(m => m.type === 'scheduled')
+                    for (const m of newScheduled) {
+                      pendingScheduledMessages.push({
+                        id: m.id,
+                        content: m.transformedContent || m.rawContent,
+                        scheduledFor: m.scheduledFor || 'unknown',
+                        cancelOnActivity: schedulingDefaults.cancelOnActivity,
+                        createdAt: new Date().toISOString(),
+                        timeWindow: m.sendAt?.timeWindow,
+                        sendAt: m.sendAt,
+                      })
+                    }
+                    if (newScheduled.length > 0) {
+                      debug(`Added ${newScheduled.length} scheduled messages to tracking (total: ${pendingScheduledMessages.length})`)
+                    }
+                  }
+                  
                   // Use full ordered response for chat history replay
                   const orderedContent = sentMessages
                     .filter((m) => m.type !== 'scheduled')

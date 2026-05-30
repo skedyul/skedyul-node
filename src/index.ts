@@ -496,3 +496,48 @@ export type {
   WorkflowIR,
   CompilationResult,
 } from './compiler'
+
+// ─────────────────────────────────────────────────────────────────
+// Scheduling (Time Windows & Wait Calculations)
+// ─────────────────────────────────────────────────────────────────
+// Zod schemas (for validation in activities, not workflow-safe)
+export {
+  TimeStampSchema,
+  DayOfWeekSchema,
+  TimeWindowSlotSchema,
+  WaitUnitSchema,
+  WaitInputRelativeSchema,
+  WaitInputAbsoluteSchema,
+  WaitInputSchema,
+} from './scheduling/types'
+
+// Functions (workflow-safe)
+export {
+  calculateWaitTime,
+  isTimeInWindowSlot,
+  isTimeInPolicy,
+} from './scheduling'
+
+// Types (workflow-safe, from types-workflow.ts via scheduling/index.ts)
+export type {
+  TimeStamp,
+  DayOfWeek,
+  TimeWindowSlot,
+  WaitUnit,
+  WaitInputRelative,
+  WaitInputAbsolute,
+  WaitInputType,
+  CalculateWaitTimeResult,
+  TimeWindowPolicy,
+} from './scheduling'
+
+// Re-export time window types from schemas for workflows
+export {
+  TimeWindowBehaviorSchema,
+  TimeWindowPoliciesSchema,
+} from './schemas/agent-schema-v3'
+
+export type {
+  TimeWindowBehavior,
+  TimeWindowPolicies,
+} from './schemas/agent-schema-v3'

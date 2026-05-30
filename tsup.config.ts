@@ -71,6 +71,16 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, 'zod', 'zod/v4'],
   },
+  // Scheduling CJS build (workflow-safe, no Node.js APIs)
+  {
+    entry: { 'scheduling/index': 'src/scheduling/index.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, 'zod', 'zod/v4'],
+  },
   // Schemas ESM build (for ESM packages like skedyul-mcp)
   {
     entry: { 'agent-schema': 'src/schemas/agent-schema.ts' },
@@ -109,6 +119,17 @@ export default defineConfig([
     banner: {
       js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
     },
+  },
+  // Scheduling ESM build (workflow-safe, no Node.js APIs)
+  // Note: No 'module' banner - this needs to be bundleable in Temporal workflows
+  {
+    entry: { index: 'src/scheduling/index.ts' },
+    format: ['esm'],
+    outDir: 'dist/scheduling',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: ['zod', 'zod/v4'],
   },
   // Main ESM build for integrations that use "type": "module"
   // This prevents double-loading when serverless integrations import from 'skedyul'

@@ -209,5 +209,19 @@ export interface ChatEvent {
     scheduledFor?: string
     timestamp?: string
     index?: number
+    /** Structured sendAt object from the agent tool */
+    sendAt?: {
+      mode: 'relative' | 'absolute'
+      amount?: number
+      unit?: string
+      timeWindow?: string
+      scheduleAt?: string
+    }
   }>
+  /** Scheduling defaults from agent config (sandbox mode only) */
+  schedulingDefaults?: {
+    cancelOnActivity?: boolean
+    requiresApproval?: boolean
+    timeWindow?: string
+  }
 }

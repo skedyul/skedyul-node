@@ -239,6 +239,116 @@ export const RuntimeConfigV3Schema = z.object({
 
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Time Window Types (for scheduling and time-aware behavior)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Time stamp for window definitions.
+ * Can be a simple hour (0-23) or an object with hour/minute.
+ */
+export const TimeWindowTimeStampSchema = z.union([
+  z.number().describe('Hour of day (0-23)'),
+  z.object({
+    hour: z.number(),
+    minute: z.number().optional().default(0),
+  }),
+])
+
+export type TimeWindowTimeStamp = z.infer<typeof TimeWindowTimeStampSchema>
+
+/**
+ * Day of week for window definitions.
+ */
+export const TimeWindowDayOfWeekSchema = z.enum([
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+])
+
+export type TimeWindowDayOfWeek = z.infer<typeof TimeWindowDayOfWeekSchema>
+
+/**
+ * A time window slot definition (e.g., 9am-5pm Monday-Friday).
+ */
+export const TimeWindowSlotAgentSchema = z.object({
+  startTime: TimeWindowTimeStampSchema,
+  endTime: TimeWindowTimeStampSchema,
+  days: z.array(TimeWindowDayOfWeekSchema),
+})
+
+export type TimeWindowSlotAgent = z.infer<typeof TimeWindowSlotAgentSchema>
+
+/**
+ * Response mode for time window behavior.
+ * - immediate: Normal immediate response
+ * - ack_and_schedule: Brief ack now + schedule full response for later
+ * - schedule_only: No immediate response, schedule everything for later
+ */
+export const ResponseModeSchema = z.enum([
+  'immediate',
+  'ack_and_schedule',
+  'schedule_only',
+])
+
+export type ResponseMode = z.infer<typeof ResponseModeSchema>
+
+/**
+ * Behavior configuration for a time window.
+ * Controls how the agent responds when a message arrives during this window.
+ */
+export const TimeWindowBehaviorSchema = z.object({
+  /** How to handle responses in this window */
+  responseMode: ResponseModeSchema,
+  /** Prompt injection for this time context */
+  prompt: z.string().optional().describe('Prompt injection for this time context'),
+  /** Window to schedule responses for (when responseMode is ack_and_schedule or schedule_only) */
+  scheduleFor: z.string().optional().describe('Window name to schedule responses for'),
+})
+
+export type TimeWindowBehavior = z.infer<typeof TimeWindowBehaviorSchema>
+
+/**
+ * A named time window policy.
+ * Defines when the window is active and how the agent behaves during it.
+ */
+export const TimeWindowPolicySchema = z.object({
+  /** IANA timezone for the window (e.g., "Australia/Sydney") */
+  timezone: z.string().describe('IANA timezone, e.g., "Australia/Sydney"'),
+  /** Time slots when this window is active */
+  windows: z.array(TimeWindowSlotAgentSchema),
+  /** Behavior for this window (optional - defaults to immediate response) */
+  behavior: TimeWindowBehaviorSchema.optional(),
+})
+
+export type TimeWindowPolicy = z.infer<typeof TimeWindowPolicySchema>
+
+/**
+ * Collection of named time window policies.
+ * Keys are policy names (e.g., "business_hours", "after_work").
+ */
+export const TimeWindowPoliciesSchema = z.record(z.string(), TimeWindowPolicySchema)
+
+export type TimeWindowPolicies = z.infer<typeof TimeWindowPoliciesSchema>
+
+/**
+ * Default time window behavior.
+ * Applied when no defined window matches the current time.
+ */
+export const TimeWindowDefaultSchema = TimeWindowBehaviorSchema.describe(
+  'Fallback behavior when no time window matches'
+)
+
+export type TimeWindowDefault = z.infer<typeof TimeWindowDefaultSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Response and Behavior Configuration
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Response behavior configuration
  *
@@ -297,6 +407,68 @@ export type ResponsesBehaviorConfig = z.infer<
 >
 
 /**
+ * Structured default delay for scheduling patterns.
+ * Matches the sendAt format used in message tools.
+ */
+export const SchedulingDelaySchema = z.object({
+  /** Time unit amount */
+  amount: z.number(),
+  /** Time unit (e.g., "week", "weeks", "day", "days", "month", "months") */
+  unit: z.string(),
+  /** Optional time window to constrain the delay */
+  timeWindow: z.string().optional(),
+})
+
+export type SchedulingDelay = z.infer<typeof SchedulingDelaySchema>
+
+/**
+ * Scheduling pattern configuration.
+ * Defines when the agent should schedule follow-up messages.
+ */
+export const SchedulingPatternSchema = z.object({
+  /** Trigger name for this pattern */
+  trigger: z.string(),
+  /** Human-readable description of when this pattern applies */
+  description: z.string().optional(),
+  /** Example user phrases that match this pattern */
+  examples: z.array(z.string()).optional(),
+  /** Default delay for this pattern */
+  defaultDelay: SchedulingDelaySchema.optional(),
+})
+
+export type SchedulingPattern = z.infer<typeof SchedulingPatternSchema>
+
+/**
+ * Scheduling behavior configuration.
+ * Controls when and how the agent schedules follow-up messages.
+ */
+export const SchedulingBehaviorConfigSchema = z.object({
+  /**
+   * Patterns that trigger scheduling suggestions.
+   * The agent uses these to know when to add sendAt to messages.
+   */
+  patterns: z.array(SchedulingPatternSchema).optional(),
+
+  /**
+   * Default settings for scheduled messages.
+   */
+  defaults: z
+    .object({
+      /** Cancel scheduled message if user replies before send time (default: true) */
+      cancelOnActivity: z.boolean().optional(),
+      /** Whether scheduled messages require approval (default: true) */
+      requiresApproval: z.boolean().optional(),
+      /** Default time window policy to constrain all scheduled messages */
+      timeWindow: z.string().optional().describe('Time window policy name for scheduled messages'),
+    })
+    .optional(),
+})
+
+export type SchedulingBehaviorConfig = z.infer<
+  typeof SchedulingBehaviorConfigSchema
+>
+
+/**
  * Behavior configuration for agent runtime behavior.
  * These settings control how the agent operates and responds.
  */
@@ -307,6 +479,12 @@ export const BehaviorConfigV3Schema = z.object({
    * instead of producing implicit final output.
    */
   responses: ResponsesBehaviorConfigSchema.optional(),
+
+  /**
+   * Scheduling behavior - controls when the agent schedules follow-up messages.
+   * Patterns define triggers like "user indicates they'll return later".
+   */
+  scheduling: SchedulingBehaviorConfigSchema.optional(),
 })
 
 export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
@@ -379,6 +557,14 @@ export const AgentYAMLV3Schema = z.object({
   // Behavior - Agent runtime behavior configuration
   // responses: Controls message sending via explicit tool calls
   behavior: BehaviorConfigV3Schema.optional(),
+
+  // Time Windows - Named time window policies for scheduling constraints
+  // Windows must be mutually exclusive (non-overlapping)
+  // Each window can define its own behavior (response mode, prompt, etc.)
+  timeWindows: TimeWindowPoliciesSchema.optional(),
+
+  // Time Window Default - Fallback behavior when no window matches
+  timeWindowDefault: TimeWindowDefaultSchema.optional(),
 
   // Config - Business-specific settings
   config: AgentConfigV3Schema.optional(),
