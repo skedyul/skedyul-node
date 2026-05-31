@@ -294,7 +294,7 @@ export function calculateWaitTime(
           windowScheduledTime = new Date(targetDate.getTime() + windowWaitTime)
         } else {
           // Find the next allowed day for this window
-          let daysToAdd = 1
+          let daysToAdd = 7
 
           // Check each day starting from tomorrow
           for (let i = 1; i <= 7; i++) {
