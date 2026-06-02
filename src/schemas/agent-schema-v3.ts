@@ -110,6 +110,7 @@ export type BootstrapToolRef = AgentToolRef
 
 /**
  * Memory configuration for working memory
+ * @deprecated Not yet implemented - this is a planned feature. Fields are accepted but not used at runtime.
  */
 export const WorkingMemoryConfigSchema = z.object({
   strategy: z.enum(['full', 'rolling_summary', 'sliding_window']).optional(),
@@ -121,6 +122,7 @@ export type WorkingMemoryConfig = z.infer<typeof WorkingMemoryConfigSchema>
 
 /**
  * Memory configuration for external data
+ * @deprecated Not yet implemented - this is a planned feature. Fields are accepted but not used at runtime.
  */
 export const ExternalMemoryConfigSchema = z.object({
   enabled: z.boolean().optional(),
@@ -131,6 +133,7 @@ export type ExternalMemoryConfig = z.infer<typeof ExternalMemoryConfigSchema>
 
 /**
  * Memory configuration for semantic search
+ * @deprecated Not yet implemented - this is a planned feature. Fields are accepted but not used at runtime.
  */
 export const SemanticMemoryConfigSchema = z.object({
   enabled: z.boolean().optional(),
@@ -142,6 +145,7 @@ export type SemanticMemoryConfig = z.infer<typeof SemanticMemoryConfigSchema>
 
 /**
  * Full memory configuration
+ * @deprecated Not yet implemented - this is a planned feature. Fields are accepted but not used at runtime.
  */
 export const MemoryConfigV3Schema = z.object({
   working: WorkingMemoryConfigSchema.optional(),
@@ -157,66 +161,11 @@ export const MemoryConfigV3Schema = z.object({
 export type MemoryConfigV3 = z.infer<typeof MemoryConfigV3Schema>
 
 /**
- * Policy configuration for response approval
- */
-export const ResponsePolicySchema = z.object({
-  requiresApproval: z.boolean().optional(),
-  requiresApprovalIf: z.array(z.string()).optional(),
-})
-
-export type ResponsePolicy = z.infer<typeof ResponsePolicySchema>
-
-/**
- * Policy configuration for tool approvals
- */
-export const ToolApprovalPolicySchema = z.object({
-  /** Whether external/MCP tools require approval (default: true) */
-  externalRequiresApproval: z.boolean().optional(),
-  /** Whether system tools require approval (default: false) */
-  systemRequiresApproval: z.boolean().optional(),
-})
-
-export type ToolApprovalPolicy = z.infer<typeof ToolApprovalPolicySchema>
-
-/**
- * Message approval policy configuration
- */
-export const MessageApprovalPolicySchema = z.object({
-  /**
-   * Policy for immediate messages (system:message:send)
-   */
-  send: z
-    .object({
-      /** Whether immediate messages require approval */
-      requiresApproval: z.boolean().optional(),
-      /** Action on rejection: skip (don't send), retry (agent rephrases), abort (fail run) */
-      onRejection: z.enum(['skip', 'retry', 'abort']).optional(),
-    })
-    .optional(),
-
-  /**
-   * Policy for scheduled messages (system:message:schedule)
-   */
-  schedule: z
-    .object({
-      /** Whether scheduled messages require approval (default: true) */
-      requiresApproval: z.boolean().optional(),
-      /** Action on rejection */
-      onRejection: z.enum(['skip', 'retry', 'abort']).optional(),
-    })
-    .optional(),
-})
-
-export type MessageApprovalPolicy = z.infer<typeof MessageApprovalPolicySchema>
-
-/**
- * Full policies configuration
+ * Policies configuration
+ * Only `rules` is actively used - injected into system prompt.
  */
 export const PoliciesConfigV3Schema = z.object({
-  response: ResponsePolicySchema.optional(),
-  tools: ToolApprovalPolicySchema.optional(),
-  /** Message tool approval policies */
-  messages: MessageApprovalPolicySchema.optional(),
+  /** Business rules injected into the agent's system prompt */
   rules: z.array(z.string()).optional(),
 })
 
@@ -224,17 +173,11 @@ export type PoliciesConfigV3 = z.infer<typeof PoliciesConfigV3Schema>
 
 /**
  * Runtime configuration
+ * Only `model` is actively used for LLM model selection.
  */
 export const RuntimeConfigV3Schema = z.object({
+  /** LLM model identifier (e.g., "google/gemini-3.1-flash-lite") */
   model: z.string().optional(),
-  timeout: z.string().optional(),
-  timezone: z.string().optional(),
-  retry: z
-    .object({
-      attempts: z.number().optional(),
-      backoff: z.enum(['linear', 'exponential']).optional(),
-    })
-    .optional(),
 })
 
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
@@ -494,19 +437,15 @@ export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
  * These prompts are injected during specific runtime phases.
  */
 export const PromptsConfigV3Schema = z.object({
+  /** Main system prompt with workflow instructions */
+  system: z.string().optional(),
+  /** Injected during second pass when skills were loaded but tools not used */
   recovery: z.string().optional(),
+  /** Injected during follow-up passes when context needs updating */
   followUp: z.string().optional(),
-  skillDiscoveryWorkflow: z.string().optional(),
 })
 
 export type PromptsConfigV3 = z.infer<typeof PromptsConfigV3Schema>
-
-/**
- * Agent configuration (business-specific settings)
- */
-export const AgentConfigV3Schema = z.record(z.string(), z.unknown())
-
-export type AgentConfigV3 = z.infer<typeof AgentConfigV3Schema>
 
 /**
  * Full Agent YAML v3 Schema
@@ -536,22 +475,27 @@ export const AgentYAMLV3Schema = z.object({
   // Examples: system:settings:business_information:get
   tools: z.array(AgentToolRefSchema).optional(),
 
-  // Events - When the agent activates
+  /**
+   * Events - When the agent activates
+   * @deprecated Not yet implemented - this is a planned feature for event-driven agents.
+   * Fields are accepted but not used at runtime.
+   */
   events: EventsConfigSchema.optional(),
 
-  // Memory - How the agent remembers
+  /**
+   * Memory - How the agent remembers
+   * @deprecated Not yet implemented - this is a planned feature.
+   * Fields are accepted but not used at runtime.
+   */
   memory: MemoryConfigV3Schema.optional(),
 
-  // Policies - Constraints and approvals
+  // Policies - Business rules for the agent
   policies: PoliciesConfigV3Schema.optional(),
 
-  // Runtime - Execution configuration
+  // Runtime - Execution configuration (only model is used)
   runtime: RuntimeConfigV3Schema.optional(),
 
-  // Prompts - Agent-specific prompt injections for runtime phases
-  // recovery: Injected during second pass when skills were loaded but tools not used
-  // followUp: Injected during follow-up passes when context needs updating
-  // skillDiscoveryWorkflow: Custom workflow instructions for skill discovery
+  // Prompts - Agent-specific prompt injections
   prompts: PromptsConfigV3Schema.optional(),
 
   // Behavior - Agent runtime behavior configuration
@@ -565,9 +509,6 @@ export const AgentYAMLV3Schema = z.object({
 
   // Time Window Default - Fallback behavior when no window matches
   timeWindowDefault: TimeWindowDefaultSchema.optional(),
-
-  // Config - Business-specific settings
-  config: AgentConfigV3Schema.optional(),
 
   // Sandbox - Testing configuration
   sandbox: SandboxConfigSchema.optional(),

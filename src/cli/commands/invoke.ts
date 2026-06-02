@@ -362,18 +362,48 @@ export async function invokeCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Find tool
+  // Find tool - supports exact match and partial matching by short name
   let tool: ToolRegistryEntry | undefined
 
-  // Try exact match first
+  // Try exact match first (by key or name)
   if (registry[toolName]) {
     tool = registry[toolName]
   } else {
-    // Search by tool.name property
     for (const [, entry] of Object.entries(registry)) {
       if (entry.name === toolName) {
         tool = entry
         break
+      }
+    }
+  }
+
+  // If no exact match, try partial matching
+  if (!tool) {
+    const inputParts = toolName.split(':')
+    const inputShortName = inputParts[inputParts.length - 1]
+
+    // If input is prefixed (app:xxx:tool), match by short name in registry
+    if (inputParts.length > 1) {
+      for (const [key, entry] of Object.entries(registry)) {
+        if (entry.name === inputShortName || key === inputShortName) {
+          tool = entry
+          break
+        }
+      }
+    }
+
+    // If input is short name, match against prefixed names in registry
+    if (!tool) {
+      const matches: ToolRegistryEntry[] = []
+      for (const [, entry] of Object.entries(registry)) {
+        const registryParts = entry.name.split(':')
+        const registryShortName = registryParts[registryParts.length - 1]
+        if (registryShortName === toolName) {
+          matches.push(entry)
+        }
+      }
+      if (matches.length === 1) {
+        tool = matches[0]
       }
     }
   }

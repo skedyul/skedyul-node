@@ -77,13 +77,29 @@ export const CRMFieldDefinitionSchema = z.union([
 export type CRMFieldDefinition = z.infer<typeof CRMFieldDefinitionSchema>
 
 /**
+ * Field appearance schema for UI presentation (icons, placeholder, help text).
+ * This is shared across form inputs, selects, textareas, and spreadsheet cells.
+ */
+export const CRMFieldAppearanceSchemaZ = z.object({
+  leftIcon: z.string().optional(),
+  rightIcon: z.string().optional(),
+  placeholder: z.string().optional(),
+  helpText: z.string().optional(),
+})
+
+export type CRMFieldAppearance = z.infer<typeof CRMFieldAppearanceSchemaZ>
+
+/**
  * Field schema for CRM models.
  */
 export const CRMFieldSchemaZ = z.object({
   handle: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Handle must be lowercase alphanumeric with underscores, starting with a letter'),
   label: z.string().min(1, 'Label is required'),
   type: CRMFieldTypeSchema,
+  /** Field description - explains what the field is for (metadata, not UI) */
   description: z.string().optional(),
+  /** Field appearance - UI presentation settings */
+  appearance: CRMFieldAppearanceSchemaZ.optional(),
   requirement: CRMFieldRequirementSchema.optional(),
   unique: z.boolean().optional(),
   list: z.boolean().optional(),
@@ -258,6 +274,18 @@ export type CRMSchema = z.infer<typeof CRMSchemaZ>
  *       name: 'Lead',
  *       fields: [
  *         { handle: 'first_name', label: 'First Name', type: 'string' },
+ *         {
+ *           handle: 'email',
+ *           label: 'Email',
+ *           type: 'string',
+ *           definition: 'email',
+ *           description: 'Primary contact email',
+ *           appearance: {
+ *             leftIcon: 'Mail',
+ *             placeholder: 'Enter email address',
+ *             helpText: 'We will never share your email',
+ *           },
+ *         },
  *       ],
  *     },
  *   ],

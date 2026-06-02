@@ -278,13 +278,24 @@ export interface BackendModelDefinition {
 }
 
 /**
+ * Backend-compatible field appearance.
+ */
+export interface BackendFieldAppearance {
+  leftIcon?: string
+  rightIcon?: string
+  placeholder?: string
+  helpText?: string
+}
+
+/**
  * Backend-compatible field definition.
  */
 export interface BackendFieldDefinition {
   handle: string
   label: string
   type: string
-  helpText?: string | null
+  description?: string
+  appearance?: BackendFieldAppearance
   isList?: boolean
   isUnique?: boolean
   requirement?: string
@@ -372,11 +383,23 @@ export function transformToBackendSchema(schema: CRMSchema): BackendDesiredSchem
 
   const models: BackendModelDefinition[] = schema.models.map((model) => {
     const fields: BackendFieldDefinition[] = model.fields.map((field) => {
+      // Transform appearance, filtering out null values
+      let appearance: BackendFieldAppearance | undefined
+      if (field.appearance) {
+        appearance = {}
+        if (field.appearance.leftIcon) appearance.leftIcon = field.appearance.leftIcon
+        if (field.appearance.rightIcon) appearance.rightIcon = field.appearance.rightIcon
+        if (field.appearance.placeholder) appearance.placeholder = field.appearance.placeholder
+        if (field.appearance.helpText) appearance.helpText = field.appearance.helpText
+        if (Object.keys(appearance).length === 0) appearance = undefined
+      }
+
       const backendField: BackendFieldDefinition = {
         handle: field.handle,
         label: field.label,
         type: FIELD_TYPE_MAP[field.type] || field.type.toUpperCase(),
-        helpText: field.description || null,
+        description: field.description || undefined,
+        appearance,
         isList: field.list,
         isUnique: field.unique,
         requirement: field.requirement
@@ -524,7 +547,8 @@ export function transformFromBackendSchema(
       handle: field.handle,
       label: field.label,
       type: (reverseFieldTypeMap[field.type] || field.type.toLowerCase()) as any,
-      description: field.helpText || undefined,
+      description: field.description || undefined,
+      appearance: field.appearance || undefined,
       requirement: field.requirement
         ? (reverseRequirementMap[field.requirement] as any)
         : undefined,

@@ -7,7 +7,7 @@ import type { ContextLogger } from '../server/logger'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Trigger types for tool execution */
-export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow' | 'page_context'
+export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow' | 'page_context' | 'cron'
 
 /** Base context shared by all tool executions */
 interface BaseToolContext {
@@ -75,6 +75,23 @@ export interface WorkflowToolContext extends RuntimeToolContext {
   trigger: 'workflow'
 }
 
+/** Cron subscription metadata */
+export interface CronContext {
+  /** The subscription that triggered this execution */
+  subscriptionId: string
+  /** When the cron was scheduled to run */
+  scheduledTime: Date
+  /** Cursor from the last run (null on first run) */
+  cursor: Record<string, unknown> | null
+}
+
+/** Cron-triggered context */
+export interface CronToolContext extends RuntimeToolContext {
+  trigger: 'cron'
+  /** Cron subscription metadata including cursor */
+  cron: CronContext
+}
+
 /** Discriminated union of all tool execution contexts */
 export type ToolExecutionContext =
   | ProvisionToolContext
@@ -83,6 +100,7 @@ export type ToolExecutionContext =
   | FormSubmitToolContext
   | AgentToolContext
   | WorkflowToolContext
+  | CronToolContext
 
 /** Type guard for provision context */
 export function isProvisionContext(ctx: ToolExecutionContext): ctx is ProvisionToolContext {
@@ -92,6 +110,11 @@ export function isProvisionContext(ctx: ToolExecutionContext): ctx is ProvisionT
 /** Type guard for runtime context (any non-provision trigger) */
 export function isRuntimeContext(
   ctx: ToolExecutionContext,
-): ctx is FieldChangeToolContext | PageActionToolContext | FormSubmitToolContext | AgentToolContext | WorkflowToolContext {
+): ctx is FieldChangeToolContext | PageActionToolContext | FormSubmitToolContext | AgentToolContext | WorkflowToolContext | CronToolContext {
   return ctx.trigger !== 'provision'
+}
+
+/** Type guard for cron context */
+export function isCronContext(ctx: ToolExecutionContext): ctx is CronToolContext {
+  return ctx.trigger === 'cron'
 }

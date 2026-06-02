@@ -160,6 +160,8 @@ export interface ToolSuccess<T = unknown> {
   billing?: ToolBilling
   effect?: ToolEffect
   timing?: ToolTiming
+  /** Cursor state for cron subscriptions - saved and passed to the next run */
+  cursor?: Record<string, unknown>
 }
 
 /**
@@ -223,13 +225,17 @@ export type ToolResponseMeta = z.infer<typeof ToolResponseMetaSchema>
  * @deprecated Use ToolResult<T> instead. This type is kept for backward compatibility.
  */
 export interface ToolExecutionResult<Output = unknown> {
+  /** Discriminator for new ToolResult shape (true=success, false=failure) */
+  success?: boolean
   output: Output | null
   billing: BillingInfo
-  meta: ToolResponseMeta
+  meta?: ToolResponseMeta
   effect?: ToolEffect
   error?: ToolError | null
   /** Rich data blocks for UI rendering (profiles, spreadsheets, datetime cards) */
   dataBlocks?: import('./data-blocks').DataBlock[]
+  /** Cursor state for cron subscriptions - saved and passed to the next run */
+  cursor?: Record<string, unknown>
 }
 
 export interface ToolSchemaWithJson<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -288,6 +294,10 @@ export interface ToolMetadata {
   description: string
   inputSchema?: Record<string, unknown>
   outputSchema?: Record<string, unknown>
+  /** Timeout in milliseconds for this tool (top-level for sync) */
+  timeout?: number
+  /** Maximum retry attempts (top-level for sync) */
+  retries?: number
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
 }

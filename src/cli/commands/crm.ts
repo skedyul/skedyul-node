@@ -7,7 +7,6 @@ import {
   loadSchema,
   saveSchema,
   transformToBackendSchema,
-  transformFromBackendSchema,
   type BackendDesiredSchema,
 } from '../../config/schema-loader'
 import type { CRMSchema } from '../../schemas/crm-schema'
@@ -51,7 +50,7 @@ interface SchemaPushResponse {
 
 interface SchemaPullResponse {
   success: boolean
-  schema: BackendDesiredSchema
+  schema: CRMSchema
   workplaceName: string
   error?: string
 }
@@ -405,12 +404,8 @@ async function handlePull(args: string[]): Promise<void> {
       throw new Error(result.error || 'Failed to pull schema')
     }
 
-    // Transform to CRM schema format
-    const schema = transformFromBackendSchema(
-      result.schema,
-      `${result.workplaceName} Schema`,
-      `Schema pulled from ${workplace}`,
-    )
+    // Schema is already in CRM v1 format from the API
+    const schema = result.schema
 
     if (outputPath) {
       // Determine format from file extension or flag

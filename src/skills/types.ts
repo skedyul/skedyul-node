@@ -84,17 +84,6 @@ export const SkillExampleSchema = z.object({
 export type SkillExample = z.infer<typeof SkillExampleSchema>
 
 /**
- * Skill evaluation metric
- */
-export const SkillEvaluationMetricSchema = z.object({
-  metric: z.string(),
-  description: z.string().optional(),
-  threshold: z.number().optional(),
-})
-
-export type SkillEvaluationMetric = z.infer<typeof SkillEvaluationMetricSchema>
-
-/**
  * Field requirements for a CRM model in skill context.
  * - required: Fields that MUST have a value or agent will fail (ERROR)
  * - recommended: Fields that SHOULD have a value for optimal performance (WARNING)
@@ -157,12 +146,6 @@ export const SkillYAMLSchema = z.object({
 
   // Few-shot examples
   examples: z.array(SkillExampleSchema).optional(),
-
-  // Evaluation criteria
-  evaluation: z.array(SkillEvaluationMetricSchema).optional(),
-
-  // Tags for discovery
-  tags: z.array(z.string()).optional(),
 })
 
 export type SkillYAML = z.infer<typeof SkillYAMLSchema>
@@ -181,8 +164,6 @@ export const SkillYAMLV2Schema = z.object({
   tools: z.array(SkillToolDefinitionSchema).optional(),
   crmContext: CRMContextSchema.optional(),
   examples: z.array(SkillExampleSchema).optional(),
-  evaluation: z.array(SkillEvaluationMetricSchema).optional(),
-  tags: z.array(z.string()).optional(),
 })
 
 export type SkillYAMLV2 = z.infer<typeof SkillYAMLV2Schema>
@@ -229,7 +210,6 @@ export const SkillMetadataSchema = z.object({
   s3Key: z.string().optional(),
   appVersionId: z.string().optional(),
   workplaceId: z.string().optional(),
-  tags: z.array(z.string()).optional(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
 })

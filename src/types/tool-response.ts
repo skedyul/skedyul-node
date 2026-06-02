@@ -48,6 +48,8 @@ export function createSuccessResponse<T>(
     pagination?: ToolPagination
     billing?: ToolBilling
     effect?: ToolEffect
+    /** Cursor state for cron subscriptions - saved and passed to the next run */
+    cursor?: Record<string, unknown>
   },
 ): ToolSuccess<T> {
   return {

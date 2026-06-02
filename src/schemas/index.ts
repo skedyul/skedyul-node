@@ -46,10 +46,8 @@ export {
   ExternalMemoryConfigSchema,
   SemanticMemoryConfigSchema,
   MemoryConfigV3Schema,
-  ResponsePolicySchema,
   PoliciesConfigV3Schema,
   RuntimeConfigV3Schema,
-  AgentConfigV3Schema,
   AgentYAMLV3Schema,
   // Time Window Schemas
   TimeWindowTimeStampSchema,
@@ -73,10 +71,8 @@ export {
   type ExternalMemoryConfig,
   type SemanticMemoryConfig,
   type MemoryConfigV3,
-  type ResponsePolicy,
   type PoliciesConfigV3,
   type RuntimeConfigV3,
-  type AgentConfigV3,
   type AgentYAMLV3,
   // Time Window Types
   type TimeWindowTimeStamp,

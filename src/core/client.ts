@@ -1195,6 +1195,153 @@ export const webhook = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Cron Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parameters for cron.subscribe
+ */
+export interface CronSubscribeParams {
+  /** Name of the tool to invoke */
+  toolName: string
+  /** Cron schedule expression (e.g., "0/20 9-17 * * 1-5") */
+  schedule: string
+  /** Timezone for the schedule (e.g., "America/New_York"). Defaults to UTC. */
+  timezone?: string
+  /** Inputs to pass to the tool on each invocation */
+  inputs?: Record<string, unknown>
+  /** Key for cursor sharing (defaults to toolName if not specified) */
+  cursorKey?: string
+  /** Optional human-friendly label */
+  label?: string
+}
+
+/**
+ * Response from cron.subscribe
+ */
+export interface CronSubscribeResult {
+  /** Subscription ID */
+  id: string
+  /** Name of the tool to invoke */
+  toolName: string
+  /** Schedule expression */
+  schedule: string
+  /** Timezone for the schedule */
+  timezone: string
+}
+
+/**
+ * Cron subscription info returned from cron.list
+ */
+export interface CronSubscriptionItem {
+  /** Subscription ID */
+  id: string
+  /** Name of the tool to invoke */
+  toolName: string
+  /** Schedule expression */
+  schedule: string
+  /** Timezone for the schedule */
+  timezone: string
+  /** Whether this subscription is enabled */
+  enabled: boolean
+  /** Inputs passed to the tool */
+  inputs: Record<string, unknown> | null
+  /** Key for cursor sharing */
+  cursorKey: string | null
+  /** Human-friendly label */
+  label: string | null
+  /** ISO timestamp when created */
+  createdAt: string
+}
+
+/**
+ * Options for cron.list
+ */
+export interface CronListOptions {
+  /** Filter by tool name */
+  toolName?: string
+}
+
+export const cron = {
+  /**
+   * Subscribe to run a tool on a schedule.
+   *
+   * Creates a cron subscription that will invoke the specified tool
+   * at the given schedule. Multiple subscriptions can share cursor
+   * state via the cursorKey parameter.
+   *
+   * **Requires sk_wkp_ token** - subscriptions are scoped to the app installation.
+   *
+   * @example
+   * ```ts
+   * // Work hours: sync every 20 mins
+   * await cron.subscribe({
+   *   toolName: 'sync_lab_results',
+   *   schedule: '0,20,40 9-17 * * 1-5',  // 9am-5pm Mon-Fri
+   *   timezone: 'America/New_York',
+   *   inputs: { source: 'vetnostics' },
+   *   label: 'Work hours sync',
+   * })
+   *
+   * // After hours: sync every 3 hours (shares cursor with work hours)
+   * await cron.subscribe({
+   *   toolName: 'sync_lab_results',
+   *   schedule: '0 0,3,6,9,12,15,18,21 * * *',
+   *   timezone: 'America/New_York',
+   *   inputs: { source: 'vetnostics' },
+   *   label: 'After hours sync',
+   * })
+   * ```
+   */
+  async subscribe(params: CronSubscribeParams): Promise<CronSubscribeResult> {
+    const { data } = await callCore<CronSubscribeResult>('cron.subscribe', params as unknown as Record<string, unknown>)
+    return data
+  },
+
+  /**
+   * Unsubscribe from a cron subscription.
+   *
+   * Stops the scheduled tool invocation and deletes the subscription.
+   *
+   * @param subscriptionId - The subscription ID to delete
+   * @returns Whether the subscription was deleted (false if not found)
+   *
+   * @example
+   * ```ts
+   * const { deleted } = await cron.unsubscribe('crsub_abc123')
+   * ```
+   */
+  async unsubscribe(subscriptionId: string): Promise<{ deleted: boolean }> {
+    const { data } = await callCore<{ deleted: boolean }>('cron.unsubscribe', {
+      subscriptionId,
+    })
+    return data
+  },
+
+  /**
+   * List cron subscriptions for this installation.
+   *
+   * @param options - Optional filter by tool name
+   * @returns Array of cron subscriptions
+   *
+   * @example
+   * ```ts
+   * // List all subscriptions
+   * const { subscriptions } = await cron.list()
+   *
+   * // List subscriptions for a specific tool
+   * const { subscriptions } = await cron.list({ toolName: 'sync_lab_results' })
+   * ```
+   */
+  async list(options?: CronListOptions): Promise<{ subscriptions: CronSubscriptionItem[] }> {
+    const { data } = await callCore<CronSubscriptionItem[]>('cron.list', {
+      ...(options?.toolName ? { toolName: options.toolName } : {}),
+    })
+    return { subscriptions: data }
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource Client
 // ─────────────────────────────────────────────────────────────────────────────
 

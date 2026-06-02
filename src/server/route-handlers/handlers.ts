@@ -46,6 +46,57 @@ function getConfigFilePath(): string {
 }
 
 /**
+ * Find a tool in the registry by name, supporting partial matching.
+ * Handles both directions:
+ * 1. Short name provided -> match against full prefixed names (e.g., "sync_leads" -> "app:bft:sync_leads")
+ * 2. Full prefixed name provided -> match against short names in registry (e.g., "app:bft:sync_leads" -> "sync_leads")
+ */
+function findToolInRegistry(
+  registry: Record<string, ToolRegistryEntry>,
+  toolName: string,
+): { toolKey: string; tool: ToolRegistryEntry } | null {
+  // First try exact match
+  for (const [key, t] of Object.entries(registry)) {
+    if (t.name === toolName || key === toolName) {
+      return { toolKey: key, tool: t }
+    }
+  }
+
+  // Extract the short name from the input (if it's a prefixed name like app:bft:sync_leads)
+  const inputParts = toolName.split(':')
+  const inputShortName = inputParts[inputParts.length - 1]
+
+  // Try matching: if input is prefixed (app:xxx:tool), match by short name in registry
+  // This handles when workflow passes "app:bft:sync_leads" but registry has "sync_leads"
+  if (inputParts.length > 1) {
+    for (const [key, t] of Object.entries(registry)) {
+      // Check if registry tool's name matches the short name from input
+      if (t.name === inputShortName || key === inputShortName) {
+        return { toolKey: key, tool: t }
+      }
+    }
+  }
+
+  // Try matching: if input is short name, match against prefixed names in registry
+  // This handles when user passes "sync_leads" but registry has "app:bft:sync_leads"
+  const matches: Array<{ toolKey: string; tool: ToolRegistryEntry }> = []
+  for (const [key, t] of Object.entries(registry)) {
+    const registryParts = t.name.split(':')
+    const registryShortName = registryParts[registryParts.length - 1]
+    if (registryShortName === toolName) {
+      matches.push({ toolKey: key, tool: t })
+    }
+  }
+
+  // Return only if exactly one match (avoid ambiguity)
+  if (matches.length === 1) {
+    return matches[0]
+  }
+
+  return null
+}
+
+/**
  * Handle GET /health
  */
 export function handleHealthRoute(ctx: RouteContext): UnifiedResponse {
@@ -175,18 +226,8 @@ export async function handleEstimateRoute(
     const toolName = estimateBody.name as string
     const toolArgs = estimateBody.inputs ?? {}
 
-    let toolKey: string | null = null
-    let tool: ToolRegistryEntry | null = null
-
-    for (const [key, t] of Object.entries(ctx.registry)) {
-      if (t.name === toolName || key === toolName) {
-        toolKey = key
-        tool = t
-        break
-      }
-    }
-
-    if (!tool || !toolKey) {
+    const found = findToolInRegistry(ctx.registry, toolName)
+    if (!found) {
       return {
         status: 400,
         body: {
@@ -197,6 +238,7 @@ export async function handleEstimateRoute(
         },
       }
     }
+    const { toolKey, tool } = found
 
     const inputSchema = getZodSchema(tool.inputSchema)
     const validatedArgs = inputSchema ? inputSchema.parse(toolArgs) : toolArgs
@@ -463,18 +505,8 @@ async function handleMcpToolsCall(
       : 'no',
   }, null, 2))
 
-  let toolKey: string | null = null
-  let tool: ToolRegistryEntry | null = null
-
-  for (const [key, t] of Object.entries(ctx.registry)) {
-    if (t.name === toolName || key === toolName) {
-      toolKey = key
-      tool = t
-      break
-    }
-  }
-
-  if (!tool || !toolKey) {
+  const found = findToolInRegistry(ctx.registry, toolName)
+  if (!found) {
     return {
       status: 200,
       body: {
@@ -487,6 +519,7 @@ async function handleMcpToolsCall(
       },
     }
   }
+  const { toolKey, tool } = found
 
   try {
     const inputSchema = getZodSchema(tool.inputSchema)
@@ -559,13 +592,16 @@ async function handleMcpToolsCall(
       }
     } else {
       // Success case - handle both new and legacy shapes
-      const outputData =
+      // Ensure outputData is never undefined (JSON.stringify(undefined) returns undefined, not a string)
+      const rawOutput =
         'output' in toolResult
-          ? (toolResult.output as Record<string, unknown> | null)
+          ? (toolResult.output as Record<string, unknown> | null | undefined)
           : null
+      const outputData = rawOutput ?? null
       const effect = 'effect' in toolResult ? toolResult.effect : undefined
       const warnings = 'warnings' in toolResult ? toolResult.warnings : undefined
       const pagination = 'pagination' in toolResult ? toolResult.pagination : undefined
+      const cursor = 'cursor' in toolResult ? toolResult.cursor : undefined
 
       let structuredContent: Record<string, unknown> | undefined
       if (outputData) {
@@ -574,12 +610,14 @@ async function handleMcpToolsCall(
           __effect: effect,
           __warnings: warnings,
           __pagination: pagination,
+          __cursor: cursor,
         }
-      } else if (effect || warnings || pagination) {
+      } else if (effect || warnings || pagination || cursor) {
         structuredContent = {
           __effect: effect,
           __warnings: warnings,
           __pagination: pagination,
+          __cursor: cursor,
         }
       } else if (hasOutputSchema) {
         structuredContent = {}
@@ -588,6 +626,7 @@ async function handleMcpToolsCall(
       result = {
         content: [{ type: 'text', text: JSON.stringify(outputData) }],
         structuredContent,
+        cursor,
         billing: 'billing' in toolResult ? toolResult.billing : undefined,
       }
     }
@@ -688,18 +727,8 @@ export async function handleMcpBatchRoute(
         const toolName = call.name
         const toolArgs = call.arguments ?? {}
 
-        let toolKey: string | null = null
-        let tool: ToolRegistryEntry | null = null
-
-        for (const [key, t] of Object.entries(ctx.registry)) {
-          if (t.name === toolName || key === toolName) {
-            toolKey = key
-            tool = t
-            break
-          }
-        }
-
-        if (!tool || !toolKey) {
+        const found = findToolInRegistry(ctx.registry, toolName)
+        if (!found) {
           clearTimeout(timeoutHandle)
           resolve({
             id: call.id,
@@ -708,6 +737,7 @@ export async function handleMcpBatchRoute(
           })
           return
         }
+        const { toolKey, tool } = found
 
         const inputSchema = getZodSchema(tool.inputSchema)
         const validatedInputs = inputSchema ? inputSchema.parse(toolArgs) : toolArgs

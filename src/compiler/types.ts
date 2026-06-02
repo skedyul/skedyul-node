@@ -86,14 +86,6 @@ export interface IRMemoryConfig {
  * Policy configuration
  */
 export interface PolicyConfig {
-  response?: {
-    requiresApproval: boolean
-    conditions?: string[]
-  }
-  tools?: {
-    externalRequiresApproval?: boolean
-    systemRequiresApproval?: boolean
-  }
   rules: string[]
 }
 
@@ -102,11 +94,6 @@ export interface PolicyConfig {
  */
 export interface IRRuntimeConfig {
   model: string
-  timeout: string
-  retry?: {
-    attempts?: number
-    backoff?: 'linear' | 'exponential'
-  }
 }
 
 /**

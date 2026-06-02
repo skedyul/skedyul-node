@@ -51,6 +51,7 @@ export function createServerlessInstance(
         hasLoggedStartup = true
       }
 
+      // Handle regular API Gateway events
       const req = fromLambdaEvent(event)
       const response = await routeRequest(req, ctx)
       return toLambdaResponse(response, defaultHeaders)

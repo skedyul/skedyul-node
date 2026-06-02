@@ -131,6 +131,7 @@ COMMANDS
   Testing & Debugging
   ───────────────────
   invoke <tool>     Invoke a single tool from your registry
+  invoke-cron <cron>  Invoke a cron job locally
   tools             List all tools in your registry
   serve             Start a local MCP server for testing
   validate          Validate your skedyul.config.ts

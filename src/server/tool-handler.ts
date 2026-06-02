@@ -21,14 +21,23 @@ import { createContextLogger } from './logger'
 export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
   return Object.values(registry).map((tool) => {
     const toolConfig = tool.config ?? {}
-    const timeout = typeof toolConfig.timeout === 'number' && toolConfig.timeout > 0 ? toolConfig.timeout : 10000
-    const retries = typeof toolConfig.retries === 'number' && toolConfig.retries >= 1 ? toolConfig.retries : 1
+    // Read timeout/retries from top-level first (tool.timeout), then fallback to config (tool.config.timeout)
+    const rawTimeout = tool.timeout ?? toolConfig.timeout
+    const rawRetries = tool.retries ?? toolConfig.retries
+    const timeout = typeof rawTimeout === 'number' && rawTimeout > 0 ? rawTimeout : 10000
+    const retries = typeof rawRetries === 'number' && rawRetries >= 1 ? rawRetries : 1
+    // #region agent log
+    console.log(`[buildToolMetadata] Tool ${tool.name}: tool.timeout=${tool.timeout}, config.timeout=${toolConfig.timeout}, final timeout=${timeout}`)
+    // #endregion
     return {
       name: tool.name,
       displayName: tool.label || tool.name,
       description: tool.description,
       inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
       outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
+      // Include timeout/retries at top-level for tools/list response (used by syncExecutableTools)
+      timeout,
+      retries,
       config: {
         timeout,
         retries,
@@ -190,7 +199,21 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
       const billing = normalizeBilling(functionResult.billing)
 
+      // Check if result is a ToolFailure (new discriminated union shape)
+      if ('success' in functionResult && functionResult.success === false) {
+        // Pass through the failure with error information
+        return {
+          success: false,
+          output: null,
+          billing,
+          error: 'error' in functionResult ? functionResult.error : undefined,
+          effect: 'effect' in functionResult ? functionResult.effect : undefined,
+        }
+      }
+
+      // Success case
       return {
+        success: true,
         output: functionResult.output,
         billing,
         meta: functionResult.meta ?? {
@@ -200,6 +223,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
         },
         effect: functionResult.effect,
         dataBlocks: functionResult.dataBlocks,
+        cursor: functionResult.cursor,
       }
     } catch (error) {
       // Check if it's an AppAuthInvalidError

@@ -325,18 +325,6 @@ function resolveMemory(memory: AgentYAMLV3['memory'] | undefined): IRMemoryConfi
 
 function resolvePolicies(policies: AgentYAMLV3['policies'] | undefined): PolicyConfig {
   return {
-    response: policies?.response
-      ? {
-          requiresApproval: policies.response.requiresApproval ?? false,
-          conditions: policies.response.requiresApprovalIf,
-        }
-      : undefined,
-    tools: policies?.tools
-      ? {
-          externalRequiresApproval: policies.tools.externalRequiresApproval,
-          systemRequiresApproval: policies.tools.systemRequiresApproval,
-        }
-      : undefined,
     rules: policies?.rules ?? [],
   }
 }
@@ -344,8 +332,6 @@ function resolvePolicies(policies: AgentYAMLV3['policies'] | undefined): PolicyC
 function resolveRuntime(runtime: AgentYAMLV3['runtime'] | undefined): IRRuntimeConfig {
   return {
     model: runtime?.model ?? 'anthropic/claude-sonnet-4',
-    timeout: runtime?.timeout ?? '5m',
-    retry: runtime?.retry,
   }
 }
 
