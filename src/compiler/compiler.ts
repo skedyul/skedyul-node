@@ -325,7 +325,8 @@ function resolveMemory(memory: AgentYAMLV3['memory'] | undefined): IRMemoryConfi
 
 function resolvePolicies(policies: AgentYAMLV3['policies'] | undefined): PolicyConfig {
   return {
-    rules: policies?.rules ?? [],
+    messages: policies?.messages,
+    tools: policies?.tools,
   }
 }
 
@@ -472,12 +473,6 @@ function estimateTokens(agent: AgentYAMLV3, skills: ResolvedSkill[]): number {
       for (const example of skill.examples) {
         tokens += Math.ceil((example.input.length + example.output.length) / 4)
       }
-    }
-  }
-
-  if (agent.policies?.rules) {
-    for (const rule of agent.policies.rules) {
-      tokens += Math.ceil(rule.length / 4)
     }
   }
 

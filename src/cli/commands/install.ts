@@ -2,6 +2,12 @@ import { parseArgs } from '../utils'
 import { getLinkConfig, loadEnvFile, saveEnvFile } from '../utils/link'
 import { loadAppConfig, loadInstallConfig } from '../utils/config'
 import { prompt } from '../utils/prompt'
+import { getCredentials } from '../utils/auth'
+import {
+  buildInstallScopedEnvFields,
+  syncInstallEnvToPlatform,
+  type EnvConfigField,
+} from '../utils/env-sync'
 
 function printHelp(): void {
   console.log(`
@@ -12,12 +18,17 @@ Usage:
 
 Options:
   --workplace, -w      Workplace subdomain (required)
+  --force              Re-prompt even when all required variables are already set
   --skip-validation    Skip install handler validation
   --help, -h           Show this help message
 
 Description:
-  Prompts for environment variables defined in the app's install.config.
-  Values are stored locally in .skedyul/env/{subdomain}.env
+  Prompts for install-scoped environment variables (scope: 'install' in
+  install.config or provision/env.ts). Provision-scoped variables are configured
+  when you run 'skedyul dev serve'.
+
+  Values are stored locally in .skedyul/env/{subdomain}.env and synced to
+  Skedyul when logged in.
 
 Prerequisites:
   - Run 'skedyul dev link --workplace <subdomain>' first
@@ -25,14 +36,6 @@ Prerequisites:
 Examples:
   skedyul dev install --workplace demo-clinic
 `)
-}
-
-interface EnvConfigField {
-  label: string
-  required?: boolean
-  visibility?: 'visible' | 'encrypted'
-  placeholder?: string
-  description?: string
 }
 
 export async function installCommand(args: string[]): Promise<void> {
@@ -51,7 +54,6 @@ export async function installCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Check if linked
   const linkConfig = getLinkConfig(workplaceSubdomain)
   if (!linkConfig) {
     console.error(`Error: Not linked to ${workplaceSubdomain}`)
@@ -59,37 +61,67 @@ export async function installCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Load skedyul.config to get app info
+  const credentials = getCredentials()
+  if (!credentials) {
+    console.error('Error: Not logged in.')
+    console.error("Run 'skedyul auth login' to authenticate first.")
+    process.exit(1)
+  }
+
   const appConfig = await loadAppConfig()
   if (!appConfig) {
     console.error('Error: No skedyul.config.ts found in current directory.')
     process.exit(1)
   }
 
-  // Load install config directly from config/install.config.ts
   const debug = flags.debug === true
-  const installConfig = await loadInstallConfig(undefined, debug)
-  
-  // Build list of env fields to prompt for
-  const envFields: Array<{ key: string; field: EnvConfigField }> = []
-  
-  if (installConfig?.env) {
-    // New format: { env: { KEY: { label, required, ... } } }
-    for (const [key, field] of Object.entries(installConfig.env)) {
-      envFields.push({ key, field })
-    }
-  }
+  await loadInstallConfig(undefined, debug)
+
+  const envFields = await buildInstallScopedEnvFields()
 
   if (envFields.length === 0) {
-    console.log('No environment variables defined in install.config.')
+    console.log('No install-scoped environment variables defined for this app.')
+    console.log('Provision variables are configured when you run dev serve.')
     console.log('Your app is ready to use.')
     return
   }
 
-  // Load existing env values
   const existingEnv = loadEnvFile(workplaceSubdomain)
+  const force = flags.force === true
 
-  console.log(`\nConfiguring environment for ${workplaceSubdomain}`)
+  const missingRequired = envFields.filter(
+    ({ key, field }) =>
+      field.required && (!existingEnv[key] || existingEnv[key].trim() === ''),
+  )
+
+  if (missingRequired.length === 0 && !force) {
+    console.log(`\nInstall environment already configured for ${workplaceSubdomain}`)
+    console.log(`App: ${appConfig.handle}`)
+    console.log('─'.repeat(50))
+
+    for (const { key, field } of envFields) {
+      const value = existingEnv[key]
+      const isSet = value !== undefined && value !== ''
+      const isSecret = field.visibility === 'encrypted'
+      console.log(
+        `  ✓ ${field.label || key}: ${isSet ? (isSecret ? '••••••••' : value) : '(not set)'}`,
+      )
+    }
+
+    await syncInstallEnvToPlatform(linkConfig, credentials.token, existingEnv, envFields)
+
+    console.log(`\nNext step:`)
+    console.log(
+      `  Run 'skedyul dev serve --workplace ${workplaceSubdomain}' to start the local server`,
+    )
+    return
+  }
+
+  if (force && missingRequired.length === 0) {
+    console.log(`\nRe-configuring install environment for ${workplaceSubdomain} (--force)`)
+  } else {
+    console.log(`\nConfiguring install environment for ${workplaceSubdomain}`)
+  }
   console.log(`App: ${appConfig.handle}`)
   console.log('─'.repeat(50))
 
@@ -122,11 +154,21 @@ export async function installCommand(args: string[]): Promise<void> {
     }
   }
 
-  // Save env file
-  saveEnvFile(workplaceSubdomain, newEnv)
+  const installEnv: Record<string, string> = { ...existingEnv }
+  for (const { key } of envFields) {
+    if (newEnv[key] !== undefined) {
+      installEnv[key] = newEnv[key]
+    }
+  }
+
+  saveEnvFile(workplaceSubdomain, installEnv)
 
   console.log(`\n✓ Saved to .skedyul/env/${workplaceSubdomain}.env`)
 
+  await syncInstallEnvToPlatform(linkConfig, credentials.token, installEnv, envFields)
+
   console.log(`\nNext step:`)
-  console.log(`  Run 'skedyul dev serve --workplace ${workplaceSubdomain}' to start testing`)
+  console.log(
+    `  Run 'skedyul dev serve --workplace ${workplaceSubdomain}' to start the local server`,
+  )
 }

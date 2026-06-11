@@ -1,6 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type { ModelDefinition, RelationshipDefinition } from '../../config/types'
+import type { EnvScope } from '../../config/types/env'
+import type { ProvisionConfig } from '../../config/app-config'
+import type { ToolRegistry, WebhookRegistry } from '../../types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -185,12 +188,26 @@ const INSTALL_CONFIG_PATHS = [
   'install.config.js',
 ]
 
+/** Modern integrations define env via skedyul.config provision (src/provision/env.ts) */
+const PROVISION_ENV_PATHS = [
+  'src/provision/env.ts',
+  'src/provision/env.js',
+  'dist/provision/env.js',
+]
+
+const PROVISION_CONFIG_PATHS = [
+  'src/provision/index.ts',
+  'src/provision/index.js',
+  'dist/provision/index.js',
+]
+
 export interface InstallEnvField {
   label: string
   required?: boolean
   visibility?: 'visible' | 'encrypted'
   placeholder?: string
   description?: string
+  scope?: 'provision' | 'install'
 }
 
 export interface InstallConfigData {
@@ -205,11 +222,69 @@ export async function loadInstallConfig(
   projectDir?: string,
   debug = false,
 ): Promise<InstallConfigData | null> {
+  const legacy = await loadLegacyInstallConfig(projectDir, debug)
+  if (legacy) {
+    return legacy
+  }
+
+  return loadProvisionEnvAsInstallConfig(projectDir, debug)
+}
+
+/**
+ * Load env from legacy install.config files only (not provision/env.ts).
+ */
+export async function loadLegacyInstallConfig(
+  projectDir?: string,
+  debug = false,
+): Promise<InstallConfigData | null> {
+  return loadInstallConfigFromPaths(INSTALL_CONFIG_PATHS, projectDir, debug)
+}
+
+async function loadProvisionEnvAsInstallConfig(
+  projectDir?: string,
+  debug = false,
+): Promise<InstallConfigData | null> {
+  const dir = projectDir ?? process.cwd()
+
+  for (const configPath of PROVISION_ENV_PATHS) {
+    const fullPath = path.join(dir, configPath)
+    if (!fs.existsSync(fullPath)) {
+      continue
+    }
+
+    try {
+      if (fullPath.endsWith('.ts')) {
+        const content = fs.readFileSync(fullPath, 'utf-8')
+        const parsed = parseEnvConfigFromSource(content)
+        if (parsed?.env && Object.keys(parsed.env).length > 0) {
+          return parsed
+        }
+      } else {
+        const module = await import(fullPath)
+        const env = module.default ?? module
+        if (env && typeof env === 'object') {
+          return { env: env as Record<string, InstallEnvField> }
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to load ${configPath}:`, error)
+      continue
+    }
+  }
+
+  return null
+}
+
+async function loadInstallConfigFromPaths(
+  configPaths: string[],
+  projectDir?: string,
+  debug = false,
+): Promise<InstallConfigData | null> {
   const dir = projectDir ?? process.cwd()
 
   if (debug) console.log(`[loadInstallConfig] Looking in: ${dir}`)
 
-  for (const configPath of INSTALL_CONFIG_PATHS) {
+  for (const configPath of configPaths) {
     const fullPath = path.join(dir, configPath)
     if (debug) console.log(`[loadInstallConfig] Checking: ${fullPath}`)
     
@@ -265,91 +340,108 @@ export async function loadInstallConfig(
   return null
 }
 
+function parseEnvFieldsFromBlock(envBlock: string): Record<string, InstallEnvField> {
+  const envVars: Record<string, InstallEnvField> = {}
+  const varStartPattern = /([A-Z][A-Z0-9_]*)\s*:\s*\{/g
+  let varMatch
+
+  while ((varMatch = varStartPattern.exec(envBlock)) !== null) {
+    const varName = varMatch[1]
+    const varStartIdx = varMatch.index + varMatch[0].length
+
+    let varBraceCount = 1
+    let varEndIdx = varStartIdx
+
+    for (let i = varStartIdx; i < envBlock.length && varBraceCount > 0; i++) {
+      if (envBlock[i] === '{') varBraceCount++
+      else if (envBlock[i] === '}') varBraceCount--
+      varEndIdx = i
+    }
+
+    const varContent = envBlock.substring(varStartIdx, varEndIdx)
+    const field: InstallEnvField = { label: varName }
+
+    const labelMatch = varContent.match(/label\s*:\s*['"`]([^'"`]+)['"`]/)
+    if (labelMatch) field.label = labelMatch[1]
+
+    const requiredMatch = varContent.match(/required\s*:\s*(true|false)/)
+    if (requiredMatch) field.required = requiredMatch[1] === 'true'
+
+    const visibilityMatch = varContent.match(/visibility\s*:\s*['"`](visible|encrypted)['"`]/)
+    if (visibilityMatch) field.visibility = visibilityMatch[1] as 'visible' | 'encrypted'
+
+    const placeholderMatch = varContent.match(/placeholder\s*:\s*['"`]([^'"`]+)['"`]/)
+    if (placeholderMatch) field.placeholder = placeholderMatch[1]
+
+    const descMatch = varContent.match(/description\s*:\s*['"`]([^'"`]+)['"`]/)
+    if (descMatch) field.description = descMatch[1]
+
+    const scopeMatch = varContent.match(/scope\s*:\s*['"`](provision|install)['"`]/)
+    if (scopeMatch) field.scope = scopeMatch[1] as 'provision' | 'install'
+
+    envVars[varName] = field
+  }
+
+  return envVars
+}
+
+function extractBracedBlock(content: string, openBraceIndex: number): string | null {
+  let braceCount = 1
+  let endIdx = openBraceIndex + 1
+
+  for (let i = openBraceIndex + 1; i < content.length && braceCount > 0; i++) {
+    if (content[i] === '{') braceCount++
+    else if (content[i] === '}') braceCount--
+    endIdx = i
+  }
+
+  if (braceCount !== 0) {
+    return null
+  }
+
+  return content.substring(openBraceIndex + 1, endIdx)
+}
+
 /**
- * Parse install config from TypeScript source when dynamic import fails.
- * This is a fallback that extracts env vars using regex.
- * Note: This fallback only parses env vars, not models. For full model support,
- * the compiled dist file should be used.
+ * Parse env field definitions from install.config or provision/env.ts source.
  */
-function parseInstallConfigFromSource(content: string): InstallConfigData | null {
+function parseEnvConfigFromSource(content: string): InstallConfigData | null {
   try {
-    const envVars: Record<string, InstallEnvField> = {}
-
-    // Match env block: env: { ... } - need to handle nested braces
+    // install.config format: env: { ... }
     const envStartMatch = content.match(/\benv\s*:\s*\{/)
-    if (!envStartMatch || envStartMatch.index === undefined) {
-      // No env block found - check if there's a models block
-      const hasModels = content.match(/\bmodels\s*:\s*\[/)
-      if (hasModels) {
-        // Return empty config to indicate file exists but needs proper loading
-        return { env: {} }
+    if (envStartMatch && envStartMatch.index !== undefined) {
+      const envBlock = extractBracedBlock(content, envStartMatch.index + envStartMatch[0].length - 1)
+      if (envBlock) {
+        return { env: parseEnvFieldsFromBlock(envBlock) }
       }
-      return null
     }
 
-    // Find the matching closing brace
-    const startIdx = envStartMatch.index + envStartMatch[0].length
-    let braceCount = 1
-    let endIdx = startIdx
-
-    for (let i = startIdx; i < content.length && braceCount > 0; i++) {
-      if (content[i] === '{') braceCount++
-      else if (content[i] === '}') braceCount--
-      endIdx = i
-    }
-
-    const envBlock = content.substring(startIdx, endIdx)
-
-    // Match individual env var definitions using a more robust approach
-    // Look for UPPER_CASE_VAR: { followed by content until matching }
-    const varStartPattern = /([A-Z][A-Z0-9_]*)\s*:\s*\{/g
-    let varMatch
-
-    while ((varMatch = varStartPattern.exec(envBlock)) !== null) {
-      const varName = varMatch[1]
-      const varStartIdx = varMatch.index + varMatch[0].length
-
-      // Find matching closing brace for this var
-      let varBraceCount = 1
-      let varEndIdx = varStartIdx
-
-      for (let i = varStartIdx; i < envBlock.length && varBraceCount > 0; i++) {
-        if (envBlock[i] === '{') varBraceCount++
-        else if (envBlock[i] === '}') varBraceCount--
-        varEndIdx = i
+    // provision/env.ts format: defineEnv({ ... })
+    const defineEnvMatch = content.match(/defineEnv\s*\(\s*\{/)
+    if (defineEnvMatch && defineEnvMatch.index !== undefined) {
+      const envBlock = extractBracedBlock(content, defineEnvMatch.index + defineEnvMatch[0].length - 1)
+      if (envBlock) {
+        const env = parseEnvFieldsFromBlock(envBlock)
+        if (Object.keys(env).length > 0) {
+          return { env }
+        }
       }
-
-      const varContent = envBlock.substring(varStartIdx, varEndIdx)
-
-      const field: InstallEnvField = { label: varName }
-
-      // Extract label
-      const labelMatch = varContent.match(/label\s*:\s*['"`]([^'"`]+)['"`]/)
-      if (labelMatch) field.label = labelMatch[1]
-
-      // Extract required
-      const requiredMatch = varContent.match(/required\s*:\s*(true|false)/)
-      if (requiredMatch) field.required = requiredMatch[1] === 'true'
-
-      // Extract visibility
-      const visibilityMatch = varContent.match(/visibility\s*:\s*['"`](visible|encrypted)['"`]/)
-      if (visibilityMatch) field.visibility = visibilityMatch[1] as 'visible' | 'encrypted'
-
-      // Extract placeholder
-      const placeholderMatch = varContent.match(/placeholder\s*:\s*['"`]([^'"`]+)['"`]/)
-      if (placeholderMatch) field.placeholder = placeholderMatch[1]
-
-      // Extract description (handle multi-line strings)
-      const descMatch = varContent.match(/description\s*:\s*['"`]([^'"`]+)['"`]/)
-      if (descMatch) field.description = descMatch[1]
-
-      envVars[varName] = field
     }
 
-    return { env: envVars }
+    const hasModels = content.match(/\bmodels\s*:\s*\[/)
+    if (hasModels) {
+      return { env: {} }
+    }
+
+    return null
   } catch {
     return null
   }
+}
+
+/** @deprecated Use parseEnvConfigFromSource */
+function parseInstallConfigFromSource(content: string): InstallConfigData | null {
+  return parseEnvConfigFromSource(content)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -357,10 +449,13 @@ function parseInstallConfigFromSource(content: string): InstallConfigData | null
 // ─────────────────────────────────────────────────────────────────────────────
 
 const INSTALL_HANDLER_PATHS = [
-  // Source files (dev mode)
+  // Standard integration layout (used by bft, petbooqz, phone, etc.)
+  'src/server/hooks/install.ts',
+  'src/server/hooks/install.js',
+  'dist/server/hooks/install.js',
+  // Legacy paths
   'src/install.ts',
   'src/install.js',
-  // Compiled output (production)
   'dist/install.js',
   'build/install.js',
 ]
@@ -405,6 +500,161 @@ export async function loadInstallHandler(
   }
 
   return null
+}
+
+function buildProvisionEnvFromInstallConfig(
+  installEnv: Record<string, InstallEnvField>,
+): Record<string, InstallEnvField & { scope?: EnvScope }> {
+  return Object.fromEntries(
+    Object.entries(installEnv).map(([key, def]) => [
+      key,
+      { ...def, scope: 'provision' as const },
+    ]),
+  )
+}
+
+/** Exclude provision-scoped vars mistakenly stored in install.env (legacy sync bug). */
+export function filterInstallScopedEnv(
+  env: Record<string, InstallEnvField & { scope?: string }>,
+): Record<string, InstallEnvField> {
+  return Object.fromEntries(
+    Object.entries(env).filter(([, def]) => def.scope !== 'provision'),
+  )
+}
+
+function buildInstallEnvForSync(
+  legacyInstall: InstallConfigData | null,
+  provisionConfig: ProvisionConfig | null,
+): Record<string, InstallEnvField> | undefined {
+  const installEnv: Record<string, InstallEnvField> = {}
+
+  // Legacy install.config.ts — all vars are install-scoped
+  if (legacyInstall?.env) {
+    Object.assign(installEnv, legacyInstall.env)
+  }
+
+  // Modern provision.env — only scope: 'install'
+  if (provisionConfig?.env) {
+    for (const [key, def] of Object.entries(provisionConfig.env)) {
+      if (def.scope === 'install') {
+        installEnv[key] = def as InstallEnvField
+      }
+    }
+  }
+
+  return Object.keys(installEnv).length > 0 ? installEnv : undefined
+}
+
+/** Env vars passed to the install workflow (install-scoped only). */
+export function filterEnvForInstallWorkflow(
+  env: Record<string, string>,
+  installConfig: InstallConfigData | null,
+): Record<string, string> {
+  const installKeys = new Set(
+    Object.entries(installConfig?.env ?? {})
+      .filter(([, def]) => def.scope === 'install')
+      .map(([key]) => key),
+  )
+
+  if (installKeys.size === 0) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(env).filter(([key]) => installKeys.has(key)),
+  )
+}
+
+/**
+ * Load provision config (env, models, pages) directly from src/provision/index.ts.
+ * Avoids resolving skedyul.config.ts dynamic imports which fail under the compiled CLI.
+ */
+export async function loadProvisionConfig(
+  projectDir?: string,
+): Promise<ProvisionConfig | null> {
+  const dir = projectDir ?? process.cwd()
+  const { loadTypeScriptFile } = await import('../utils')
+
+  for (const configPath of PROVISION_CONFIG_PATHS) {
+    const fullPath = path.join(dir, configPath)
+    if (!fs.existsSync(fullPath)) {
+      continue
+    }
+
+    try {
+      let module: { default?: ProvisionConfig }
+      if (fullPath.endsWith('.ts')) {
+        module = (await loadTypeScriptFile(fullPath)) as { default?: ProvisionConfig }
+      } else {
+        module = await import(fullPath)
+      }
+
+      const config = module.default
+      if (config && typeof config === 'object') {
+        return config
+      }
+    } catch (error) {
+      console.warn(
+        `[loadProvisionConfig] Failed to load ${configPath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+
+  return null
+}
+
+/**
+ * Build the executable.config payload synced to Skedyul during dev serve.
+ * Includes full provision (env, models, pages) so Developer Console and install UI work.
+ */
+export async function buildExecutableSyncConfig(
+  registry: ToolRegistry,
+  inputSchemaToJson: (schema: unknown) => unknown,
+  projectDir?: string,
+  webhookRegistry?: WebhookRegistry,
+): Promise<Record<string, unknown>> {
+  const tools = Object.entries(registry).map(([name, tool]) => ({
+    name,
+    description: (tool as { description?: string }).description,
+    inputSchema: inputSchemaToJson((tool as { inputSchema?: unknown }).inputSchema),
+  }))
+
+  const webhooks = webhookRegistry
+    ? Object.values(webhookRegistry).map((webhook) => ({
+        name: webhook.name,
+        description: webhook.description,
+        methods: webhook.methods ?? ['POST'],
+        type: webhook.type ?? 'WEBHOOK',
+      }))
+    : []
+
+  const appConfig = await loadAppConfig(projectDir)
+  const legacyInstallConfig = await loadLegacyInstallConfig(projectDir)
+  const installConfig = await loadInstallConfig(projectDir)
+  const provisionConfig = await loadProvisionConfig(projectDir)
+
+  let provision: ProvisionConfig | undefined = provisionConfig ?? undefined
+  if (!provision?.env && legacyInstallConfig?.env) {
+    provision = {
+      ...provision,
+      env: buildProvisionEnvFromInstallConfig(legacyInstallConfig.env),
+    }
+  }
+
+  const installEnv = buildInstallEnvForSync(legacyInstallConfig, provisionConfig ?? null)
+
+  return {
+    name: appConfig?.name,
+    handle: appConfig?.handle,
+    description: appConfig?.description,
+    tools,
+    ...(webhooks.length > 0 ? { webhooks } : {}),
+    ...(provision ? { provision } : {}),
+    ...(installEnv ? { install: { env: installEnv } } : {}),
+    syncedAt: new Date().toISOString(),
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

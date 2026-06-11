@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type { ToolRegistry } from '../types'
+import type { ToolRegistry, WebhookRegistry } from '../types'
 
 export interface ParsedArgs {
   flags: Record<string, string | boolean>
@@ -225,6 +225,41 @@ export async function loadRegistry(registryPath: string): Promise<ToolRegistry> 
     throw new Error(
       `Failed to load registry from ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`,
     )
+  }
+}
+
+/**
+ * Load webhook registry from the same module as the tool registry.
+ */
+export async function loadWebhookRegistry(
+  registryPath: string,
+): Promise<WebhookRegistry> {
+  const absolutePath = path.resolve(process.cwd(), registryPath)
+
+  if (!fs.existsSync(absolutePath)) {
+    return {}
+  }
+
+  try {
+    let module: Record<string, unknown>
+
+    if (absolutePath.endsWith('.ts')) {
+      module = (await loadTypeScriptFile(absolutePath)) as Record<string, unknown>
+    } else {
+      module = await import(absolutePath)
+    }
+
+    const registry =
+      module.webhookRegistry ||
+      (module.default as Record<string, unknown> | undefined)?.webhookRegistry
+
+    if (!registry || typeof registry !== 'object') {
+      return {}
+    }
+
+    return registry as WebhookRegistry
+  } catch {
+    return {}
   }
 }
 

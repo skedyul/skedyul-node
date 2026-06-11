@@ -602,8 +602,25 @@ export async function callCliApi<T>(
   options: ApiClientOptions,
   endpoint: string,
   body?: Record<string, unknown>,
+  init?: {
+    method?: 'GET' | 'POST'
+    query?: Record<string, string | undefined>
+  },
 ): Promise<T> {
-  const url = `${options.serverUrl}/api/cli${endpoint}`
+  let url = `${options.serverUrl}/api/cli${endpoint}`
+
+  if (init?.query) {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(init.query)) {
+      if (value !== undefined) {
+        params.set(key, value)
+      }
+    }
+    const queryString = params.toString()
+    if (queryString) {
+      url += `?${queryString}`
+    }
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -613,10 +630,12 @@ export async function callCliApi<T>(
     headers['Authorization'] = `Bearer ${options.token}`
   }
 
+  const method = init?.method ?? (body !== undefined ? 'POST' : 'GET')
+
   const response = await fetch(url, {
-    method: 'POST',
+    method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: method === 'POST' && body ? JSON.stringify(body) : undefined,
   })
 
   if (!response.ok) {
@@ -626,10 +645,21 @@ export async function callCliApi<T>(
       const json = JSON.parse(text)
       if (json.error) message = json.error
     } catch {
-      if (text) message = text
+      if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+        message = `API error: ${response.status} (received HTML instead of JSON — is the route registered and allowed in proxy.ts?)`
+      } else if (text) {
+        message = text.slice(0, 200)
+      }
     }
     throw new Error(message)
   }
 
-  return response.json() as Promise<T>
+  const text = await response.text()
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error(
+      `Invalid JSON response from ${url} — received HTML or malformed body. Restart the web server if you added a new CLI route.`,
+    )
+  }
 }

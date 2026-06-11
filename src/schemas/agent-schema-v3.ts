@@ -160,13 +160,28 @@ export const MemoryConfigV3Schema = z.object({
 
 export type MemoryConfigV3 = z.infer<typeof MemoryConfigV3Schema>
 
+const RequiresApprovalPolicySchema = z.object({
+  requiresApproval: z.boolean().optional(),
+})
+
 /**
- * Policies configuration
- * Only `rules` is actively used - injected into system prompt.
+ * Policies configuration.
+ * Business constraints belong in `prompts.system`. Message/tool approval
+ * flags are enforced by the thread agent workflow after each run.
  */
 export const PoliciesConfigV3Schema = z.object({
-  /** Business rules injected into the agent's system prompt */
-  rules: z.array(z.string()).optional(),
+  messages: z
+    .object({
+      send: RequiresApprovalPolicySchema.optional(),
+      schedule: RequiresApprovalPolicySchema.optional(),
+    })
+    .optional(),
+  tools: z
+    .object({
+      externalRequiresApproval: z.boolean().optional(),
+      systemRequiresApproval: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export type PoliciesConfigV3 = z.infer<typeof PoliciesConfigV3Schema>
@@ -443,6 +458,13 @@ export const PromptsConfigV3Schema = z.object({
   recovery: z.string().optional(),
   /** Injected during follow-up passes when context needs updating */
   followUp: z.string().optional(),
+  /** Thread list title generation (system + user template with {{var}} placeholders) */
+  titleEnrichment: z
+    .object({
+      system: z.string().optional(),
+      user: z.string().optional(),
+    })
+    .optional(),
 })
 
 export type PromptsConfigV3 = z.infer<typeof PromptsConfigV3Schema>

@@ -1,19 +1,81 @@
+import * as fs from 'fs'
+import * as path from 'path'
 import {
   parseArgs,
   parseEnvFlags,
   loadEnvFile as loadEnvFileFromPath,
   loadRegistry,
+  loadWebhookRegistry,
 } from '../utils'
 import { createSkedyulServer } from '../../server'
 import type { DedicatedServerInstance, ToolRegistry } from '../../types'
 import { getCredentials, callCliApi, getNgrokAuthtoken, setNgrokAuthtoken, getServerUrl } from '../utils/auth'
-import { getLinkConfig, loadEnvFile as loadLinkedEnvFile, saveEnvFile, saveLinkConfig, type LinkConfig } from '../utils/link'
-import { findRegistryPath, loadInstallConfig, loadInstallHandler, loadAppConfig, type InstallEnvField } from '../utils/config'
+import { getLinkConfig, saveLinkConfig, ensureSkedyulDirs, type LinkConfig } from '../utils/link'
+import { findRegistryPath, loadInstallConfig, loadInstallHandler, loadAppConfig, buildExecutableSyncConfig, filterEnvForInstallWorkflow } from '../utils/config'
+import {
+  applyEnvToProcess,
+  buildInstallScopedEnvFields,
+  buildProvisionEnvFields,
+  fetchEnvFromPlatform,
+  pruneProvisionKeysFromLocalEnv,
+  syncProvisionEnvToPlatform,
+} from '../utils/env-sync'
+import { syncResourcesWithMigrationApproval } from '../utils/migration-approval'
 import { startTunnel, isNgrokAvailable } from '../utils/tunnel'
 import type { TunnelConnection } from '../utils/tunnel'
 import * as readline from 'readline'
 import * as z from 'zod'
 import type { InstallHandler } from '../../types'
+
+const SERVE_STATE_FILE = '.skedyul/serve.json'
+
+interface ServeState {
+  port: number
+  workplace?: string
+  startedAt: string
+}
+
+function writeServeState(port: number, workplace?: string): void {
+  try {
+    ensureSkedyulDirs()
+    const state: ServeState = {
+      port,
+      workplace,
+      startedAt: new Date().toISOString(),
+    }
+    const statePath = path.join(process.cwd(), SERVE_STATE_FILE)
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2))
+  } catch {
+    // Ignore errors writing state file
+  }
+}
+
+function removeServeState(): void {
+  try {
+    const statePath = path.join(process.cwd(), SERVE_STATE_FILE)
+    if (fs.existsSync(statePath)) {
+      fs.unlinkSync(statePath)
+    }
+  } catch {
+    // Ignore errors removing state file
+  }
+}
+
+async function provisionAppVersionResources(
+  linkConfig: LinkConfig,
+  token: string,
+  config: Record<string, unknown>,
+): Promise<void> {
+  console.log(`\nProvisioning app resources (tools, webhooks, models, workflows, agents)...`)
+  const result = await syncResourcesWithMigrationApproval(
+    linkConfig,
+    token,
+    config,
+  )
+  const toolsSynced = result.tools?.synced ?? 0
+  const webhooksSynced = result.webhooks?.synced ?? 0
+  console.log(`  ✓ Provisioned ${toolsSynced} tool(s), ${webhooksSynced} webhook handler(s)`)
+}
 
 /**
  * Prompt the user for input
@@ -66,76 +128,133 @@ async function promptInput(question: string, hidden = false): Promise<string> {
   })
 }
 
-interface EnvConfigResult {
-  env: Record<string, string>
-  /** True if new env vars were collected and install workflow should run */
-  needsInstall: boolean
+interface InstallationStatusResponse {
+  status: string
+  appInstallationId: string
+}
+
+function hasRequiredInstallEnvInDb(
+  env: Record<string, string>,
+  installFields: Array<{ key: string; field: { required?: boolean } }>,
+): boolean {
+  if (installFields.length === 0) {
+    return true
+  }
+
+  return installFields.every(({ key, field }) => {
+    if (!field.required) return true
+    return Boolean(env[key]?.trim())
+  })
 }
 
 /**
- * Check if required env vars are configured, prompt if missing.
- * Returns the env and whether the install workflow needs to run.
- * The install workflow is deferred until the server is up and endpoint is registered,
- * so the Temporal workflow can reach the app's /install handler.
+ * Determine whether the install workflow should run after the server is up.
+ * Requires install-scoped env in DB (via dev install) when defined.
  */
-async function ensureEnvConfigured(
-  workplaceSubdomain: string,
-  existingEnv: Record<string, string>,
-): Promise<EnvConfigResult> {
-  const installConfig = await loadInstallConfig()
-  
-  if (!installConfig?.env) {
-    return { env: existingEnv, needsInstall: false }
-  }
+async function shouldRunInstallWorkflow(
+  linkConfig: LinkConfig,
+  credentials: NonNullable<ReturnType<typeof getCredentials>>,
+): Promise<boolean> {
+  const installFields = await buildInstallScopedEnvFields()
 
-  const envFields = Object.entries(installConfig.env)
-  const missingRequired: Array<{ key: string; field: InstallEnvField }> = []
+  if (installFields.length > 0) {
+    const installEnv = await fetchEnvFromPlatform(
+      linkConfig,
+      credentials.token,
+      'install',
+    )
 
-  // Check for missing required fields
-  for (const [key, field] of envFields) {
-    if (field.required && (!existingEnv[key] || existingEnv[key] === '')) {
-      missingRequired.push({ key, field })
+    if (!hasRequiredInstallEnvInDb(installEnv, installFields)) {
+      console.log(
+        `\n⚠ Missing install environment variables. Run 'skedyul dev install --workplace ${linkConfig.workplaceSubdomain}' first.`,
+      )
+      return false
     }
   }
 
-  if (missingRequired.length === 0) {
-    return { env: existingEnv, needsInstall: false }
+  try {
+    const result = await callCliApi<InstallationStatusResponse>(
+      { serverUrl: linkConfig.serverUrl, token: credentials.token },
+      '/installation',
+      { appVersionId: linkConfig.appVersionId },
+    )
+    return result.status !== 'INSTALLED'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Load provision-scoped env from Skedyul DB, prompt for missing required vars,
+ * sync back to DB, and apply to process.env.
+ */
+async function ensureProvisionEnvFromDb(
+  linkConfig: LinkConfig,
+  credentials: NonNullable<ReturnType<typeof getCredentials>>,
+): Promise<Record<string, string>> {
+  const provisionFields = await buildProvisionEnvFields()
+  if (provisionFields.length === 0) {
+    return {}
   }
 
-  // Prompt for missing env vars
-  console.log(`\n⚠ Missing required environment variables for ${workplaceSubdomain}:`)
-  console.log('─'.repeat(50))
+  console.log('\nLoading provision env from Skedyul...')
+  let env = await fetchEnvFromPlatform(linkConfig, credentials.token, 'provision')
 
-  const newEnv = { ...existingEnv }
+  const missingRequired = provisionFields.filter(
+    ({ key, field }) => field.required && !env[key]?.trim(),
+  )
 
-  for (const { key, field } of missingRequired) {
-    const isSecret = field.visibility === 'encrypted'
-    
-    console.log(`\n${field.label || key}`)
-    if (field.description) {
-      console.log(`  ${field.description}`)
-    }
-    if (field.placeholder) {
-      console.log(`  Example: ${field.placeholder}`)
+  if (missingRequired.length > 0) {
+    console.log(`\n⚠ Missing required provision environment variables:`)
+    console.log('─'.repeat(50))
+
+    for (const { key, field } of missingRequired) {
+      const isSecret = field.visibility === 'encrypted'
+
+      console.log(`\n${field.label || key}`)
+      if (field.description) {
+        console.log(`  ${field.description}`)
+      }
+      if (field.placeholder) {
+        console.log(`  Example: ${field.placeholder}`)
+      }
+
+      const value = await promptInput(`  Enter ${key}: `, isSecret)
+
+      if (!value && field.required) {
+        console.error(`\nError: ${key} is required.`)
+        process.exit(1)
+      }
+
+      if (value) {
+        env[key] = value
+      }
     }
 
-    const value = await promptInput(`  Enter ${key}: `, isSecret)
-    
-    if (!value && field.required) {
-      console.error(`\nError: ${key} is required.`)
-      process.exit(1)
-    }
-    
-    if (value) {
-      newEnv[key] = value
-    }
+    await syncProvisionEnvToPlatform(
+      linkConfig,
+      credentials.token,
+      env,
+      provisionFields,
+    )
+    console.log('  ✓ Saved provision variables to Skedyul')
   }
 
-  // Save the updated env locally
-  saveEnvFile(workplaceSubdomain, newEnv)
-  console.log(`\n✓ Saved to .skedyul/env/${workplaceSubdomain}.env`)
+  applyEnvToProcess(env)
+  const envCount = Object.keys(env).length
+  if (envCount > 0) {
+    console.log(`  ✓ Loaded ${envCount} provision variable(s)`)
+  }
 
-  return { env: newEnv, needsInstall: true }
+  return env
+}
+
+async function refreshProvisionEnvFromDb(
+  linkConfig: LinkConfig,
+  token: string,
+): Promise<void> {
+  const env = await fetchEnvFromPlatform(linkConfig, token, 'provision')
+  applyEnvToProcess(env)
 }
 
 function printHelp(): void {
@@ -312,7 +431,7 @@ export async function serveCommand(args: string[]): Promise<void> {
   let credentials: ReturnType<typeof getCredentials> = null
   let tunnel: TunnelConnection | null = null
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null
-  let envResult: EnvConfigResult = { env: {}, needsInstall: false }
+  let runInstallWorkflow = false
 
   if (isLinked && workplaceSubdomain) {
     // Check authentication
@@ -403,58 +522,67 @@ export async function serveCommand(args: string[]): Promise<void> {
     console.log(`  Workplace: ${linkConfig.workplaceSubdomain}`)
     console.log(`  AppVersion: ${linkConfig.appVersionHandle}`)
 
-    // Load env vars for this workplace, prompt for missing required vars
-    let linkedEnv = loadLinkedEnvFile(workplaceSubdomain)
-    envResult = await ensureEnvConfigured(workplaceSubdomain, linkedEnv)
-    linkedEnv = envResult.env
-    
-    const envCount = Object.keys(linkedEnv).length
-    if (envCount > 0) {
-      console.log(`\nLoading env from .skedyul/env/${workplaceSubdomain}.env`)
-      console.log(`  ✓ Loaded ${envCount} environment variables`)
-      Object.assign(process.env, linkedEnv)
-    }
+    runInstallWorkflow = await shouldRunInstallWorkflow(linkConfig, credentials)
+
+    // Core API callbacks from tools should hit the Skedyul web app, not the MCP tunnel
+    process.env.SKEDYUL_API_URL = linkConfig.serverUrl
   }
 
   // Load registry
   let registry: ToolRegistry
+  let webhookRegistry = {}
   try {
     registry = await loadRegistry(registryPath)
+    webhookRegistry = await loadWebhookRegistry(registryPath)
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 
   const toolCount = Object.keys(registry).length
+  const webhookCount = Object.keys(webhookRegistry).length
   console.log(`\nLoaded ${toolCount} tool(s) from registry`)
+  if (webhookCount > 0) {
+    console.log(`Loaded ${webhookCount} webhook(s) from registry`)
+  }
 
-  // Build config object to sync with Skedyul
+  // Build config object to sync with Skedyul (includes provision.env for Developer Console)
   let executableConfig: Record<string, unknown> | undefined
-  if (isLinked) {
-    const appConfig = await loadAppConfig()
-    const installConfig = await loadInstallConfig()
-    
-    // Build tool list with metadata (convert Zod schemas to JSON Schema for serialization)
-    const tools = Object.entries(registry).map(([name, tool]) => ({
-      name,
-      description: (tool as { description?: string }).description,
-      inputSchema: safeInputSchemaToJson((tool as { inputSchema?: unknown }).inputSchema),
-    }))
+  if (isLinked && linkConfig && credentials) {
+    executableConfig = await buildExecutableSyncConfig(
+      registry,
+      safeInputSchemaToJson,
+      undefined,
+      webhookRegistry,
+    )
 
-    executableConfig = {
-      name: appConfig?.name,
-      handle: appConfig?.handle,
-      description: appConfig?.description,
-      tools,
-      install: installConfig ? { env: installConfig.env } : undefined,
-      syncedAt: new Date().toISOString(),
-    }
-    
+    const provision = executableConfig.provision as { env?: Record<string, unknown>; models?: unknown[]; pages?: unknown[] } | undefined
+
     console.log(`\nBuilt config for sync:`)
-    console.log(`  Name: ${appConfig?.name ?? '(not found)'}`)
-    console.log(`  Handle: ${appConfig?.handle ?? '(not found)'}`)
-    console.log(`  Tools: ${tools.length}`)
-    console.log(`  Install env: ${installConfig?.env ? Object.keys(installConfig.env).length : 0} variables`)
+    console.log(`  Name: ${executableConfig.name ?? '(not found)'}`)
+    console.log(`  Handle: ${executableConfig.handle ?? '(not found)'}`)
+    console.log(`  Tools: ${Object.keys(registry).length}`)
+    console.log(`  Webhooks: ${webhookCount}`)
+    console.log(`  Provision env: ${Object.keys(provision?.env ?? {}).length} variables`)
+    console.log(`  Provision models: ${provision?.models?.length ?? 0}`)
+    console.log(`  Provision pages: ${provision?.pages?.length ?? 0}`)
+
+    // Load provision env from DB before reprovision (prompt if missing)
+    await ensureProvisionEnvFromDb(linkConfig, credentials)
+    process.env.SKEDYUL_API_URL = linkConfig.serverUrl
+
+    try {
+      await provisionAppVersionResources(
+        linkConfig,
+        credentials.token,
+        executableConfig,
+      )
+    } catch (error) {
+      console.error(
+        `Failed to provision app resources: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      process.exit(1)
+    }
   }
 
   // Load install handler if available
@@ -485,6 +613,7 @@ export async function serveCommand(args: string[]): Promise<void> {
   try {
     await dedicatedServer.listen(port)
     console.log(`\n✓ Server listening on http://localhost:${port}`)
+    writeServeState(port, workplaceSubdomain)
   } catch (error) {
     console.error('Failed to start server:', error instanceof Error ? error.message : String(error))
     process.exit(1)
@@ -582,15 +711,23 @@ export async function serveCommand(args: string[]): Promise<void> {
     // Run deferred install workflow now that the server is up and endpoint is registered.
     // The Temporal workflow calls the app's /install handler via HTTP, so the server
     // must be reachable first.
-    if (envResult.needsInstall) {
+    if (runInstallWorkflow) {
       console.log(`\nRunning installation workflow...`)
       try {
+        const installConfig = await loadInstallConfig()
+        const installEnvFromDb = await fetchEnvFromPlatform(
+          linkConfig,
+          credentials.token,
+          'install',
+        )
+        const installEnv = filterEnvForInstallWorkflow(installEnvFromDb, installConfig)
+
         await callCliApi(
           { serverUrl: linkConfig.serverUrl, token: credentials.token },
           '/install',
           {
             appVersionId: linkConfig.appVersionId,
-            env: envResult.env,
+            env: installEnv,
           },
         )
         console.log(`  ✓ Installation completed`)
@@ -603,22 +740,15 @@ export async function serveCommand(args: string[]): Promise<void> {
     // Start heartbeat (also syncs config on each heartbeat for hot-reload)
     const sendHeartbeat = async () => {
       try {
-        // Reload config on each heartbeat to pick up changes
-        const freshAppConfig = await loadAppConfig()
-        const freshInstallConfig = await loadInstallConfig()
-        const freshTools = Object.entries(registry).map(([name, tool]) => ({
-          name,
-          description: (tool as { description?: string }).description,
-          inputSchema: safeInputSchemaToJson((tool as { inputSchema?: unknown }).inputSchema),
-        }))
-        const freshConfig = {
-          name: freshAppConfig?.name,
-          handle: freshAppConfig?.handle,
-          description: freshAppConfig?.description,
-          tools: freshTools,
-          install: freshInstallConfig ? { env: freshInstallConfig.env } : undefined,
-          syncedAt: new Date().toISOString(),
-        }
+        await refreshProvisionEnvFromDb(linkConfig!, credentials!.token)
+        process.env.SKEDYUL_API_URL = linkConfig!.serverUrl
+
+        const freshConfig = await buildExecutableSyncConfig(
+          registry,
+          safeInputSchemaToJson,
+          undefined,
+          webhookRegistry,
+        )
 
         await callCliApi(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
@@ -684,6 +814,7 @@ export async function serveCommand(args: string[]): Promise<void> {
         }
       }
 
+      removeServeState()
       console.log(`\nTo restart: skedyul dev serve --workplace ${workplaceSubdomain}`)
       process.exit(0)
     }
@@ -744,6 +875,7 @@ export async function serveCommand(args: string[]): Promise<void> {
         // Ignore errors
       }
 
+      removeServeState()
       console.log(`\nTo re-link: skedyul dev link --workplace ${workplaceSubdomain}`)
       process.exit(0)
     }
@@ -778,6 +910,16 @@ export async function serveCommand(args: string[]): Promise<void> {
     console.log(`  GET  http://localhost:${port}/health   - Health check`)
     console.log(`  POST http://localhost:${port}/estimate - Billing estimate`)
     console.log(`\nPress Ctrl+C to stop`)
+
+    // Handle cleanup in standalone mode
+    const standaloneCleanup = () => {
+      console.log('\n\nStopping server...')
+      removeServeState()
+      process.exit(0)
+    }
+
+    process.on('SIGINT', standaloneCleanup)
+    process.on('SIGTERM', standaloneCleanup)
   }
 }
 

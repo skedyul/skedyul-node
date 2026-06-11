@@ -16,6 +16,11 @@ import { buildToolMetadata, createRequestState, createCallToolHandler } from './
 import { createDedicatedServerInstance } from './dedicated'
 import { createServerlessInstance } from './serverless'
 import { mergeRuntimeEnv, parseNumberEnv, getZodSchema } from './utils'
+import {
+  serializeMcpContentText,
+  isToolCallFailure,
+  buildToolCallErrorOutput,
+} from './utils/mcp-response'
 import { installContextLogger } from './context-logger'
 
 console.log('[skedyul-node/server] All imports complete')
@@ -233,26 +238,12 @@ export function createSkedyulServer(
           invocation: toolInvocation,
         })
 
-        // #region agent log
-        const _debugMcp = (msg: string, data: Record<string, unknown>, hyp: string) => fetch('http://host.docker.internal:7716/ingest/e274b436-7e5a-4343-a3e1-a9643ac89d9a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'36d70b'},body:JSON.stringify({sessionId:'36d70b',location:'skedyul-node/server/index.ts',message:msg,data,timestamp:Date.now(),hypothesisId:hyp})}).catch(()=>{});
-        _debugMcp('callTool_result', { 
-          toolKey, 
-          resultKeys: result ? Object.keys(result) : null,
-          hasOutput: 'output' in result,
-          outputType: result?.output === undefined ? 'undefined' : result?.output === null ? 'null' : typeof result?.output,
-          outputIsArray: Array.isArray(result?.output),
-          hasError: 'error' in result,
-          hasSuccess: 'success' in result,
-          resultSnapshot: JSON.stringify(result).substring(0, 500),
-        }, 'H1,H2,H4');
-        // #endregion
-
         // Handle error case
         const hasOutputSchema = Boolean(outputZodSchema)
-        if (result.error) {
-          const errorOutput = { error: result.error }
+        if (isToolCallFailure(result)) {
+          const errorOutput = buildToolCallErrorOutput(result)
           return {
-            content: [{ type: 'text' as const, text: JSON.stringify(errorOutput) }],
+            content: [{ type: 'text' as const, text: serializeMcpContentText(errorOutput) }],
             // Don't provide structuredContent for error responses when tool has outputSchema
             // because the error response won't match the success schema and MCP SDK validates it
             structuredContent: hasOutputSchema ? undefined : errorOutput,
@@ -264,7 +255,11 @@ export function createSkedyulServer(
         // Transform internal format to MCP protocol format
         // Note: effect and dataBlocks are embedded in structuredContent because the MCP SDK
         // transport strips custom top-level fields in dedicated mode
-        const outputData = result.output as Record<string, unknown> | null
+        const rawOutput =
+          'output' in result
+            ? (result.output as Record<string, unknown> | null | undefined)
+            : null
+        const outputData = rawOutput ?? null
         const dataBlocks = result.dataBlocks as unknown[] | undefined
         // MCP SDK requires structuredContent when outputSchema is defined
         // Always provide it (even as empty object) to satisfy validation
@@ -285,37 +280,13 @@ export function createSkedyulServer(
           // Provide empty object to satisfy MCP SDK validation
           structuredContent = {}
         }
-        // #region agent log
-        const textValue = JSON.stringify(result.output ?? null);
-        _debugMcp('building_response', {
-          outputValue: result.output,
-          outputNullCoalesced: result.output ?? null,
-          textValue,
-          textValueType: typeof textValue,
-          textValueIsUndefined: textValue === undefined,
-          structuredContentKeys: structuredContent ? Object.keys(structuredContent) : null,
-        }, 'H1,H3');
-        // #endregion
 
-        const mcpResponse = {
+        return {
           // Ensure text is always a string - JSON.stringify(undefined) returns undefined, not a string
-          content: [{ type: 'text' as const, text: textValue }],
+          content: [{ type: 'text' as const, text: serializeMcpContentText(outputData) }],
           structuredContent,
           billing: result.billing,
-        };
-
-        // #region agent log
-        _debugMcp('final_mcp_response', {
-          contentLength: mcpResponse.content.length,
-          content0Type: mcpResponse.content[0]?.type,
-          content0TextType: typeof mcpResponse.content[0]?.text,
-          content0TextIsUndefined: mcpResponse.content[0]?.text === undefined,
-          content0TextLength: mcpResponse.content[0]?.text?.length,
-          content0TextPreview: typeof mcpResponse.content[0]?.text === 'string' ? mcpResponse.content[0].text.substring(0, 200) : 'NOT_STRING',
-        }, 'H1,H2,H3');
-        // #endregion
-
-        return mcpResponse;
+        }
       },
     )
     console.log(`[createSkedyulServer] Tool ${toolKey} registered successfully`)

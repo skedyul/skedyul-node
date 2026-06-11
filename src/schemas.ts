@@ -172,6 +172,8 @@ export const ModelDefinitionSchema = z.object({
   requires: z.array(ResourceDependencySchema).optional(),
   addDefaultPages: z.boolean().optional(),
   addNavigation: z.boolean().optional(),
+  /** Root path for developer resource UI (e.g., '/access_requests'). Links internal model to a provision.pages entry. */
+  page: z.string().optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,15 +310,22 @@ export const PageFormHeaderSchema = z.object({
   description: z.string().optional(),
 })
 
-export const PageActionDefinitionSchema = z.object({
-  handle: z.string(),
-  label: z.string(),
-  handler: z.string(),
-  icon: z.string().optional(),
-  variant: z.enum(['primary', 'secondary', 'destructive']).optional(),
-  isDisabled: z.union([z.boolean(), z.string()]).optional(),
-  isHidden: z.union([z.boolean(), z.string()]).optional(),
-})
+export const PageActionDefinitionSchema = z
+  .object({
+    handle: z.string(),
+    label: z.string(),
+    handler: z.string().optional(),
+    href: z.string().optional(),
+    icon: z.string().optional(),
+    variant: z
+      .enum(['primary', 'secondary', 'destructive', 'outline'])
+      .optional(),
+    isDisabled: z.union([z.boolean(), z.string()]).optional(),
+    isHidden: z.union([z.boolean(), z.string()]).optional(),
+  })
+  .refine((data) => Boolean(data.handler || data.href), {
+    message: 'Page action requires handler or href',
+  })
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FormV2 Component Schemas (mirrors skedyul-ui FormComponentV2)
@@ -696,7 +705,9 @@ export const PageBlockDefinitionSchema = z.union([
 ])
 
 /** Mode for context data fetching */
-export const PageContextModeSchema = z.enum(['first', 'many', 'count'])
+export const PageContextModeSchema = z
+  .enum(['first', 'many', 'count', 'all'])
+  .transform((val) => (val === 'all' ? 'many' : val))
 
 /**
  * Page context filters schema.
@@ -795,13 +806,28 @@ export const NavigationConfigSchema = z.object({
   breadcrumb: NavigationBreadcrumbSchema.optional(),
 })
 
+/** Page audience - who can view this page */
+export const PageAudienceSchema = z.enum(['install', 'developer', 'both'])
+
 export const PageDefinitionSchema = z.object({
+  /** Unique identifier within the app (snake_case) */
+  handle: z.string().optional(),
+  /** Human-readable display name */
+  label: z.string(),
+  /** Optional description for documentation/UI */
+  description: z.string().optional(),
   type: PageTypeSchema,
-  title: z.string(),
   /** URL path for this page (e.g., '/phone-numbers' or '/phone-numbers/[id]' for dynamic segments) */
   path: z.string(),
   /** When true, this page is the default landing page for the app installation */
   default: z.boolean().optional(),
+  /**
+   * Page audience:
+   * - 'install': Visible only to app installers (default)
+   * - 'developer': Visible only to app developers/owners in Developer Console
+   * - 'both': Visible in both contexts
+   */
+  audience: PageAudienceSchema.optional().default('install'),
   /**
    * Navigation configuration:
    * - true/false: show/hide in auto-generated navigation
@@ -942,6 +968,7 @@ export type NavigationSidebar = z.infer<typeof NavigationSidebarSchema>
 export type BreadcrumbItem = z.infer<typeof BreadcrumbItemSchema>
 export type NavigationBreadcrumb = z.infer<typeof NavigationBreadcrumbSchema>
 export type NavigationConfig = z.infer<typeof NavigationConfigSchema>
+export type PageAudience = z.infer<typeof PageAudienceSchema>
 export type PageDefinition = z.infer<typeof PageDefinitionSchema>
 export type ModelDependency = z.infer<typeof ModelDependencySchema>
 export type ChannelDependency = z.infer<typeof ChannelDependencySchema>

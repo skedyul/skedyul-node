@@ -20,6 +20,7 @@ export type { ComputeLayer }
 
 export interface DedicatedServerInstance {
   listen(port?: number): Promise<void>
+  close(): Promise<void>
   getHealthStatus(): HealthStatus
 }
 

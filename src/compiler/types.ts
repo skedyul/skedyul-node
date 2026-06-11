@@ -86,7 +86,14 @@ export interface IRMemoryConfig {
  * Policy configuration
  */
 export interface PolicyConfig {
-  rules: string[]
+  messages?: {
+    send?: { requiresApproval?: boolean }
+    schedule?: { requiresApproval?: boolean }
+  }
+  tools?: {
+    externalRequiresApproval?: boolean
+    systemRequiresApproval?: boolean
+  }
 }
 
 /**

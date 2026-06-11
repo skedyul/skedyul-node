@@ -180,6 +180,8 @@ export interface ModelDefinition extends BaseDefinition {
   addDefaultPages?: boolean
   /** Whether to create a navigation item for this model (default: false for provisioning) */
   addNavigation?: boolean
+  /** Root path for developer resource UI (e.g., '/access_requests'). Links internal model to a provision.pages entry. */
+  page?: string
 }
 
 /**

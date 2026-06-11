@@ -24,3 +24,10 @@ export {
   createResponse,
   getListeningPort,
 } from './http'
+
+// MCP response utilities
+export {
+  serializeMcpContentText,
+  isToolCallFailure,
+  buildToolCallErrorOutput,
+} from './mcp-response'

@@ -20,6 +20,7 @@ import { crmCommand } from './commands/crm'
 import { agentsCommand } from './commands/agents'
 import { chatCommand } from './commands/chat'
 import { skillsCommand } from './commands/skills'
+import { workflowsCommand } from './commands/workflows'
 
 const args = process.argv.slice(2)
 
@@ -51,6 +52,7 @@ COMMANDS
   crm        Manage CRM schemas (push, pull, diff, models)
   agents     Manage agents (list, get, push)
   skills     Manage skills (list, get, deploy, publish, versions, delete)
+  workflows  Manage workflows (list, get, deploy, run, publish, pull)
   dev        Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -103,6 +105,7 @@ MORE HELP
   $ skedyul crm --help        Show CRM schema commands
   $ skedyul agents --help     Show agent management commands
   $ skedyul skills --help     Show skill management commands
+  $ skedyul workflows --help  Show workflow management commands
   $ skedyul chat --help       Show chat command options
   $ skedyul dev --help        Show development commands
   $ skedyul <cmd> --help      Show help for specific command
@@ -130,11 +133,11 @@ COMMANDS
 
   Testing & Debugging
   ───────────────────
-  invoke <tool>     Invoke a single tool from your registry
+  invoke <tool>       Invoke a single tool from your registry (in-process)
   invoke-cron <cron>  Invoke a cron job locally
-  tools             List all tools in your registry
-  serve             Start a local MCP server for testing
-  validate          Validate your skedyul.config.ts
+  tools               List all tools in your registry
+  serve               Start a local MCP server for testing
+  validate            Validate your skedyul.config.ts
 
   Linked Mode (Sidecar)
   ─────────────────────
@@ -264,6 +267,11 @@ async function main(): Promise<void> {
 
   if (command === 'skills') {
     await skillsCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'workflows') {
+    await workflowsCommand(args.slice(1))
     return
   }
 

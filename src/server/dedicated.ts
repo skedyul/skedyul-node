@@ -151,6 +151,19 @@ export function createDedicatedServerInstance(
         httpServer.once('error', reject)
       })
     },
+    async close() {
+      return new Promise<void>((resolve, reject) => {
+        const closable = httpServer as http.Server & {
+          closeAllConnections?: () => void
+        }
+        closable.closeAllConnections?.()
+
+        httpServer.close((err) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+    },
     getHealthStatus: () => state.getHealthStatus(),
   }
 }

@@ -55,7 +55,23 @@ export async function startTunnel(config: TunnelConfig): Promise<TunnelConnectio
     return {
       url,
       disconnect: async () => {
-        await listener.close()
+        const closePromise = listener.close()
+        const timeoutMs = 5_000
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+        try {
+          await Promise.race([
+            closePromise,
+            new Promise<void>((_, reject) => {
+              timeoutId = setTimeout(
+                () => reject(new Error(`Tunnel close timed out after ${timeoutMs}ms`)),
+                timeoutMs,
+              )
+            }),
+          ])
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId)
+        }
       },
     }
   } catch (error) {

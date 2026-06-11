@@ -5,6 +5,7 @@
  * including all dynamic imports (tools, webhooks, provision).
  */
 
+import * as fs from 'fs'
 import * as path from 'path'
 import type { SkedyulConfig, SerializableSkedyulConfig, ProvisionConfig } from './app-config'
 import type { ToolRegistry, WebhookRegistry } from '../types'
@@ -16,6 +17,38 @@ export interface ResolvedConfig extends Omit<SkedyulConfig, 'tools' | 'webhooks'
   tools?: ToolRegistry
   webhooks?: WebhookRegistry
   provision?: ProvisionConfig
+}
+
+async function loadConfigModule(absolutePath: string): Promise<{ default?: SkedyulConfig }> {
+  if (absolutePath.endsWith('.ts')) {
+    const altPaths = [
+      absolutePath.replace('/src/', '/dist/').replace('.ts', '.js'),
+      absolutePath.replace('/src/', '/build/').replace('.ts', '.js'),
+      absolutePath.replace('.ts', '.js'),
+    ]
+
+    for (const altPath of altPaths) {
+      if (fs.existsSync(altPath)) {
+        return await import(altPath)
+      }
+    }
+
+    try {
+      // CLI runs as compiled JS — use tsx to load TypeScript config files
+      require('tsx/cjs')
+      delete require.cache[absolutePath]
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require(absolutePath)
+    } catch (error) {
+      throw new Error(
+        `Cannot load TypeScript config: ${absolutePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+
+  return await import(absolutePath)
 }
 
 /**
@@ -32,9 +65,7 @@ export interface ResolvedConfig extends Omit<SkedyulConfig, 'tools' | 'webhooks'
 export async function loadAndResolveConfig(configPath: string): Promise<ResolvedConfig> {
   const absolutePath = path.resolve(configPath)
 
-  // Use dynamic import to load the config file
-  // tsx/node will handle TypeScript transpilation
-  const module = await import(absolutePath)
+  const module = await loadConfigModule(absolutePath)
   const config = module.default as SkedyulConfig
 
   if (!config || typeof config !== 'object') {

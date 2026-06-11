@@ -24,6 +24,11 @@ import { handleCoreMethod } from '../core-api-handler'
 import { serializeConfig } from '../config-serializer'
 import { getZodSchema } from '../utils/schema'
 import {
+  serializeMcpContentText,
+  isToolCallFailure,
+  buildToolCallErrorOutput,
+} from '../utils/mcp-response'
+import {
   handleInstall,
   handleUninstall,
   handleProvision,
@@ -535,57 +540,13 @@ async function handleMcpToolsCall(
 
     let result: unknown
 
-    // Detect failure using multiple patterns for backward compatibility:
-    // 1. New shape: success === false (discriminated union)
-    // 2. Legacy shape: error field is set
-    // 3. Legacy shape: meta.success === false
-    const isNewShapeFailure = 'success' in toolResult && toolResult.success === false
-    const isLegacyErrorFailure = 'error' in toolResult && toolResult.error != null
-    const isLegacyMetaFailure =
-      'meta' in toolResult &&
-      toolResult.meta != null &&
-      typeof toolResult.meta === 'object' &&
-      'success' in toolResult.meta &&
-      toolResult.meta.success === false
-
-    const isFailure = isNewShapeFailure || isLegacyErrorFailure || isLegacyMetaFailure
+    const isFailure = isToolCallFailure(toolResult)
 
     if (isFailure) {
-      // Build error output from available error information
-      let errorOutput: { error: unknown; retry?: unknown }
-
-      if (isNewShapeFailure && 'error' in toolResult) {
-        // New shape: use the structured error directly
-        errorOutput = {
-          error: toolResult.error,
-          retry: 'retry' in toolResult ? toolResult.retry : undefined,
-        }
-      } else if (isLegacyErrorFailure && 'error' in toolResult) {
-        // Legacy shape with error field
-        errorOutput = { error: toolResult.error }
-      } else if (isLegacyMetaFailure && 'meta' in toolResult && toolResult.meta) {
-        // Legacy shape with meta.success === false - construct error from meta.message
-        const meta = toolResult.meta as { message?: string }
-        errorOutput = {
-          error: {
-            code: 'TOOL_FAILED',
-            message: meta.message ?? 'Tool execution failed',
-            category: 'internal',
-          },
-        }
-      } else {
-        // Fallback
-        errorOutput = {
-          error: {
-            code: 'TOOL_FAILED',
-            message: 'Tool execution failed',
-            category: 'internal',
-          },
-        }
-      }
+      const errorOutput = buildToolCallErrorOutput(toolResult)
 
       result = {
-        content: [{ type: 'text', text: JSON.stringify(errorOutput) }],
+        content: [{ type: 'text', text: serializeMcpContentText(errorOutput) }],
         structuredContent: hasOutputSchema ? undefined : errorOutput,
         isError: true,
         billing: 'billing' in toolResult ? toolResult.billing : undefined,
@@ -624,7 +585,7 @@ async function handleMcpToolsCall(
       }
 
       result = {
-        content: [{ type: 'text', text: JSON.stringify(outputData) }],
+        content: [{ type: 'text', text: serializeMcpContentText(outputData) }],
         structuredContent,
         cursor,
         billing: 'billing' in toolResult ? toolResult.billing : undefined,

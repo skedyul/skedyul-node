@@ -18,6 +18,14 @@ import type { NavigationConfig } from './navigation'
 export type PageType = 'instance' | 'list'
 
 /**
+ * Page audience - who can view this page.
+ * - 'install': Visible only to app installers (default)
+ * - 'developer': Visible only to app developers/owners in Developer Console
+ * - 'both': Visible in both contexts
+ */
+export type PageAudience = 'install' | 'developer' | 'both'
+
+/**
  * Page filter for list pages.
  * Defines which model and optional filter criteria to use.
  */
@@ -38,6 +46,8 @@ export interface PageDefinition extends BaseDefinition {
   path: string
   /** When true, this page is the default landing page for the app */
   default?: boolean
+  /** Page audience: 'install' (default), 'developer', or 'both' */
+  audience?: PageAudience
   /**
    * Navigation configuration:
    * - true/false: show/hide in auto-generated navigation

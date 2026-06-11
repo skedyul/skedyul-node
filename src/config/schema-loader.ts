@@ -349,8 +349,10 @@ export interface BackendPageDefinition {
 export interface BackendNavigationItemDefinition {
   label: string
   icon?: string
-  path: string
+  path?: string
+  kind?: 'section' | 'group'
   sortIndex?: number
+  children?: BackendNavigationItemDefinition[]
 }
 
 /**
@@ -488,7 +490,9 @@ export function transformToBackendSchema(schema: CRMSchema): BackendDesiredSchem
           label: item.label,
           icon: item.icon,
           path: item.path,
+          kind: item.kind,
           sortIndex: item.sortIndex,
+          children: item.children,
         })),
       }
     : undefined
@@ -603,7 +607,9 @@ export function transformFromBackendSchema(
           label: item.label,
           icon: item.icon,
           path: item.path,
+          kind: item.kind,
           sortIndex: item.sortIndex,
+          children: item.children,
         })),
       }
     : undefined

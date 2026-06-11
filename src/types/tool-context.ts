@@ -7,7 +7,7 @@ import type { ContextLogger } from '../server/logger'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Trigger types for tool execution */
-export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow' | 'page_context' | 'cron'
+export type ToolTrigger = 'provision' | 'field_change' | 'page_action' | 'form_submit' | 'agent' | 'workflow' | 'page_context' | 'cron' | 'developer_page_action' | 'developer_form_submit'
 
 /** Base context shared by all tool executions */
 interface BaseToolContext {
@@ -26,6 +26,16 @@ interface BaseToolContext {
 /** Provision context - no installation, no workplace */
 export interface ProvisionToolContext extends BaseToolContext {
   trigger: 'provision'
+}
+
+/** Developer page action context - no installation, uses sk_prv_ token */
+export interface DeveloperPageActionToolContext extends BaseToolContext {
+  trigger: 'developer_page_action'
+}
+
+/** Developer form submit context - no installation, uses sk_prv_ token */
+export interface DeveloperFormSubmitToolContext extends BaseToolContext {
+  trigger: 'developer_form_submit'
 }
 
 /** Runtime base - has installation, workplace, request */
@@ -95,6 +105,8 @@ export interface CronToolContext extends RuntimeToolContext {
 /** Discriminated union of all tool execution contexts */
 export type ToolExecutionContext =
   | ProvisionToolContext
+  | DeveloperPageActionToolContext
+  | DeveloperFormSubmitToolContext
   | FieldChangeToolContext
   | PageActionToolContext
   | FormSubmitToolContext
@@ -107,11 +119,18 @@ export function isProvisionContext(ctx: ToolExecutionContext): ctx is ProvisionT
   return ctx.trigger === 'provision'
 }
 
-/** Type guard for runtime context (any non-provision trigger) */
+/** Type guard for runtime context (requires appInstallationId) */
 export function isRuntimeContext(
   ctx: ToolExecutionContext,
 ): ctx is FieldChangeToolContext | PageActionToolContext | FormSubmitToolContext | AgentToolContext | WorkflowToolContext | CronToolContext {
-  return ctx.trigger !== 'provision'
+  return ctx.trigger !== 'provision' && ctx.trigger !== 'developer_page_action' && ctx.trigger !== 'developer_form_submit'
+}
+
+/** Type guard for developer context (no appInstallationId, uses sk_prv_ token) */
+export function isDeveloperContext(
+  ctx: ToolExecutionContext,
+): ctx is DeveloperPageActionToolContext | DeveloperFormSubmitToolContext {
+  return ctx.trigger === 'developer_page_action' || ctx.trigger === 'developer_form_submit'
 }
 
 /** Type guard for cron context */

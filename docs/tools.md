@@ -629,3 +629,139 @@ export const longRunningTool: ToolDefinition = {
   timeout: 120000,  // 2 minutes
 }
 ```
+
+---
+
+## Developer Tools (Admin Tools)
+
+Developer tools are invoked from the Developer Console (not by end-users) and operate across all installations of an app. They receive `sk_prv_` (provision) tokens instead of `sk_wkp_` (workplace) tokens.
+
+### Execution Scope
+
+Use the `executionScope` property to mark tools as developer tools:
+
+```ts
+export const myAdminTool: ToolDefinition = {
+  name: 'approve_request',
+  description: 'Approve a pending request (admin only)',
+  inputSchema,
+  handler,
+  executionScope: 'app_version',  // No appInstallationId required
+}
+```
+
+| Scope | Token | Context | Use Case |
+|-------|-------|---------|----------|
+| `installation` (default) | `sk_wkp_` | Has `appInstallationId` | Standard runtime tools |
+| `app_version` | `sk_prv_` | No `appInstallationId` | Developer/admin tools |
+
+### Developer Context Types
+
+Developer tools receive a context without `appInstallationId`:
+
+```ts
+interface DeveloperPageActionToolContext {
+  trigger: 'developer_page_action'
+  app: { id: string; versionId: string }
+  env: Record<string, string | undefined>
+  mode: 'execute' | 'estimate'
+}
+
+interface DeveloperFormSubmitToolContext {
+  trigger: 'developer_form_submit'
+  app: { id: string; versionId: string }
+  env: Record<string, string | undefined>
+  mode: 'execute' | 'estimate'
+}
+```
+
+Use the `isDeveloperContext` type guard:
+
+```ts
+import { isDeveloperContext } from 'skedyul'
+
+const handler: ToolHandler<Input, Output> = async (input, context) => {
+  if (isDeveloperContext(context)) {
+    // No appInstallationId available - must discover from records
+    console.log('Running as developer tool')
+  }
+}
+```
+
+### Discover → Exchange → Write Pattern
+
+Developer tools must follow this pattern for CRM writes:
+
+1. **Discover**: Use global `instance` API to find records (with their `appInstallationId`)
+2. **Exchange**: Call `token.exchange(appInstallationId)` to get a scoped `InstanceClient`
+3. **Write**: Use the scoped client for all create/update operations
+
+This ensures CRM data stays properly linked to installations.
+
+```ts
+import { instance, token, createSuccessResponse, createValidationError } from 'skedyul'
+
+export const approveRequestTool: ToolDefinition = {
+  name: 'approve_request',
+  description: 'Approve a pending request',
+  inputSchema: z.object({ requestId: z.string() }),
+  executionScope: 'app_version',
+  handler: async (input) => {
+    // Step 1: Discovery - use global instance (sk_prv_ token)
+    const request = await instance.get('request', input.requestId)
+    if (!request) {
+      return createValidationError('Request not found')
+    }
+    if (!request.appInstallationId) {
+      return createValidationError('Request missing appInstallationId')
+    }
+
+    // Step 2: Exchange for scoped client
+    const scopedInstance = await token.exchange(request.appInstallationId)
+
+    // Step 3: Writes - use scoped client (sk_wkp_ internally)
+    const result = await scopedInstance.create('approval', {
+      request_id: request.id,
+      approved_at: new Date().toISOString(),
+    })
+
+    await scopedInstance.update('request', request.id, {
+      status: 'APPROVED',
+      approval_id: result.id,
+    })
+
+    return createSuccessResponse({ approvalId: result.id })
+  },
+}
+```
+
+### Why This Pattern?
+
+- **Minimum privilege**: Discovery reads use the more powerful `sk_prv_` token only for lookups
+- **Proper attribution**: Writes use `sk_wkp_` so CRM records are linked to the correct installation
+- **Clear separation**: Tool handlers don't need `runWithConfig` blocks - the scoped client handles it
+
+### InstanceClient Interface
+
+The `token.exchange` method returns an `InstanceClient` with the same methods as the global `instance`:
+
+```ts
+interface InstanceClient {
+  list(modelHandle: string, args?: InstanceListArgs): Promise<InstanceListResult>
+  get(modelHandle: string, id: string): Promise<InstanceData | null>
+  create(modelHandle: string, data: Record<string, unknown>): Promise<InstanceData>
+  update(modelHandle: string, id: string, data: Record<string, unknown>): Promise<InstanceData>
+  delete(modelHandle: string, id: string): Promise<{ deleted: boolean }>
+  // ... batch methods
+}
+```
+
+For advanced cases needing the raw token, use `token.exchangeRaw`:
+
+```ts
+const { token: scopedToken, appInstallationId } = await token.exchangeRaw(installId)
+
+// Manual config management
+runWithConfig({ apiToken: scopedToken, baseUrl: getConfig().baseUrl }, async () => {
+  await communicationChannel.list({ filter: { ... } })
+})

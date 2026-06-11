@@ -30,8 +30,10 @@ export {
   configure,
   getConfig,
   runWithConfig,
+  createInstanceClient,
 } from './core/client'
 export type {
+  InstanceClient,
   InstanceContext,
   InstanceData,
   InstanceMeta,

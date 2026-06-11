@@ -13,61 +13,70 @@ export interface PromptOptions {
 }
 
 /**
- * Prompt for user input.
+ * Read a line of input without echoing characters (for secrets).
+ * Uses raw stdin mode so keystrokes are captured reliably.
  */
-export async function prompt(options: PromptOptions): Promise<string> {
-  const { message, default: defaultValue, required = false, hidden = false } = options
-
+async function promptHidden(question: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   })
 
-  // For hidden input, we need to handle it differently
-  if (hidden) {
-    return new Promise((resolve) => {
-      let muted = false
-      const originalWrite = process.stdout.write.bind(process.stdout)
+  return new Promise((resolve) => {
+    process.stdout.write(question)
+    let input = ''
 
-      // Temporarily override stdout.write to hide input
-      process.stdout.write = ((
-        chunk: string | Uint8Array,
-        encoding?: BufferEncoding | ((err?: Error | null) => void),
-        cb?: (err?: Error | null) => void,
-      ): boolean => {
-        if (muted) {
-          return true
-        }
-        if (typeof encoding === 'function') {
-          return originalWrite(chunk, encoding)
-        }
-        return originalWrite(chunk, encoding, cb)
-      }) as typeof process.stdout.write
+    const stdin = process.stdin
+    const wasRaw = stdin.isRaw
+    if (stdin.setRawMode) stdin.setRawMode(true)
+    stdin.resume()
+    stdin.setEncoding('utf8')
 
-      const displayMessage = defaultValue
-        ? `${message} [${defaultValue}]: `
-        : `${message}: `
-
-      rl.question(displayMessage, (answer) => {
-        muted = false
-        process.stdout.write = originalWrite
+    const onData = (char: string) => {
+      if (char === '\n' || char === '\r') {
+        stdin.removeListener('data', onData)
+        if (stdin.setRawMode) stdin.setRawMode(wasRaw ?? false)
         process.stdout.write('\n')
         rl.close()
-
-        const value = answer.trim() || defaultValue || ''
-
-        if (required && !value) {
-          console.error('Value is required.')
-          resolve(prompt(options))
-          return
+        resolve(input.trim())
+      } else if (char === '\u0003') {
+        process.exit(0)
+      } else if (char === '\u007F' || char === '\b') {
+        if (input.length > 0) {
+          input = input.slice(0, -1)
         }
+      } else {
+        input += char
+      }
+    }
 
-        resolve(value)
-      })
+    stdin.on('data', onData)
+  })
+}
 
-      muted = true
-    })
+/**
+ * Prompt for user input.
+ */
+export async function prompt(options: PromptOptions): Promise<string> {
+  const { message, default: defaultValue, required = false, hidden = false } = options
+
+  if (hidden) {
+    const hint = defaultValue ? ' (press Enter to keep current)' : ''
+    const answer = await promptHidden(`${message}${hint}: `)
+    const value = answer || defaultValue || ''
+
+    if (required && !value) {
+      console.error('Value is required.')
+      return prompt(options)
+    }
+
+    return value
   }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
 
   return new Promise((resolve) => {
     const displayMessage = defaultValue

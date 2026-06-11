@@ -25,6 +25,8 @@ export {
 export type {
   ToolTrigger,
   ProvisionToolContext,
+  DeveloperPageActionToolContext,
+  DeveloperFormSubmitToolContext,
   FieldChangeToolContext,
   PageActionToolContext,
   FormSubmitToolContext,
@@ -34,7 +36,7 @@ export type {
   CronContext,
   ToolExecutionContext,
 } from './tool-context'
-export { isProvisionContext, isRuntimeContext, isCronContext } from './tool-context'
+export { isProvisionContext, isRuntimeContext, isCronContext, isDeveloperContext } from './tool-context'
 
 // Tool types
 export type {
@@ -67,6 +69,7 @@ export type {
   ToolName,
   ToolMetadata,
   ToolCallResponse,
+  ExecutionScope,
 } from './tool'
 export { ToolResponseMetaSchema } from './tool'
 

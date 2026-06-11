@@ -14,6 +14,7 @@ import { runWithConfig } from '../core/client'
 import { AppAuthInvalidError } from '../errors'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
+import { buildToolExecutionEnv } from './utils/env'
 
 /**
  * Builds tool metadata array from a tool registry
@@ -117,9 +118,10 @@ export function createCallToolHandler<T extends ToolRegistry>(
       }
     }
 
-    const requestEnv = args.env ?? {}
+    const requestEnv = (args.env ?? {}) as Record<string, string | undefined>
+    const toolEnv = buildToolExecutionEnv(requestEnv)
     const originalEnv = { ...process.env }
-    Object.assign(process.env, requestEnv)
+    Object.assign(process.env, toolEnv)
 
     // Extract invocation context from args (passed from workflow)
     const invocation = args.invocation as InvocationContext | undefined
@@ -148,17 +150,28 @@ export function createCallToolHandler<T extends ToolRegistry>(
         executionContext = {
           trigger: 'provision',
           app,
-          env: process.env as Record<string, string | undefined>,
+          env: toolEnv,
           mode: estimateMode ? 'estimate' : 'execute',
           invocation,
           log,
         }
+      } else if (trigger === 'developer_page_action' || trigger === 'developer_form_submit') {
+        // Developer console context - no installation, uses sk_prv_ token
+        // Handler discovers appInstallationId from records and uses token.exchange for writes
+        executionContext = {
+          trigger,
+          app,
+          env: toolEnv,
+          mode: estimateMode ? 'estimate' : 'execute',
+          invocation,
+          log,
+        } as ToolExecutionContext
       } else {
         // Runtime context - has installation, workplace, request
         const workplace = rawContext.workplace as { id: string; subdomain: string }
         const request = rawContext.request as { url: string; params: Record<string, string>; query: Record<string, string> }
         const appInstallationId = rawContext.appInstallationId as string
-        const envVars = process.env as Record<string, string | undefined>
+        const envVars = toolEnv
         const modeValue: 'execute' | 'estimate' = estimateMode ? 'estimate' : 'execute'
 
         if (trigger === 'field_change') {
@@ -183,8 +196,8 @@ export function createCallToolHandler<T extends ToolRegistry>(
 
       // Build request-scoped config from env passed in MCP call
       const requestConfig = {
-        baseUrl: requestEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-        apiToken: requestEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+        baseUrl: toolEnv.SKEDYUL_API_URL ?? '',
+        apiToken: toolEnv.SKEDYUL_API_TOKEN ?? '',
       }
 
       // Call handler with two arguments: (input, context)

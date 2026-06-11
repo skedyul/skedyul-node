@@ -178,7 +178,7 @@ async function callCore<T>(
     Authorization: `Bearer ${apiToken}`,
   }
 
-  const fetchUrl = `${baseUrl}/api/core`
+  const fetchUrl = `${baseUrl.replace(/\/+$/, '')}/api/core`
 
   const response = await fetch(fetchUrl, {
     method: 'POST',
@@ -485,6 +485,8 @@ export interface InstanceMeta {
  */
 export interface InstanceData {
   id: string
+  /** The app installation this instance belongs to (if any) */
+  appInstallationId?: string | null
   _meta: InstanceMeta
   [fieldHandle: string]: unknown
 }
@@ -507,7 +509,164 @@ export interface InstanceListArgs {
   filter?: StructuredFilter
 }
 
-export const instance = {
+/**
+ * Interface for instance operations.
+ * 
+ * Used by both the global `instance` export (uses current config) and
+ * scoped clients returned by `token.exchange` (bound to specific sk_wkp_ token).
+ */
+export interface InstanceClient {
+  list(modelHandle: string, args?: InstanceListArgs): Promise<InstanceListResult>
+  get(modelHandle: string, id: string): Promise<InstanceData | null>
+  create(modelHandle: string, data: Record<string, unknown>): Promise<InstanceData>
+  update(modelHandle: string, id: string, data: Record<string, unknown>): Promise<InstanceData>
+  delete(modelHandle: string, id: string): Promise<{ deleted: boolean }>
+  deleteMany(modelHandle: string, options: { ids: string[] } | { filter: StructuredFilter }): Promise<{ deleted: string[]; errors: Array<{ index: number; error: string }> }>
+  createMany(modelHandle: string, items: Record<string, unknown>[]): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>
+  updateMany(modelHandle: string, items: Array<{ id: string; data: Record<string, unknown> }>): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>
+  upsertMany(modelHandle: string, items: Record<string, unknown>[], matchField: string): Promise<{ results: Array<InstanceData & { mode: 'created' | 'updated' }>; errors: Array<{ index: number; error: string }> }>
+  isConfigured(modelHandle: string): Promise<boolean>
+  getConfiguredModels(modelHandles: string[]): Promise<Map<string, boolean>>
+}
+
+/**
+ * Create an instance client with a specific configuration.
+ * 
+ * This is useful for creating clients bound to specific tokens (e.g., from token.exchange).
+ * All methods on the returned client use the provided configuration.
+ * 
+ * @param config - Client configuration with baseUrl and apiToken
+ * @returns InstanceClient bound to the provided config
+ * 
+ * @example
+ * ```ts
+ * // After getting a scoped token via token.exchange
+ * const scopedClient = createInstanceClient({
+ *   baseUrl: getConfig().baseUrl,
+ *   apiToken: scopedToken,
+ * })
+ * await scopedClient.create('studio', { ... })
+ * ```
+ */
+export function createInstanceClient(config: ClientConfig): InstanceClient {
+  // Helper to call core API with the provided config
+  async function callCoreWithConfig<T>(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<CallCoreResult<T>> {
+    return runWithConfig(config, () => callCore<T>(method, params))
+  }
+
+  return {
+    async list(modelHandle: string, args?: InstanceListArgs): Promise<InstanceListResult> {
+      const { data, pagination } = await callCoreWithConfig<InstanceData[]>('instance.list', {
+        modelHandle,
+        ...(args?.page !== undefined ? { page: args.page } : {}),
+        ...(args?.limit !== undefined ? { limit: args.limit } : {}),
+        ...(args?.filter ? { filter: args.filter } : {}),
+      })
+      return {
+        data,
+        pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: args?.limit ?? 50 },
+      }
+    },
+
+    async get(modelHandle: string, id: string): Promise<InstanceData | null> {
+      const { data } = await callCoreWithConfig<InstanceData | null>('instance.get', {
+        modelHandle,
+        id,
+      })
+      return data
+    },
+
+    async create(modelHandle: string, data: Record<string, unknown>): Promise<InstanceData> {
+      const { data: inst } = await callCoreWithConfig<InstanceData>('instance.create', {
+        modelHandle,
+        data,
+      })
+      return inst
+    },
+
+    async update(modelHandle: string, id: string, data: Record<string, unknown>): Promise<InstanceData> {
+      const { data: inst } = await callCoreWithConfig<InstanceData>('instance.update', {
+        modelHandle,
+        id,
+        data,
+      })
+      return inst
+    },
+
+    async delete(modelHandle: string, id: string): Promise<{ deleted: boolean }> {
+      const { data } = await callCoreWithConfig<{ deleted: boolean }>('instance.delete', {
+        modelHandle,
+        id,
+      })
+      return data
+    },
+
+    async deleteMany(
+      modelHandle: string,
+      options: { ids: string[] } | { filter: StructuredFilter },
+    ): Promise<{ deleted: string[]; errors: Array<{ index: number; error: string }> }> {
+      const { data } = await callCoreWithConfig<{ deleted: string[]; errors: Array<{ index: number; error: string }> }>('instance.deleteMany', {
+        modelHandle,
+        ...options,
+      })
+      return data
+    },
+
+    async createMany(
+      modelHandle: string,
+      items: Record<string, unknown>[],
+    ): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
+      const { data } = await callCoreWithConfig<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.createMany', {
+        modelHandle,
+        items,
+      })
+      return data
+    },
+
+    async updateMany(
+      modelHandle: string,
+      items: Array<{ id: string; data: Record<string, unknown> }>,
+    ): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
+      const { data } = await callCoreWithConfig<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.updateMany', {
+        modelHandle,
+        items,
+      })
+      return data
+    },
+
+    async upsertMany(
+      modelHandle: string,
+      items: Record<string, unknown>[],
+      matchField: string,
+    ): Promise<{ results: Array<InstanceData & { mode: 'created' | 'updated' }>; errors: Array<{ index: number; error: string }> }> {
+      const { data } = await callCoreWithConfig<{ results: Array<InstanceData & { mode: 'created' | 'updated' }>; errors: Array<{ index: number; error: string }> }>('instance.upsertMany', {
+        modelHandle,
+        items,
+        matchField,
+      })
+      return data
+    },
+
+    async isConfigured(modelHandle: string): Promise<boolean> {
+      const { data } = await callCoreWithConfig<{ configured: boolean }>('instance.isConfigured', {
+        modelHandle,
+      })
+      return data.configured
+    },
+
+    async getConfiguredModels(modelHandles: string[]): Promise<Map<string, boolean>> {
+      const { data } = await callCoreWithConfig<Record<string, boolean>>('instance.getConfiguredModels', {
+        modelHandles,
+      })
+      return new Map(Object.entries(data))
+    },
+  }
+}
+
+export const instance: InstanceClient = {
   /**
    * List instances of an internal model.
    *
@@ -863,30 +1022,65 @@ export const instance = {
 
 export const token = {
   /**
-   * Exchange an sk_app_ token for an installation-scoped sk_wkp_ JWT.
+   * Exchange an sk_app_ or sk_prv_ token for an installation-scoped InstanceClient.
    *
-   * **Requires sk_app_ token** - only works with app-level tokens.
-   * Used after identifying the target installation (e.g., via instance.search).
+   * **Requires sk_app_ or sk_prv_ token** - works with app-level or provision tokens.
+   * Used by developer tools after discovering `appInstallationId` from a record.
    *
-   * The returned JWT is short-lived (1 hour) and scoped to the specific installation.
+   * Returns an InstanceClient bound to the installation's sk_wkp_ token.
+   * All CRM writes should use this scoped client.
+   *
+   * The underlying JWT is short-lived (1 hour) and scoped to the specific installation.
    *
    * @example
    * ```ts
-   * // After finding the installation via instance.search
-   * const { token: scopedToken } = await token.exchange(appInstallationId)
+   * // Developer tool: discover → exchange → write
+   * const accessRequest = await instance.get('access_request', id) // uses sk_prv_
+   * if (!accessRequest?.appInstallationId) {
+   *   throw new Error('Access request missing appInstallationId')
+   * }
    *
-   * // Use the scoped token for subsequent operations
-   * runWithConfig({ apiToken: scopedToken, baseUrl: config.baseUrl }, async () => {
-   *   const channels = await communicationChannel.list({ filter: { identifierValue: phoneNumber } })
-   *   // ...
-   * })
+   * // Exchange for a scoped instance client
+   * const scopedInstance = await token.exchange(accessRequest.appInstallationId)
+   *
+   * // All writes use the scoped client (sk_wkp_ internally)
+   * await scopedInstance.create('studio', { ... })
+   * await scopedInstance.update('access_request', id, { status: 'APPROVED' })
    * ```
    */
-  async exchange(appInstallationId: string): Promise<{ token: string }> {
+  async exchange(appInstallationId: string): Promise<InstanceClient> {
     const { data } = await callCore<{ token: string }>('token.exchange', {
       appInstallationId,
     })
-    return data
+    const { baseUrl } = getEffectiveConfig()
+    return createInstanceClient({ apiToken: data.token, baseUrl })
+  },
+
+  /**
+   * Exchange an sk_app_ or sk_prv_ token for a raw installation-scoped JWT.
+   *
+   * **Requires sk_app_ or sk_prv_ token** - works with app-level or provision tokens.
+   * For most use cases, prefer `token.exchange()` which returns a ready-to-use InstanceClient.
+   *
+   * Use this when you need the raw token string (e.g., for passing to external services,
+   * storing for later use, or advanced scenarios requiring manual config management).
+   *
+   * @example
+   * ```ts
+   * // Get raw token for advanced use cases
+   * const { token: scopedToken, appInstallationId } = await token.exchangeRaw(installId)
+   *
+   * // Manual config management
+   * runWithConfig({ apiToken: scopedToken, baseUrl: config.baseUrl }, async () => {
+   *   await communicationChannel.list({ filter: { ... } })
+   * })
+   * ```
+   */
+  async exchangeRaw(appInstallationId: string): Promise<{ token: string; appInstallationId: string }> {
+    const { data } = await callCore<{ token: string }>('token.exchange', {
+      appInstallationId,
+    })
+    return { token: data.token, appInstallationId }
   },
 }
 

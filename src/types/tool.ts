@@ -255,6 +255,18 @@ export type ToolHandler<Input, Output> = (
   context: ToolExecutionContext,
 ) => Promise<ToolResult<Output> | ToolExecutionResult<Output>> | ToolResult<Output> | ToolExecutionResult<Output>
 
+/**
+ * Execution scope for tools.
+ * 
+ * - `installation` (default): Tool requires an appInstallationId at invoke time.
+ *   Standard for most tools - receives sk_wkp_ token scoped to the installation.
+ * 
+ * - `app_version`: Tool runs without appInstallationId (developer/admin tools).
+ *   Receives sk_prv_ token. Handler discovers appInstallationId from records
+ *   and uses token.exchange for scoped writes.
+ */
+export type ExecutionScope = 'installation' | 'app_version'
+
 export interface ToolDefinition<
   Input = unknown,
   Output = unknown,
@@ -269,6 +281,13 @@ export interface ToolDefinition<
   outputSchema?: ToolSchema<OutputSchema>
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
+  /**
+   * Execution scope for this tool.
+   * - `installation` (default): Requires appInstallationId, receives sk_wkp_ token.
+   * - `app_version`: No appInstallationId required, receives sk_prv_ token.
+   *   Used for developer/admin tools that discover installations from records.
+   */
+  executionScope?: ExecutionScope
   [key: string]: unknown
 }
 
@@ -281,6 +300,8 @@ export interface ToolRegistryEntry {
   outputSchema?: ToolSchema
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
+  /** Execution scope for this tool */
+  executionScope?: ExecutionScope
   [key: string]: unknown
 }
 
@@ -300,6 +321,8 @@ export interface ToolMetadata {
   retries?: number
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
+  /** Execution scope for this tool */
+  executionScope?: ExecutionScope
 }
 
 /**

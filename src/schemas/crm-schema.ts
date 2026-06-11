@@ -210,14 +210,31 @@ export const CRMPageSchemaZ = z.object({
 export type CRMPageSchema = z.infer<typeof CRMPageSchemaZ>
 
 /**
- * Navigation item schema.
+ * Navigation item schema (supports nested groups up to 2 levels).
  */
-export const CRMNavigationItemSchemaZ = z.object({
+export type CRMNavigationNode = {
+  label: string
+  icon?: string
+  path?: string
+  kind?: 'section' | 'group'
+  sortIndex?: number
+  children?: CRMNavigationNode[]
+}
+
+const CRMNavigationNodeBaseSchemaZ = z.object({
   label: z.string(),
   icon: z.string().optional(),
-  path: z.string(),
+  path: z.string().optional(),
+  kind: z.enum(['section', 'group']).optional(),
   sortIndex: z.number().optional(),
 })
+
+export const CRMNavigationItemSchemaZ: z.ZodType<CRMNavigationNode> = z.lazy(
+  () =>
+    CRMNavigationNodeBaseSchemaZ.extend({
+      children: z.array(CRMNavigationItemSchemaZ).optional(),
+    }),
+)
 
 export type CRMNavigationItemSchema = z.infer<typeof CRMNavigationItemSchemaZ>
 

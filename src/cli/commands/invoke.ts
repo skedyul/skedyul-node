@@ -14,12 +14,13 @@ import type {
   ToolExecutionContext,
   AgentToolContext,
   ToolExecutionResult,
+  ToolResult,
 } from '../../types'
 import { createContextLogger } from '../../server/logger'
 import { getCredentials, callCliApi } from '../utils/auth'
 import { getLinkConfig, loadEnvFile as loadLinkedEnvFile } from '../utils/link'
 import { findRegistryPath } from '../utils/config'
-import { file, configure } from '../../core/client'
+import { file, configure, runWithConfig } from '../../core/client'
 
 /**
  * Simple MIME type lookup based on file extension.
@@ -181,19 +182,6 @@ Examples:
   # With arguments
   skedyul dev invoke create_booking --args '{"date": "2024-01-15"}'
 
-  # With file upload (uploads file and injects file_id)
-  skedyul dev invoke parse_lab_report \\
-    --args '{"file_id": "{{upload:/path/to/report.pdf}}"}'
-
-  # Multiple file uploads in one command
-  skedyul dev invoke process_documents \\
-    --args '{"doc": "{{upload:./doc.pdf}}", "image": "{{upload:./photo.jpg}}"}'
-
-  # With inline environment variables
-  skedyul dev invoke api_call \\
-    --args '{"endpoint": "/users"}' \\
-    --env API_KEY=secret123
-
   # Estimate mode (billing only)
   skedyul dev invoke expensive_tool --estimate
 `)
@@ -327,6 +315,7 @@ export async function invokeCommand(args: string[]): Promise<void> {
         { appInstallationId: linkConfig.appInstallationId },
       )
       workplaceToken = tokenResponse.token
+      env.SKEDYUL_API_URL = linkConfig.serverUrl
       env.SKEDYUL_API_TOKEN = workplaceToken
       
       // Configure the skedyul client for file uploads
@@ -478,19 +467,38 @@ export async function invokeCommand(args: string[]): Promise<void> {
     const handler = tool.handler as (
       input: unknown,
       context: ToolExecutionContext,
-    ) => Promise<ToolExecutionResult<unknown>>
+    ) => Promise<ToolResult<unknown> | ToolExecutionResult<unknown>>
 
-    const result = await handler(validatedArgs, context)
+    const requestConfig = {
+      baseUrl: env.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+      apiToken: env.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+    }
 
-    // Output result
-    if (estimateMode) {
-      console.log(formatJson({ billing: result.billing }))
-    } else {
-      console.log(formatJson({
-        output: result.output,
-        billing: result.billing,
-        meta: result.meta,
-      }))
+    // Mirror callTool: merge env into process.env so SDK calls from the
+    // external 'skedyul' package resolve config (separate module instance).
+    const originalEnv = { ...process.env }
+    Object.assign(process.env, env)
+
+    try {
+      const result = await runWithConfig(requestConfig, async () => {
+        return await handler(validatedArgs, context)
+      })
+
+      // Output result
+      if (estimateMode) {
+        console.log(formatJson({ billing: result.billing }))
+      } else if (result.success === false) {
+        console.log(formatJson({ error: result.error, billing: result.billing }))
+        process.exit(1)
+      } else {
+        console.log(formatJson({
+          output: result.output,
+          billing: result.billing,
+          ...('meta' in result && result.meta ? { meta: result.meta } : {}),
+        }))
+      }
+    } finally {
+      process.env = originalEnv
     }
   } catch (error) {
     console.error('Error executing tool:', error instanceof Error ? error.message : String(error))
