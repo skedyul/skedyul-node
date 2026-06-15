@@ -23,13 +23,25 @@ ARG COMPUTE_LAYER=serverless
 ARG BUILD_EXTERNAL=""
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm (pinned — avoid pnpm@latest drift breaking esbuild postinstall approval)
+RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
 
 # Copy all project files (excluding node_modules via .dockerignore)
 # This includes: package.json, tsconfig.json, skedyul.config.ts, provision.ts, env.ts
 # And directories: src/, crm/, channels/, pages/, workflows/, agents/, etc.
 COPY . .
+
+ENV CI=true
+
+# esbuild postinstall is required for tsup; pnpm 10+ blocks unapproved lifecycle scripts
+RUN printf '%s\\n' \\
+    'packages:' \\
+    '  - "."' \\
+    'onlyBuiltDependencies:' \\
+    '  - esbuild' \\
+    'allowBuilds:' \\
+    '  esbuild: true' \\
+    > pnpm-workspace.yaml
 
 # Install dependencies (including dev deps for build), compile, export config, smoke test, then prune
 # Note: Using --no-frozen-lockfile since lockfile may not exist
