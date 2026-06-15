@@ -1,8 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import * as z from 'zod'
 
-console.log('[skedyul-node/server] Module loading - imports done')
-
 import type {
   DedicatedServerInstance,
   ServerlessServerInstance,
@@ -23,12 +21,7 @@ import {
 } from './utils/mcp-response'
 import { installContextLogger } from './context-logger'
 
-console.log('[skedyul-node/server] All imports complete')
-
-// Install context-aware logger at module load time
-console.log('[skedyul-node/server] Installing context logger...')
 installContextLogger()
-console.log('[skedyul-node/server] Context logger installed')
 
 // Re-export types
 export type { RequestState, CoreMethod, ToolCallArgs } from './types'
@@ -87,14 +80,12 @@ export function createSkedyulServer(
 export function createSkedyulServer(
   config: RuntimeSkedyulConfig,
 ): SkedyulServerInstance {
-  console.log('[createSkedyulServer] Step 1: mergeRuntimeEnv()')
   mergeRuntimeEnv()
 
   // Extract registries from config
   const registry = config.tools
   const webhookRegistry = config.webhooks
 
-  console.log('[createSkedyulServer] Step 2: coreApi setup')
   if (config.coreApi?.service) {
     coreApiService.register(config.coreApi.service)
     if (config.coreApi.webhookHandler) {
@@ -102,10 +93,8 @@ export function createSkedyulServer(
     }
   }
 
-  console.log('[createSkedyulServer] Step 3: buildToolMetadata()')
   const tools = buildToolMetadata(registry)
-  console.log('[createSkedyulServer] Step 3 done, tools:', tools.length)
-  
+
   const toolNames = Object.values(registry).map((tool) => tool.name)
   const runtimeLabel = config.computeLayer ?? 'serverless'
   const maxRequests =
@@ -117,21 +106,17 @@ export function createSkedyulServer(
     parseNumberEnv(process.env.MCP_TTL_EXTEND) ??
     3600
 
-  console.log('[createSkedyulServer] Step 4: createRequestState()')
   const state = createRequestState(
     maxRequests,
     ttlExtendSeconds,
     runtimeLabel,
     toolNames,
   )
-  console.log('[createSkedyulServer] Step 4 done')
 
-  console.log('[createSkedyulServer] Step 5: new McpServer()')
   const mcpServer = new McpServer({
       name: config.name,
       version: config.version ?? '0.0.0',
   })
-  console.log('[createSkedyulServer] Step 5 done')
 
   const dedicatedShutdown = () => {
     // eslint-disable-next-line no-console
@@ -139,30 +124,22 @@ export function createSkedyulServer(
     setTimeout(() => process.exit(0), 1000)
   }
 
-  console.log('[createSkedyulServer] Step 6: createCallToolHandler()')
   const callTool = createCallToolHandler(
     registry,
     state,
     config.computeLayer === 'dedicated' ? dedicatedShutdown : undefined,
   )
-  console.log('[createSkedyulServer] Step 6 done')
 
-  // Register all tools from the registry
-  console.log('[createSkedyulServer] Step 7: Registering tools...')
   for (const [toolKey, tool] of Object.entries(registry)) {
-    console.log(`[createSkedyulServer] Registering tool: ${toolKey}`)
     // Use the tool's name or fall back to the registry key
     const toolName = tool.name || toolKey
     const toolDisplayName = tool.label || toolName
-    
-    console.log(`[createSkedyulServer] Getting input schema for ${toolKey}`)
+
     const inputZodSchema = getZodSchema(tool.inputSchema)
-    console.log(`[createSkedyulServer] Getting output schema for ${toolKey}`)
     const outputZodSchema = getZodSchema(tool.outputSchema)
 
     // Wrap the input schema to accept Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
     // All fields must be explicitly defined to prevent MCP SDK from stripping them during validation
-    console.log(`[createSkedyulServer] Creating wrapped schema for ${toolKey}`)
     const wrappedInputSchema = z.object({
       inputs: inputZodSchema ?? z.record(z.string(), z.unknown()).optional(),
       context: z.record(z.string(), z.unknown()).optional(),
@@ -171,7 +148,6 @@ export function createSkedyulServer(
       estimate: z.boolean().optional(),
     }).passthrough()
 
-    console.log(`[createSkedyulServer] Calling mcpServer.registerTool for ${toolKey}`)
     mcpServer.registerTool(
       toolName,
       {
@@ -183,25 +159,12 @@ export function createSkedyulServer(
         // outputSchema: outputZodSchema,
       },
       async (args: unknown) => {
-        // Debug: Log raw args received from MCP SDK to diagnose env passthrough issues
-        console.log(`[mcpServer.registerTool] Tool ${toolName} received raw args:`, JSON.stringify(args, null, 2))
-        
         // Args are in Skedyul format: { inputs: {...}, context: {...}, env: {...}, invocation: {...} }
         const rawArgs = args as Record<string, unknown>
         const toolInputs = (rawArgs.inputs ?? {}) as Record<string, unknown>
         const toolContext = rawArgs.context as Record<string, unknown> | undefined
         const toolEnv = rawArgs.env as Record<string, string> | undefined
         const toolInvocation = rawArgs.invocation as Record<string, unknown> | undefined
-        
-        // Debug: Log extracted values
-        console.log(`[mcpServer.registerTool] Tool ${toolName} extracted:`, {
-          hasInputs: !!rawArgs.inputs,
-          hasContext: !!rawArgs.context,
-          hasEnv: !!rawArgs.env,
-          hasInvocation: !!rawArgs.invocation,
-          envKeys: toolEnv ? Object.keys(toolEnv) : [],
-          hasApiToken: toolEnv?.SKEDYUL_API_TOKEN ? `yes (${toolEnv.SKEDYUL_API_TOKEN.length} chars)` : 'no',
-        })
 
         // Validate inputs if schema exists
         let validatedInputs = toolInputs
@@ -289,13 +252,9 @@ export function createSkedyulServer(
         }
       },
     )
-    console.log(`[createSkedyulServer] Tool ${toolKey} registered successfully`)
   }
-  console.log('[createSkedyulServer] Step 7 done - all tools registered')
 
-  console.log('[createSkedyulServer] Step 8: Creating server instance')
   if (config.computeLayer === 'dedicated') {
-    console.log('[createSkedyulServer] Creating dedicated instance')
     return createDedicatedServerInstance(
       config,
       tools,
@@ -305,10 +264,7 @@ export function createSkedyulServer(
     )
   }
 
-  console.log('[createSkedyulServer] Creating serverless instance')
-  const serverlessInstance = createServerlessInstance(config, tools, callTool, state, mcpServer)
-  console.log('[createSkedyulServer] Serverless instance created successfully')
-  return serverlessInstance
+  return createServerlessInstance(config, tools, callTool, state, mcpServer)
 }
 
 export const server = {

@@ -27,9 +27,6 @@ export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
     const rawRetries = tool.retries ?? toolConfig.retries
     const timeout = typeof rawTimeout === 'number' && rawTimeout > 0 ? rawTimeout : 10000
     const retries = typeof rawRetries === 'number' && rawRetries >= 1 ? rawRetries : 1
-    // #region agent log
-    console.log(`[buildToolMetadata] Tool ${tool.name}: tool.timeout=${tool.timeout}, config.timeout=${toolConfig.timeout}, final timeout=${timeout}`)
-    // #endregion
     return {
       name: tool.name,
       displayName: tool.label || tool.name,

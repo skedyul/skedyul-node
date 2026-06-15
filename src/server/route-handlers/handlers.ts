@@ -118,35 +118,15 @@ export function handleConfigRoute(ctx: RouteContext): UnifiedResponse {
   const configFilePath = getConfigFilePath()
 
   try {
-    console.log(`[/config] Checking for config file at: ${configFilePath}`)
     if (fs.existsSync(configFilePath)) {
       const fileConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'))
-      console.log(
-        `[/config] Loaded config from file: tools=${fileConfig.tools?.length ?? 0}, webhooks=${fileConfig.webhooks?.length ?? 0}`,
-      )
-      console.log(
-        `[/config] SENDING config with keys: ${Object.keys(fileConfig).join(', ')}`,
-      )
-      console.log(
-        `[/config] SENDING full config: ${JSON.stringify(fileConfig).substring(0, 2000)}...`,
-      )
       return { status: 200, body: fileConfig }
     }
-    console.log('[/config] Config file not found, falling back to runtime serialization')
   } catch (err) {
     console.warn('[/config] Failed to read config file, falling back to runtime serialization:', err)
   }
 
   const serialized = serializeConfig(ctx.config)
-  console.log(
-    `[/config] Runtime serialization: tools=${serialized.tools?.length ?? 0}, webhooks=${serialized.webhooks?.length ?? 0}`,
-  )
-  console.log(
-    `[/config] SENDING serialized config with keys: ${Object.keys(serialized).join(', ')}`,
-  )
-  console.log(
-    `[/config] SENDING full serialized config: ${JSON.stringify(serialized).substring(0, 2000)}...`,
-  )
   return { status: 200, body: serialized }
 }
 
@@ -479,15 +459,6 @@ async function handleMcpToolsCall(
   const toolName = params?.name as string
   const rawArgs = (params?.arguments ?? {}) as Record<string, unknown>
 
-  console.log('[route-handlers /mcp] Received tools/call request:', JSON.stringify({
-    toolName,
-    hasArguments: !!params?.arguments,
-    argumentKeys: rawArgs ? Object.keys(rawArgs) : [],
-    hasEnv: 'env' in rawArgs,
-    envKeys: rawArgs.env ? Object.keys(rawArgs.env as Record<string, unknown>) : [],
-    hasApiToken: !!(rawArgs.env as Record<string, unknown>)?.SKEDYUL_API_TOKEN,
-  }, null, 2))
-
   const hasSkedyulFormat =
     'inputs' in rawArgs || 'env' in rawArgs || 'context' in rawArgs || 'invocation' in rawArgs
   const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
@@ -500,15 +471,6 @@ async function handleMcpToolsCall(
   const toolInvocation = hasSkedyulFormat
     ? (rawArgs.invocation as InvocationContext | undefined)
     : undefined
-
-  console.log('[route-handlers /mcp] Extracted env:', JSON.stringify({
-    hasSkedyulFormat,
-    hasToolEnv: !!toolEnv,
-    toolEnvKeys: toolEnv ? Object.keys(toolEnv) : [],
-    hasApiToken: toolEnv?.SKEDYUL_API_TOKEN
-      ? `yes (${toolEnv.SKEDYUL_API_TOKEN.length} chars)`
-      : 'no',
-  }, null, 2))
 
   const found = findToolInRegistry(ctx.registry, toolName)
   if (!found) {

@@ -187,30 +187,6 @@ async function handleMcpWithSdkTransport(
       params?: { name?: string; arguments?: Record<string, unknown> }
     }
 
-    if (body?.method === 'tools/call') {
-      console.log(
-        '[dedicated.ts /mcp] Received tools/call request:',
-        JSON.stringify(
-          {
-            method: body.method,
-            toolName: body.params?.name,
-            hasArguments: !!body.params?.arguments,
-            argumentKeys: body.params?.arguments
-              ? Object.keys(body.params.arguments)
-              : [],
-            hasEnv: !!body.params?.arguments?.env,
-            envKeys: body.params?.arguments?.env
-              ? Object.keys(body.params.arguments.env as Record<string, unknown>)
-              : [],
-            hasApiToken: !!(body.params?.arguments?.env as Record<string, unknown>)
-              ?.SKEDYUL_API_TOKEN,
-          },
-          null,
-          2,
-        ),
-      )
-    }
-
     // Handle tools/list directly to include custom metadata (timeout, displayName, outputSchema)
     if (body?.method === 'tools/list') {
       sendJSON(res, 200, {

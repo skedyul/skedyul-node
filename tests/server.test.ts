@@ -557,8 +557,6 @@ test('Multiple tools in registry work correctly', async () => {
     requestContext: { requestId: 'list' },
   })
 
-  console.log(listResponse.body)
-
   assert.strictEqual(listResponse.statusCode, 200)
   const listParsed = JSON.parse(listResponse.body)
   const toolNames = listParsed.result.tools.map((t: { name: string }) => t.name)

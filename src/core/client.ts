@@ -151,16 +151,6 @@ async function callCore<T>(
   const effectiveConfig = getEffectiveConfig()
   const { baseUrl, apiToken } = effectiveConfig
 
-  // Debug: Log config state to trace token issues
-  const requestConfig = requestConfigStorage.getStore()
-  console.log(`[callCore] Method: ${method}, Config state:`, {
-    hasRequestConfig: !!requestConfig,
-    requestConfigApiToken: requestConfig?.apiToken ? `set (${requestConfig.apiToken.length} chars)` : 'not set',
-    globalConfigApiToken: globalConfig.apiToken ? `set (${globalConfig.apiToken.length} chars)` : 'not set',
-    processEnvApiToken: process.env.SKEDYUL_API_TOKEN ? `set (${process.env.SKEDYUL_API_TOKEN.length} chars)` : 'not set',
-    effectiveApiToken: apiToken ? `set (${apiToken.length} chars)` : 'not set',
-  })
-
   if (!baseUrl) {
     throw new Error(
       'Skedyul client not configured: missing baseUrl. Set SKEDYUL_API_URL environment variable or call configure().',
