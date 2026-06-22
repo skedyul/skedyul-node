@@ -317,9 +317,22 @@ export type TimeWindowDefault = z.infer<typeof TimeWindowDefaultSchema>
  */
 export const ResponsesBehaviorConfigSchema = z.object({
   /**
+   * Maximum immediate messages per agent run (acks, progress updates).
+   * @default 1
+   */
+  maxImmediate: z.number().optional(),
+
+  /**
+   * Maximum scheduled messages per agent run (follow-ups via sendAt).
+   * @default 2
+   */
+  maxScheduled: z.number().optional(),
+
+  /**
    * Maximum intermediate messages per agent run.
    * Intermediate = progress updates, acknowledgments before task completion.
    * The final message slot is always reserved separately.
+   * @deprecated Use maxImmediate instead
    * @default 2
    */
   maxIntermediate: z.number().optional(),

@@ -186,6 +186,8 @@ export const SkillRefSchema = z.union([
   z.object({
     skill: z.string(),
     description: z.string().optional(), // For AI SDK Agent Skills discovery
+    /** Auto-inject this skill's instructions and tools on every agent turn */
+    alwaysLoad: z.boolean().optional(),
     // Version selection (pick one):
     version: z.number().optional(), // Pin to specific version number
     versions: z.array(SkillVersionWeightSchema).optional(), // A/B testing weights
