@@ -188,11 +188,14 @@ export type PoliciesConfigV3 = z.infer<typeof PoliciesConfigV3Schema>
 
 /**
  * Runtime configuration
- * Only `model` is actively used for LLM model selection.
+ * `model` selects the main reasoning LLM; `personaModel` selects the model
+ * used to apply persona voice/style to outbound messages.
  */
 export const RuntimeConfigV3Schema = z.object({
-  /** LLM model identifier (e.g., "google/gemini-3.1-flash-lite") */
+  /** LLM model identifier for reasoning (e.g., "google/gemini-3.1-flash-lite") */
   model: z.string().optional(),
+  /** LLM model for persona transformation (e.g., "openai/gpt-5-nano") */
+  personaModel: z.string().optional(),
 })
 
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
@@ -527,7 +530,7 @@ export const AgentYAMLV3Schema = z.object({
   // Policies - Business rules for the agent
   policies: PoliciesConfigV3Schema.optional(),
 
-  // Runtime - Execution configuration (only model is used)
+  // Runtime - Execution configuration (model + personaModel)
   runtime: RuntimeConfigV3Schema.optional(),
 
   // Prompts - Agent-specific prompt injections
