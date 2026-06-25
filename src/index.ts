@@ -55,6 +55,7 @@ export type {
   CronSubscriptionItem,
   CronListOptions,
   SignalCreateResult,
+  SignalCreateOptions,
   ResourceLinkParams,
   ResourceLinkResult,
   // AI types

@@ -1533,24 +1533,41 @@ export interface SignalCreateResult {
   /** false when no EventSubscription matches (passthrough) */
   emitted: boolean
   eventId: string | null
+  /** Present when server returns resolved event type */
+  eventType?: string
+}
+
+export interface SignalCreateOptions {
+  /** Context trigger source, e.g. tool_call, webhook, cli */
+  trigger?: string
+  correlationId?: string
+  /** App handle namespace for event type (CLI default: cli) */
+  app?: string
+  /** Additional context fields merged into event payload context */
+  context?: Record<string, unknown>
 }
 
 /**
  * signal.create - Emit an app signal to the platform event bus.
- *
- * UI term: signal. Backend: Event + EventSubscription dispatch.
- * Passthrough when no subscription is configured for this signal.
  */
 export const signal = {
   async create(
     name: string,
     payload: Record<string, unknown>,
-    context?: { trigger?: string; correlationId?: string },
+    options?: SignalCreateOptions,
   ): Promise<SignalCreateResult> {
+    const { trigger, correlationId, app, context: extraContext } = options ?? {}
+    const context: Record<string, unknown> = {
+      ...(extraContext ?? {}),
+      ...(trigger ? { trigger } : {}),
+      ...(correlationId ? { correlationId } : {}),
+    }
+
     const { data } = await callCore<SignalCreateResult>('signal.create', {
       name,
       payload,
-      ...(context ? { context } : {}),
+      ...(Object.keys(context).length > 0 ? { context } : {}),
+      ...(app ? { app } : {}),
     })
     return data
   },
