@@ -28,6 +28,9 @@ export * from './agent'
 // Webhooks
 export * from './webhook'
 
+// Signals
+export * from './signal'
+
 // Navigation
 export * from './navigation'
 

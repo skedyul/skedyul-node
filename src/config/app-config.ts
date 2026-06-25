@@ -17,6 +17,7 @@ import type {
   PageDefinition,
   NavigationConfig,
   AgentDefinition,
+  SignalDefinition,
 } from './types'
 
 /**
@@ -51,6 +52,8 @@ export interface ProvisionConfig {
   navigation?: NavigationConfig
   /** Page definitions for app UI */
   pages?: PageDefinition[]
+  /** App signal definitions (event bus subscriptions created on install) */
+  signals?: SignalDefinition[]
 }
 
 /**

@@ -1526,6 +1526,37 @@ export const cron = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Signal Client
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SignalCreateResult {
+  /** false when no EventSubscription matches (passthrough) */
+  emitted: boolean
+  eventId: string | null
+}
+
+/**
+ * signal.create - Emit an app signal to the platform event bus.
+ *
+ * UI term: signal. Backend: Event + EventSubscription dispatch.
+ * Passthrough when no subscription is configured for this signal.
+ */
+export const signal = {
+  async create(
+    name: string,
+    payload: Record<string, unknown>,
+    context?: { trigger?: string; correlationId?: string },
+  ): Promise<SignalCreateResult> {
+    const { data } = await callCore<SignalCreateResult>('signal.create', {
+      name,
+      payload,
+      ...(context ? { context } : {}),
+    })
+    return data
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource Client
 // ─────────────────────────────────────────────────────────────────────────────
 

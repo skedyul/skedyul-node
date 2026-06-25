@@ -24,6 +24,7 @@ export {
   file,
   webhook,
   cron,
+  signal,
   resource,
   ai,
   report,
@@ -53,6 +54,7 @@ export type {
   CronSubscribeResult,
   CronSubscriptionItem,
   CronListOptions,
+  SignalCreateResult,
   ResourceLinkParams,
   ResourceLinkResult,
   // AI types
