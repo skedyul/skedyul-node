@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # required for npm trusted publishing (OIDC)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -86,10 +87,11 @@ jobs:
       - name: Build package
         run: pnpm build
 
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Publish to NPM
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create git tag
         run: |
@@ -113,6 +115,7 @@ jobs:
             else
               echo "- Published existing version \`${{ steps.version.outputs.new }}\` (no bump)"
             fi
+            echo "- Auth: npm trusted publishing (OIDC)"
             echo "- npm: https://www.npmjs.com/package/skedyul/v/${{ steps.version.outputs.new }}"
             echo "- git tag: \`v${{ steps.version.outputs.new }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

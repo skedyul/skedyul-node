@@ -21,7 +21,7 @@ import { agentsCommand } from './commands/agents'
 import { chatCommand } from './commands/chat'
 import { skillsCommand } from './commands/skills'
 import { workflowsCommand } from './commands/workflows'
-import { signalCommand } from './commands/signal'
+import { eventCommand } from './commands/event'
 
 const args = process.argv.slice(2)
 
@@ -54,7 +54,7 @@ COMMANDS
   agents     Manage agents (list, get, push)
   skills     Manage skills (list, get, deploy, publish, versions, delete)
   workflows  Manage workflows (list, get, deploy, run, publish, pull)
-  signal       Emit test signals to the event bus (CLI testing)
+  event        Emit test app events to the event bus (CLI testing)
   dev        Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -88,10 +88,10 @@ CRM INSTANCES
   $ skedyul instances delete <model> <id> --workplace <subdomain>
 
 SIGNALS (CLI testing)
-  Emit signals without an app installation:
+  Emit app events without an app installation:
 
-  $ skedyul signal create customer.sync '{"customers":[]}' --workplace <subdomain>
-  $ skedyul signal create ping --workplace <subdomain> --app shopify
+  $ skedyul event create customer.sync '{"customers":[]}' --workplace <subdomain>
+  $ skedyul event create ping --workplace <subdomain> --app shopify
 
 CONFIGURATION
   Global credentials:     ~/.skedyul/credentials.json
@@ -283,8 +283,8 @@ async function main(): Promise<void> {
     return
   }
 
-  if (command === 'signal') {
-    await signalCommand(args.slice(1))
+  if (command === 'event') {
+    await eventCommand(args.slice(1))
     return
   }
 

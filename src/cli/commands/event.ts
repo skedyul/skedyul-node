@@ -1,6 +1,6 @@
 import { parseArgs, formatJson } from '../utils'
 import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
-import { configure, signal, runWithConfig } from '../../core/client'
+import { configure, event, runWithConfig } from '../../core/client'
 
 interface WorkplaceTokenResponse {
   token: string
@@ -12,40 +12,40 @@ interface WorkplaceTokenResponse {
 
 function printHelp(): void {
   console.log(`
-skedyul signal - Emit test signals to the event bus
+skedyul event - Emit test app events to the event bus
 
 Usage:
-  skedyul signal create <name> [data] [options]
+  skedyul event create <name> [data] [options]
 
 Required:
-  <name>                    Signal name (e.g. customer.sync)
+  <name>                    Event name (e.g. customer.sync)
   --workplace, -w           Workplace subdomain
 
 Options:
   --data, -d                JSON payload (default: {})
   --app, -a                 App handle namespace (default: cli)
-                            Event type becomes signal.{app}.{name}
+                            Event type becomes app.{app}.{name}
   --context, -c             JSON context metadata (optional)
   --json                    Output full JSON response
   --help, -h                Show this help message
 
 Examples:
   # Emit with inline JSON payload
-  skedyul signal create customer.sync '{"customers":[{"id":1}]}' -w demo-clinic
+  skedyul event create customer.sync '{"customers":[{"id":1}]}' -w demo-clinic
 
   # Emit with --data flag
-  skedyul signal create order.created -w demo-clinic \\
+  skedyul event create order.created -w demo-clinic \\
     --data '{"order":{"id":123,"email":"test@example.com"}}'
 
   # Use a specific app namespace (matches production event types)
-  skedyul signal create customer.sync '{"customers":[]}' -w demo-clinic --app shopify
+  skedyul event create customer.sync '{"customers":[]}' -w demo-clinic --app shopify
 
   # Empty payload
-  skedyul signal create ping -w demo-clinic
+  skedyul event create ping -w demo-clinic
 
 Notes:
   - Uses your CLI login + workplace membership (no app install required)
-  - Event type: signal.{app}.{name} (app defaults to "cli")
+  - Event type: app.{app}.{name} (app defaults to "cli")
   - Passthrough when no EventSubscription exists: emitted=false, eventId=null
   - Create EventSubscription rows in the UI to test workflow dispatch
 `)
@@ -83,7 +83,7 @@ function parseJsonObject(
   }
 }
 
-export async function signalCommand(args: string[]): Promise<void> {
+export async function eventCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
 
   if (flags.help || flags.h || positional.length === 0) {
@@ -99,13 +99,13 @@ export async function signalCommand(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const signalName = positional[1]
+  const eventName = positional[1]
   const inlineData = positional[2]
 
-  if (!signalName) {
-    console.error('Error: Signal name is required')
+  if (!eventName) {
+    console.error('Error: Event name is required')
     console.error(
-      "Usage: skedyul signal create <name> [data] --workplace <subdomain>",
+      "Usage: skedyul event create <name> [data] --workplace <subdomain>",
     )
     process.exit(1)
   }
@@ -114,7 +114,7 @@ export async function signalCommand(args: string[]): Promise<void> {
   if (!workplaceSubdomain) {
     console.error('Error: --workplace (-w) is required')
     console.error(
-      "Example: skedyul signal create customer.sync '{}' --workplace demo-clinic",
+      "Example: skedyul event create customer.sync '{}' --workplace demo-clinic",
     )
     process.exit(1)
   }
@@ -181,7 +181,7 @@ export async function signalCommand(args: string[]): Promise<void> {
 
   try {
     const result = await runWithConfig(clientConfig, () =>
-      signal.create(signalName, payload, {
+      event.create(eventName, payload, {
         trigger: 'cli',
         app: appHandle,
         context: extraContext,
@@ -189,7 +189,7 @@ export async function signalCommand(args: string[]): Promise<void> {
     )
 
     const eventType =
-      result.eventType ?? `signal.${appHandle ?? 'cli'}.${signalName}`
+      result.eventType ?? `app.${appHandle ?? 'cli'}.${eventName}`
 
     if (flags.json) {
       console.log(
@@ -203,12 +203,12 @@ export async function signalCommand(args: string[]): Promise<void> {
     }
 
     if (result.emitted) {
-      console.log(`Signal emitted: ${eventType}`)
+      console.log(`Event emitted: ${eventType}`)
       console.log(`Event ID: ${result.eventId}`)
     } else {
       console.log(`Passthrough (no subscription): ${eventType}`)
       console.log(
-        'No Event row created. Add an EventSubscription to test dispatch.',
+        `No Event row created. Add an EventSubscription for "${eventType}" to test dispatch.`,
       )
     }
   } catch (error) {

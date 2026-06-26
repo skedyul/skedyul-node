@@ -1526,10 +1526,10 @@ export const cron = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Signal Client
+// Event Client
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface SignalCreateResult {
+export interface EventCreateResult {
   /** false when no EventSubscription matches (passthrough) */
   emitted: boolean
   eventId: string | null
@@ -1537,7 +1537,7 @@ export interface SignalCreateResult {
   eventType?: string
 }
 
-export interface SignalCreateOptions {
+export interface EventCreateOptions {
   /** Context trigger source, e.g. tool_call, webhook, cli */
   trigger?: string
   correlationId?: string
@@ -1548,14 +1548,14 @@ export interface SignalCreateOptions {
 }
 
 /**
- * signal.create - Emit an app signal to the platform event bus.
+ * event.create - Emit an app event to the platform event bus.
  */
-export const signal = {
+export const event = {
   async create(
     name: string,
     payload: Record<string, unknown>,
-    options?: SignalCreateOptions,
-  ): Promise<SignalCreateResult> {
+    options?: EventCreateOptions,
+  ): Promise<EventCreateResult> {
     const { trigger, correlationId, app, context: extraContext } = options ?? {}
     const context: Record<string, unknown> = {
       ...(extraContext ?? {}),
@@ -1563,7 +1563,7 @@ export const signal = {
       ...(correlationId ? { correlationId } : {}),
     }
 
-    const { data } = await callCore<SignalCreateResult>('signal.create', {
+    const { data } = await callCore<EventCreateResult>('event.create', {
       name,
       payload,
       ...(Object.keys(context).length > 0 ? { context } : {}),
