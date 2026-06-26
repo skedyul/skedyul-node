@@ -40,10 +40,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '24'
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Upgrade npm for trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
+          node --version
 
       - name: Configure Git
         run: |
@@ -87,8 +92,21 @@ jobs:
       - name: Build package
         run: pnpm build
 
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
+      - name: Verify OIDC and clear legacy npm auth
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL}" ]; then
+            echo "OIDC token not available — ensure id-token: write is set."
+            exit 1
+          fi
+          echo "OIDC token endpoint available."
+          # setup-node registry-url writes an empty _authToken that blocks OIDC
+          if [ -f "$HOME/.npmrc" ]; then
+            echo "Removing $HOME/.npmrc to avoid token auth overriding OIDC:"
+            cat "$HOME/.npmrc"
+            rm -f "$HOME/.npmrc"
+          fi
+          unset NODE_AUTH_TOKEN
+          npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
 
       - name: Publish to NPM
         run: npm publish --access public
