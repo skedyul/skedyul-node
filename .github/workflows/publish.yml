@@ -41,6 +41,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
 
@@ -92,24 +93,31 @@ jobs:
       - name: Build package
         run: pnpm build
 
-      - name: Verify OIDC and clear legacy npm auth
+      - name: Prepare npm OIDC auth
         run: |
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL}" ]; then
             echo "OIDC token not available — ensure id-token: write is set."
             exit 1
           fi
           echo "OIDC token endpoint available."
-          # setup-node registry-url writes an empty _authToken that blocks OIDC
-          if [ -f "$HOME/.npmrc" ]; then
-            echo "Removing $HOME/.npmrc to avoid token auth overriding OIDC:"
-            cat "$HOME/.npmrc"
-            rm -f "$HOME/.npmrc"
+          echo "npm $(npm --version), node $(node --version)"
+          # setup-node registry-url writes _authToken=${NODE_AUTH_TOKEN}; when unset,
+          # npm treats empty auth as configured and skips OIDC (ENEEDAUTH / 404).
+          NPMRC_PATH="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          if [ -f "$NPMRC_PATH" ]; then
+            echo "Before strip ($NPMRC_PATH):"
+            cat "$NPMRC_PATH"
+            sed -i '/_authToken/d' "$NPMRC_PATH"
+            echo "After strip:"
+            cat "$NPMRC_PATH"
+          fi
+          if [ -f "$HOME/.npmrc" ] && [ "$HOME/.npmrc" != "$NPMRC_PATH" ]; then
+            sed -i '/_authToken/d' "$HOME/.npmrc"
           fi
           unset NODE_AUTH_TOKEN
-          npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
 
       - name: Publish to NPM
-        run: npm publish --access public
+        run: npm publish --access public --provenance
 
       - name: Create git tag
         run: |
