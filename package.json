@@ -64,7 +64,7 @@
     "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && tsup",
     "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
-    "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js dist-tests/tests/agent-schema-v3.test.js"
+    "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js dist-tests/tests/agent-schema-v3.test.js dist-tests/tests/ratelimit.test.js"
   },
   "keywords": [
     "mcp",
@@ -90,6 +90,6 @@
     "@types/node": "^24.10.1",
     "open": "^10.1.0",
     "tsup": "^8.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^6.0.3"
   }
 }

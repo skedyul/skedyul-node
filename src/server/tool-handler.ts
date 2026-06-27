@@ -11,6 +11,7 @@ import type {
 import type { RequestState, ToolCallArgs } from './types'
 import { getJsonSchemaFromToolSchema, normalizeBilling } from './utils'
 import { runWithConfig } from '../core/client'
+import { runWithRateLimitExecutionContext } from '../ratelimit/context'
 import { AppAuthInvalidError } from '../errors'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
@@ -197,13 +198,25 @@ export function createCallToolHandler<T extends ToolRegistry>(
         apiToken: toolEnv.SKEDYUL_API_TOKEN ?? '',
       }
 
+      const rateLimitContext = {
+        app,
+        appInstallationId:
+          trigger === 'provision'
+            ? undefined
+            : (rawContext.appInstallationId as string | undefined),
+        invocation,
+        isProvisionContext: trigger === 'provision',
+      }
+
       // Call handler with two arguments: (input, context)
       // Wrap in runWithConfig for request-scoped SDK configuration
       // IMPORTANT: runWithConfig must be the OUTER wrapper to ensure AsyncLocalStorage
       // context is preserved across all async operations including fetch() calls
       const functionResult = await runWithConfig(requestConfig, async () => {
-        return await runWithLogContext({ invocation }, async () => {
-          return await fn(inputs as never, executionContext as never)
+        return await runWithRateLimitExecutionContext(rateLimitContext, async () => {
+          return await runWithLogContext({ invocation }, async () => {
+            return await fn(inputs as never, executionContext as never)
+          })
         })
       })
 

@@ -19,6 +19,13 @@ import type {
   AgentDefinition,
   SignalDefinition,
 } from './types'
+import type { QueueRegistry, SerializableQueueConfig } from './queue-config'
+export type {
+  QueueScope,
+  QueueConfig,
+  SerializableQueueConfig,
+  QueueRegistry,
+} from './queue-config'
 
 /**
  * Install configuration - defines per-install env vars and SHARED models.
@@ -134,6 +141,9 @@ export interface SkedyulConfig {
   // ─────────────────────────────────────────────────────────────────────────────
   /** Build configuration for the integration */
   build?: BuildConfig
+
+  /** Rate-limit queue definitions for queuedFetch */
+  queues?: QueueRegistry
 }
 
 /**
@@ -153,6 +163,8 @@ export interface SerializableSkedyulConfig {
   provision?: ProvisionConfig
   /** Agent definitions (stored as-is) */
   agents?: AgentDefinition[]
+  /** Rate-limit queue definitions */
+  queues?: Record<string, SerializableQueueConfig>
 }
 
 /**
