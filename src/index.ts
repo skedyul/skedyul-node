@@ -100,6 +100,37 @@ export {
   getRequiredInstallEnvKeys,
 } from './config'
 
+// Rate-limited async queue (queuedFetch)
+export {
+  queuedFetch,
+  requeue,
+  resolveQueue,
+  createQueueHandle,
+  queuedFetchResponse,
+  registerQueueConfig,
+  runWithRateLimitExecutionContext,
+  getRateLimitExecutionContext,
+  defaultShouldRetry,
+  QueueContextError,
+  QueueNotFoundError,
+  QueuedFetchExhaustedError,
+  RequeueOutsideContextError,
+  RateLimitBackendError,
+} from './ratelimit'
+export type {
+  QueueInput,
+  QueueSelector,
+  Lease,
+  QueueLimits,
+  ResolvedQueue,
+  RateLimitExecutionContext,
+  RateLimitBackend,
+  QueueScope,
+  QueueConfig,
+  SerializableQueueConfig,
+  QueueRegistry,
+} from './ratelimit'
+
 // CRM Schema exports (for workplace-level migrations)
 export {
   defineSchema,

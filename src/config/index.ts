@@ -20,6 +20,10 @@ export type {
   CorsOptions,
   SkedyulConfig,
   SerializableSkedyulConfig,
+  QueueScope,
+  QueueConfig,
+  SerializableQueueConfig,
+  QueueRegistry,
 } from './app-config'
 export { defineConfig } from './app-config'
 
