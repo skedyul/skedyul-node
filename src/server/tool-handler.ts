@@ -269,6 +269,13 @@ export function createCallToolHandler<T extends ToolRegistry>(
       
       // Generic error handling for other errors
       const errorMessage = error instanceof Error ? error.message : String(error ?? '')
+      const errorCode =
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'TOOL_EXECUTION_ERROR'
       return {
         output: null,
         billing: { credits: 0 },
@@ -278,7 +285,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
           toolName,
         },
         error: {
-          code: 'TOOL_EXECUTION_ERROR',
+          code: errorCode,
           message: errorMessage,
         },
       }
