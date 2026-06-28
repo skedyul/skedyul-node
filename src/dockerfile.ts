@@ -39,8 +39,10 @@ RUN printf '%s\\n' \\
     '  - "."' \\
     'onlyBuiltDependencies:' \\
     '  - esbuild' \\
+    '  - skedyul' \\
     'allowBuilds:' \\
     '  esbuild: true' \\
+    '  skedyul: true' \\
     > pnpm-workspace.yaml
 
 # Install dependencies (including dev deps for build), compile, export config, smoke test, then prune
