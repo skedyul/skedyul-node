@@ -244,10 +244,10 @@ export function calculateWaitTime(
         }
       }
 
-      // Target time doesn't fall in any window, find the next available window
-      // Find the earliest next available window across ALL windows, relative to targetDate
+      // Target time doesn't fall in any window, find the next available window.
+      // Preserve relativeDelay offset from window start so cadence messages stay spaced apart.
       let earliestScheduledTime: Date | null = null
-      let earliestWaitTime = Infinity
+      let earliestWaitFromNow = Infinity
 
       for (const window of step.windows) {
         if (!window || window.startTime === undefined || window.endTime === undefined) {
@@ -280,18 +280,16 @@ export function calculateWaitTime(
         const currentMinute = targetTzInfo.minute
         const currentTotalMinutes = targetTzInfo.totalMinutes
 
-        let windowWaitTime: number
-        let windowScheduledTime: Date
+        let msUntilWindowStart: number
 
         // Check if we can schedule for today
         if (
           allowedDays.includes(currentDay) &&
           currentTotalMinutes < windowStartMinutes
         ) {
-          // Calculate milliseconds until window starts today
+          // Target is before today's window — wait until window opens
           const minutesUntilWindow = windowStartMinutes - currentTotalMinutes
-          windowWaitTime = minutesUntilWindow * 60 * 1000
-          windowScheduledTime = new Date(targetDate.getTime() + windowWaitTime)
+          msUntilWindowStart = minutesUntilWindow * 60 * 1000
         } else {
           // Find the next allowed day for this window
           let daysToAdd = 7
@@ -316,21 +314,24 @@ export function calculateWaitTime(
           const minutesAdjustment =
             (windowStartMinute - currentMinute) * millisecondsPerMinute
 
-          windowWaitTime = daysMs + hoursAdjustment + minutesAdjustment
-          windowScheduledTime = new Date(targetDate.getTime() + windowWaitTime)
+          msUntilWindowStart = daysMs + hoursAdjustment + minutesAdjustment
         }
 
-        // Check if this window has the earliest scheduled time
-        if (windowWaitTime < earliestWaitTime) {
-          earliestWaitTime = windowWaitTime
+        // Schedule at window start + relativeDelay to preserve cadence spacing
+        const windowStartTimeMs = targetDate.getTime() + msUntilWindowStart
+        const windowScheduledTime = new Date(windowStartTimeMs + relativeDelay)
+        const waitFromNow = windowScheduledTime.getTime() - nowTime
+
+        // Pick the window that yields the earliest final scheduled time
+        if (waitFromNow < earliestWaitFromNow) {
+          earliestWaitFromNow = waitFromNow
           earliestScheduledTime = windowScheduledTime
         }
       }
 
-      // Return the earliest found window measured from targetDate (now + relativeDelay)
       if (earliestScheduledTime) {
         return {
-          waitTime: relativeDelay + earliestWaitTime,
+          waitTime: Math.max(0, earliestScheduledTime.getTime() - nowTime),
           scheduledAt: earliestScheduledTime,
         }
       }
