@@ -61,7 +61,6 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "node -e \"require('fs').accessSync('dist/index.js')\" 2>/dev/null || npm run build",
     "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && tsup",
     "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
