@@ -145,7 +145,7 @@ export class MemoryRateLimitBackend implements RateLimitBackend {
             state.waiters.splice(idx, 1)
           }
           reject(
-            new Error(`Rate limit acquire timed out after ${timeoutMs}ms for ${queueKey}`),
+            new Error(`Queue slot acquire timed out after ${timeoutMs}ms for ${queueKey}`),
           )
         }, timeoutMs)
       }

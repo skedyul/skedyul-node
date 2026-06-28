@@ -34,7 +34,7 @@ async function callRateLimitApi<T>(
 
   if (!baseUrl || !token) {
     throw new RateLimitBackendError(
-      'SKEDYUL_API_URL and SKEDYUL_API_TOKEN are required for platform rate limiting',
+      'SKEDYUL_API_URL and SKEDYUL_API_TOKEN are required for platform queue coordination',
     )
   }
 
@@ -56,12 +56,12 @@ async function callRateLimitApi<T>(
   if (!response.ok || payload?.success === false) {
     const message =
       payload?.errors?.[0]?.message ??
-      `Rate limit API ${path} failed with status ${response.status}`
+      `Queue coordination API ${path} failed with status ${response.status}`
     throw new RateLimitBackendError(message, response.status)
   }
 
   if (!payload?.data) {
-    throw new RateLimitBackendError(`Rate limit API ${path} returned empty data`)
+    throw new RateLimitBackendError(`Queue coordination API ${path} returned empty data`)
   }
 
   return payload.data
