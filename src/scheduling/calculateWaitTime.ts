@@ -148,6 +148,11 @@ function isTimeInWindowSlot(date: Date, window: TimeWindowSlot): boolean {
   )
 }
 
+/** YYYY-MM-DD in a timezone — for same-day comparisons across workflow steps */
+function getLocalDateKey(date: Date, timezone: string): string {
+  return date.toLocaleDateString('en-CA', { timeZone: timezone })
+}
+
 /**
  * Calculate the wait time for a wait step
  * @param step The input parameters for the wait step
@@ -245,7 +250,8 @@ export function calculateWaitTime(
       }
 
       // Target time doesn't fall in any window, find the next available window.
-      // Preserve relativeDelay offset from window start so cadence messages stay spaced apart.
+      // Same local day as `now`: preserve relativeDelay past window start (cadence spacing).
+      // Future day: snap target into the next window only — do not add relativeDelay again.
       let earliestScheduledTime: Date | null = null
       let earliestWaitFromNow = Infinity
 
@@ -317,9 +323,12 @@ export function calculateWaitTime(
           msUntilWindowStart = daysMs + hoursAdjustment + minutesAdjustment
         }
 
-        // Schedule at window start + relativeDelay to preserve cadence spacing
         const windowStartTimeMs = targetDate.getTime() + msUntilWindowStart
-        const windowScheduledTime = new Date(windowStartTimeMs + relativeDelay)
+        const sameLocalDayAsNow =
+          getLocalDateKey(now, tz) === getLocalDateKey(targetDate, tz)
+        const windowScheduledTime = sameLocalDayAsNow
+          ? new Date(windowStartTimeMs + relativeDelay)
+          : new Date(windowStartTimeMs)
         const waitFromNow = windowScheduledTime.getTime() - nowTime
 
         // Pick the window that yields the earliest final scheduled time
