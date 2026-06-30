@@ -27,6 +27,7 @@ export {
   event,
   resource,
   ai,
+  call,
   report,
   configure,
   getConfig,
@@ -49,6 +50,12 @@ export type {
   WebhookListItem,
   WebhookDeleteByNameOptions,
   WebhookListOptions,
+  // Call types
+  CallStartParams,
+  CallStartResult,
+  CallAppendTranscriptParams,
+  CallEndParams,
+  CallSummarizeResult,
   // Cron types
   CronSubscribeParams,
   CronSubscribeResult,
