@@ -1821,6 +1821,123 @@ export const ai = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Call Client (voice + real-time transcription)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CallStartParams {
+  /** Communication channel (the Twilio number) this call belongs to */
+  communicationChannelId: string
+  /** Caller number in E.164 */
+  fromNumber: string
+  /** The dialed number (our Twilio number) in E.164 */
+  toNumber: string
+  /** Number the call is forwarded/dialed to (the human agent leg) */
+  forwardedToNumber?: string | null
+  direction?: 'INBOUND' | 'OUTBOUND'
+  /** Provider call id (Twilio CallSid) */
+  externalId?: string | null
+  /** Raw provider status string (e.g. Twilio "ringing") */
+  externalStatus?: string | null
+  /** Transcription provider/engine name (e.g. "deepgram", "google") */
+  transcriptionEngine?: string | null
+  callerName?: string | null
+  callerContactId?: string | null
+  agentName?: string | null
+  agentMemberId?: string | null
+}
+
+export interface CallStartResult {
+  callSessionId: string
+  threadId: string
+}
+
+export interface CallAppendTranscriptParams {
+  callSessionId: string
+  /** Utterance text */
+  content: string
+  track?: 'inbound_track' | 'outbound_track'
+  speakerLabel?: string
+  confidence?: number
+  stability?: number
+  sequenceId?: number
+  isFinal?: boolean
+  externalId?: string | null
+}
+
+export interface CallEndParams {
+  callSessionId: string
+  status?:
+    | 'SCHEDULED'
+    | 'RINGING'
+    | 'IN_PROGRESS'
+    | 'ON_HOLD'
+    | 'ENDED'
+    | 'MISSED'
+    | 'DECLINED'
+    | 'FAILED'
+  externalStatus?: string | null
+  /** Call duration in seconds */
+  duration?: number | null
+  endedAt?: string | null
+  recordingUrl?: string | null
+  recordingSid?: string | null
+}
+
+export interface CallSummarizeResult {
+  callSessionId: string
+  summary: string | null
+}
+
+/**
+ * Call client - manage a voice call session and its real-time transcript.
+ *
+ * Designed for the phone integration's Twilio Real-Time Transcription webhooks:
+ * - `start` when the inbound call arrives (creates the CallSession + thread + CALL block)
+ * - `appendTranscript` for each `transcription-content` event (stored as a tagged ThreadMessage)
+ * - `end` on call completion / `transcription-stopped`
+ * - `summarize` to generate and persist an end-of-call summary
+ *
+ * **Requires sk_wkp_ or sk_app_ token.**
+ */
+export const call = {
+  async start(params: CallStartParams): Promise<CallStartResult> {
+    const { data } = await callCore<CallStartResult>('call.start', {
+      ...params,
+    })
+    return data
+  },
+
+  async appendTranscript(
+    params: CallAppendTranscriptParams,
+  ): Promise<{ messageId: string; threadId: string }> {
+    const { data } = await callCore<{ messageId: string; threadId: string }>(
+      'call.appendTranscript',
+      { ...params },
+    )
+    return data
+  },
+
+  async end(
+    params: CallEndParams,
+  ): Promise<{ callSessionId: string; threadId: string }> {
+    const { data } = await callCore<{ callSessionId: string; threadId: string }>(
+      'call.end',
+      { ...params },
+    )
+    return data
+  },
+
+  async summarize(params: {
+    callSessionId: string
+  }): Promise<CallSummarizeResult> {
+    const { data } = await callCore<CallSummarizeResult>('call.summarize', {
+      ...params,
+    })
+    return data
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Report Client
 // ─────────────────────────────────────────────────────────────────────────────
 
