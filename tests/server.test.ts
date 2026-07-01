@@ -1518,6 +1518,41 @@ test('mergeRuntimeEnv merges MCP_ENV into process.env', () => {
   Object.assign(process.env, originalEnv)
 })
 
+test('buildToolExecutionEnv merges container env with baked and request layers', async () => {
+  const { buildToolExecutionEnv } = await import('../src/server/utils/env.js')
+  const originalEnv = { ...process.env }
+
+  delete process.env.MCP_ENV_JSON
+  delete process.env.MCP_ENV
+  process.env.TWILIO_ACCOUNT_SID = 'AC_from_process_env'
+  process.env.TWILIO_AUTH_TOKEN = 'token_from_process_env'
+
+  const fromProcessOnly = buildToolExecutionEnv({})
+  assert.strictEqual(fromProcessOnly.TWILIO_ACCOUNT_SID, 'AC_from_process_env')
+  assert.strictEqual(fromProcessOnly.TWILIO_AUTH_TOKEN, 'token_from_process_env')
+
+  process.env.MCP_ENV_JSON = JSON.stringify({
+    TWILIO_ACCOUNT_SID: 'AC_from_baked_json',
+  })
+
+  const bakedOverridesProcess = buildToolExecutionEnv({})
+  assert.strictEqual(bakedOverridesProcess.TWILIO_ACCOUNT_SID, 'AC_from_baked_json')
+  assert.strictEqual(bakedOverridesProcess.TWILIO_AUTH_TOKEN, 'token_from_process_env')
+
+  const requestWins = buildToolExecutionEnv({
+    SKEDYUL_API_URL: 'http://localhost:3000',
+    SKEDYUL_API_TOKEN: 'sk_wkp_test',
+  })
+  assert.strictEqual(requestWins.SKEDYUL_API_URL, 'http://localhost:3000')
+  assert.strictEqual(requestWins.SKEDYUL_API_TOKEN, 'sk_wkp_test')
+  assert.strictEqual(requestWins.TWILIO_ACCOUNT_SID, 'AC_from_baked_json')
+
+  delete process.env.TWILIO_ACCOUNT_SID
+  delete process.env.TWILIO_AUTH_TOKEN
+  delete process.env.MCP_ENV_JSON
+  Object.assign(process.env, originalEnv)
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Install Handler Error Handling Tests
 // ─────────────────────────────────────────────────────────────────────────────

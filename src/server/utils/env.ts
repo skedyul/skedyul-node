@@ -34,14 +34,26 @@ export function getBakedExecutableEnv(): Record<string, string> {
 }
 
 /**
- * Env exposed to tool handlers: per-request values from the platform win over baked secrets.
- * Avoids leaking unrelated keys left in process.env during local `dev serve`.
+ * Env exposed to tool handlers.
+ *
+ * Layering (lowest → highest priority):
+ * 1. process.env — container-local values (`dev serve` loads provision secrets here)
+ * 2. MCP_ENV_JSON / MCP_ENV — baked secrets in deployed containers
+ * 3. requestEnv — per-request runtime values from the platform (token, API URL)
  */
 export function buildToolExecutionEnv(
   requestEnv: Record<string, string | undefined> = {},
 ): Record<string, string | undefined> {
   const bakedEnv = getBakedExecutableEnv()
-  const merged: Record<string, string | undefined> = { ...bakedEnv }
+  const merged: Record<string, string | undefined> = {}
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      merged[key] = value
+    }
+  }
+
+  Object.assign(merged, bakedEnv)
 
   for (const [key, value] of Object.entries(requestEnv)) {
     if (value !== undefined) {
