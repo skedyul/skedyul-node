@@ -15,6 +15,8 @@ export interface NavigationItem {
   href: string
   /** Optional Lucide icon name */
   icon?: string
+  /** When true, item is omitted from rendered navigation (supports Liquid templates) */
+  hidden?: boolean | string
 }
 
 /**

@@ -768,6 +768,8 @@ export const NavigationItemSchema = z.object({
   href: z.string(),
   /** Optional icon name */
   icon: z.string().optional(),
+  /** When true, item is omitted from rendered navigation (supports Liquid templates) */
+  hidden: z.union([z.boolean(), z.string()]).optional(),
 })
 
 /** Navigation section with title and items */
