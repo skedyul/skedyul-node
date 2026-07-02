@@ -185,15 +185,16 @@ async function callCore<T>(
   }
 
   const payload = (await response.json()) as {
-    success: boolean
-    data: T
-    errors: CoreApiError[]
+    success?: boolean
+    data?: T
+    errors?: CoreApiError[]
     pagination?: InstancePagination
+    error?: string | { code?: string; message?: string }
   }
 
   // Handle failure responses
-  if (!payload.success) {
-    const errorDetails = (payload.errors ?? [])
+  if (payload.success === false || (payload.success === undefined && payload.error)) {
+    const envelopeErrors = (payload.errors ?? [])
       .map((e) => {
         if (e.field && e.message) return `${e.field}: ${e.message}`
         if (e.message) return e.message
@@ -201,10 +202,23 @@ async function callCore<T>(
         return null
       })
       .filter((value): value is string => Boolean(value))
-      .join('; ')
+
+    let legacyError: string | null = null
+    if (typeof payload.error === 'string' && payload.error.length > 0) {
+      legacyError = payload.error
+    } else if (payload.error && typeof payload.error === 'object') {
+      legacyError =
+        payload.error.message ??
+        payload.error.code ??
+        null
+    }
+
+    const errorDetails = [...envelopeErrors, legacyError].filter(
+      (value): value is string => Boolean(value),
+    )
 
     const message =
-      errorDetails ||
+      errorDetails.join('; ') ||
       `Core API ${method} failed (HTTP ${response.status})`
     throw new Error(message)
   }
@@ -215,7 +229,7 @@ async function callCore<T>(
   }
 
   return {
-    data: payload.data,
+    data: payload.data as T,
     errors: payload.errors ?? [],
     pagination: payload.pagination,
   }
