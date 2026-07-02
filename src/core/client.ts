@@ -193,9 +193,19 @@ async function callCore<T>(
 
   // Handle failure responses
   if (!payload.success) {
-    const message = payload.errors
-      ?.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message))
-      .join('; ') || 'Unknown error'
+    const errorDetails = (payload.errors ?? [])
+      .map((e) => {
+        if (e.field && e.message) return `${e.field}: ${e.message}`
+        if (e.message) return e.message
+        if (e.code) return e.code
+        return null
+      })
+      .filter((value): value is string => Boolean(value))
+      .join('; ')
+
+    const message =
+      errorDetails ||
+      `Core API ${method} failed (HTTP ${response.status})`
     throw new Error(message)
   }
 
