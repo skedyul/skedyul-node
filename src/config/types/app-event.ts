@@ -13,4 +13,6 @@ export interface AppEventDefinition {
   description?: string
   /** Optional grouping label (Members, Bookings, etc.) */
   group?: string
+  /** Optional Lucide icon name for pickers */
+  icon?: string
 }
