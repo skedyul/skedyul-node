@@ -19,6 +19,7 @@ import type {
   AgentDefinition,
   SignalDefinition,
 } from './types'
+import type { AppEventDefinition } from './types/app-event'
 import type { QueueRegistry, SerializableQueueConfig } from './queue-config'
 export type {
   QueueScope,
@@ -136,6 +137,9 @@ export interface SkedyulConfig {
   /** Agent definitions - multi-tenant agents with tool bindings */
   agents?: AgentDefinition[]
 
+  /** App events emitted via event.create (catalog for UI + docs) */
+  events?: AppEventDefinition[]
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Build Configuration
   // ─────────────────────────────────────────────────────────────────────────────
@@ -163,6 +167,8 @@ export interface SerializableSkedyulConfig {
   provision?: ProvisionConfig
   /** Agent definitions (stored as-is) */
   agents?: AgentDefinition[]
+  /** App event catalog */
+  events?: AppEventDefinition[]
   /** Rate-limit queue definitions */
   queues?: Record<string, SerializableQueueConfig>
 }
