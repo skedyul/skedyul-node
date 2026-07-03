@@ -551,6 +551,24 @@ export const AlertComponentDefinitionSchema = FormV2StylePropsSchema.extend({
   }),
 })
 
+/** Event wiring overview for app install pages */
+export const EventWiringPanelComponentDefinitionSchema =
+  FormV2StylePropsSchema.extend({
+    component: z.literal('EventWiringPanel'),
+    props: z.object({
+      eventTypes: z.array(
+        z.object({
+          type: z.string(),
+          label: z.string(),
+          glofoxType: z.string().optional(),
+          description: z.string().optional(),
+          icon: z.string().optional(),
+        }),
+      ),
+      recommendedWorkflowHandle: z.string().optional(),
+    }),
+  })
+
 /** Forward declaration for FieldSetting with modalForm */
 export type FormV2ComponentDefinition = z.infer<typeof FormV2ComponentDefinitionSchema>
 
@@ -608,6 +626,7 @@ export const FormV2ComponentDefinitionSchema = z.discriminatedUnion('component',
   ListComponentDefinitionSchema,
   EmptyFormComponentDefinitionSchema,
   AlertComponentDefinitionSchema,
+  EventWiringPanelComponentDefinitionSchema,
 ])
 
 /** FormV2 props definition */
