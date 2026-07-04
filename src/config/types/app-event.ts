@@ -15,4 +15,9 @@ export interface AppEventDefinition {
   group?: string
   /** Optional Lucide icon name for pickers */
   icon?: string
+  /**
+   * Example flat payload as passed to event.create (before envelope wrapping).
+   * Used by the liquid context editor for path picking and sample values.
+   */
+  examplePayload?: Record<string, unknown>
 }
