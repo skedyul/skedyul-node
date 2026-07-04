@@ -20,4 +20,17 @@ export interface AppEventDefinition {
    * Used by the liquid context editor for path picking and sample values.
    */
   examplePayload?: Record<string, unknown>
+  /**
+   * Typed context field tree for liquid input path browsing (data.* paths).
+   * When set, subscribers see explicit fields like data.member.phone.
+   */
+  contextFields?: AppEventContextField[]
+}
+
+export interface AppEventContextField {
+  path: string
+  label: string
+  type?: string
+  description?: string
+  children?: AppEventContextField[]
 }
