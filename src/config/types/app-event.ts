@@ -16,8 +16,8 @@ export interface AppEventDefinition {
   /** Optional Lucide icon name for pickers */
   icon?: string
   /**
-   * Example flat payload as passed to event.create (before envelope wrapping).
-   * Used by the liquid context editor for path picking and sample values.
+   * Example nested domain payload for liquid context reference (e.g. { member: { ... } }).
+   * Not the full emit payload — studio/branch metadata is added at emit time.
    */
   examplePayload?: Record<string, unknown>
   /**
