@@ -16,13 +16,13 @@ export interface AppEventDefinition {
   /** Optional Lucide icon name for pickers */
   icon?: string
   /**
-   * Example nested domain payload for liquid context reference (e.g. { member: { ... } }).
+   * Example flat domain payload for liquid context reference (e.g. glofox_id, phone, …).
    * Not the full emit payload — studio/branch metadata is added at emit time.
    */
   examplePayload?: Record<string, unknown>
   /**
    * Typed context field tree for liquid input path browsing (data.* paths).
-   * When set, subscribers see explicit fields like data.member.phone.
+   * When set, subscribers see explicit fields like data.phone.
    */
   contextFields?: AppEventContextField[]
   /**
