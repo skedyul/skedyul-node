@@ -25,6 +25,11 @@ export interface AppEventDefinition {
    * When set, subscribers see explicit fields like data.member.phone.
    */
   contextFields?: AppEventContextField[]
+  /**
+   * Workflow input type for app-event payloads, e.g. @app/bft/member/updated.
+   * Workflows declare this on inputs.data and subscribe with {{ data }}.
+   */
+  workflowInputType?: string
 }
 
 export interface AppEventContextField {
