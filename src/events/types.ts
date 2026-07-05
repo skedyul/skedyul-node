@@ -27,6 +27,9 @@ export const ThreadEventTypeSchema = z.enum([
   // Scheduled events
   'thread.follow_up.due',
   'thread.reminder.due',
+
+  // Signal events
+  'thread.signal.created',
 ])
 
 export type ThreadEventType = z.infer<typeof ThreadEventTypeSchema>
