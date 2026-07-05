@@ -52,12 +52,12 @@ async function transpileTypeScript(filePath: string): Promise<string> {
     },
   )
 
-  // Named import: import { APP_EVENTS } from './path'
+  // Named import: import { foo, bar } from './path'
   transpiled = transpiled.replace(
-    /import\s+\{\s*(\w+)\s*\}\s+from\s+['"](\.[^'"]+)['"]\s*;?\n?/g,
-    (_match, varName, relativePath) => {
+    /import\s+\{\s*([^}]+)\s*\}\s+from\s+['"](\.[^'"]+)['"]\s*;?\n?/g,
+    (_match, namedImports, relativePath) => {
       const absolutePath = path.resolve(configDir, relativePath)
-      return `const ${varName} = require('${absolutePath.replace(/\\/g, '/')}').${varName}\n`
+      return `const { ${namedImports.trim()} } = require('${absolutePath.replace(/\\/g, '/')}')\n`
     },
   )
 
