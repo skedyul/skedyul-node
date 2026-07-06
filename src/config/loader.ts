@@ -78,18 +78,10 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
 
   try {
     if (isTypeScript) {
-      // Prefer tsx so configs can import TypeScript modules (e.g. events/catalog.ts)
+      // Prefer lightweight transpile for metadata-only loads (build, validate).
+      // Full tsx load executes dynamic import() in skedyul.config.ts; those promises
+      // reject asynchronously and crash the process even when build only needs name/computeLayer.
       try {
-        const config = loadTypeScriptConfigModule(absolutePath)
-        if (!config || typeof config !== 'object') {
-          throw new Error('Config file must export a configuration object')
-        }
-        if (!config.name || typeof config.name !== 'string') {
-          throw new Error('Config must have a "name" property')
-        }
-        return config
-      } catch (tsxError) {
-        // Fall back to legacy transpile for minimal configs (json-only imports)
         const transpiled = await transpileTypeScript(absolutePath)
         const tempFile = path.join(os.tmpdir(), `skedyul-config-${Date.now()}.cjs`)
         fs.writeFileSync(tempFile, transpiled)
@@ -111,6 +103,12 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
             // Ignore cleanup errors
           }
         }
+      } catch (transpileError) {
+        throw new Error(
+          `Cannot load TypeScript config metadata from ${absolutePath}: ${
+            transpileError instanceof Error ? transpileError.message : String(transpileError)
+          }`,
+        )
       }
     }
 

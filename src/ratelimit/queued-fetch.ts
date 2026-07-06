@@ -7,6 +7,7 @@ import {
   setActiveQueuedOperationLease,
   updateActiveQueuedOperationAttempt,
   getActiveQueuedOperation,
+  isInsidePetbooqzCalendarBookingMutex,
 } from './context'
 import { getRateLimitBackend } from './backends'
 import {
@@ -86,16 +87,72 @@ export async function queuedFetch<T>(
   )
 }
 
+function findPreAcquiredLease(
+  queueKey: string,
+  ctx?: RateLimitExecutionContext,
+): { queueKey: string; leaseId: string } | undefined {
+  return ctx?.preAcquiredLeases?.find((lease) => lease.queueKey === queueKey)
+}
+
+function shouldRethrowRateLimitCause(
+  maxRetries: number,
+  error: unknown,
+  attempt: number,
+  shouldRetryFn: (error: unknown, attempt: number) => boolean,
+): boolean {
+  if (maxRetries !== 0 || !shouldRetryFn(error, attempt)) {
+    return false
+  }
+  return (
+    error instanceof RateLimitExceededError ||
+    error instanceof RateLimitBackendError
+  )
+}
+
 async function executeWithRetries<T>(
   operation: ActiveQueuedOperation<T>,
   maxRetries: number,
 ): Promise<T> {
   const backend = getRateLimitBackend()
   const timeoutMs = operation.resolved.config.timeout ?? 120_000
+  const executionHoldMs = operation.resolved.config.timeout ?? timeoutMs
   const retryDelayMs = operation.resolved.config.retryDelayMs ?? 1000
   const shouldRetryFn =
     getQueueConfigWithRetry(operation.resolved.name)?.shouldRetry ??
     defaultShouldRetry
+
+  const rateLimitCtx = getRateLimitExecutionContext()
+  const preAcquired = findPreAcquiredLease(
+    operation.resolved.queueKey,
+    rateLimitCtx,
+  )
+
+  if (
+    operation.resolved.name === 'petbooqz_api' &&
+    isInsidePetbooqzCalendarBookingMutex()
+  ) {
+    return operation.fn()
+  }
+
+  if (preAcquired) {
+    try {
+      return await operation.fn()
+    } catch (error) {
+      if (shouldRethrowRateLimitCause(maxRetries, error, operation.attempt, shouldRetryFn)) {
+        throw error
+      }
+      if (
+        shouldRetryFn(error, operation.attempt) &&
+        operation.attempt < maxRetries
+      ) {
+        await sleep(retryDelayMs)
+        operation.attempt += 1
+        updateActiveQueuedOperationAttempt(operation.attempt)
+        return executeWithRetries(operation, maxRetries)
+      }
+      throw error
+    }
+  }
 
   let lease
   try {
@@ -103,6 +160,7 @@ async function executeWithRetries<T>(
       operation.resolved.queueKey,
       operation.resolved.limits,
       timeoutMs,
+      executionHoldMs,
     )
   } catch (acquireError) {
     if (
@@ -136,6 +194,10 @@ async function executeWithRetries<T>(
     await backend.release(lease)
     operation.lease = null
     setActiveQueuedOperationLease(null)
+
+    if (shouldRethrowRateLimitCause(maxRetries, error, operation.attempt, shouldRetryFn)) {
+      throw error
+    }
 
     if (
       shouldRetryFn(error, operation.attempt) &&

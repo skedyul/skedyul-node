@@ -7,6 +7,8 @@ export interface RateLimitExecutionContext {
   appInstallationId?: string
   invocation?: InvocationContext
   isProvisionContext?: boolean
+  /** Leases acquired by workflow orchestration — queuedFetch skips acquire/release for matching keys */
+  preAcquiredLeases?: Array<{ queueKey: string; leaseId: string }>
 }
 
 export interface QueueSelector {
@@ -42,6 +44,7 @@ export interface RateLimitBackend {
     queueKey: string,
     limits: QueueLimits,
     timeoutMs?: number,
+    executionHoldMs?: number,
   ): Promise<Lease>
   release(lease: Lease): Promise<void>
 }
