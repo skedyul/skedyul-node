@@ -292,6 +292,48 @@ describe('queuedFetch', () => {
     delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
   })
 
+  it('skips nested petbooqz_api acquires inside calendar booking mutex', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Petbooqz',
+      queues: {
+        petbooqz_calendar_booking: { scope: 'install', maxConcurrent: 1, maxRetries: 0 },
+        petbooqz_api: {
+          scope: 'install',
+          maxConcurrent: 2,
+          maxRetries: 0,
+          reservoir: 12,
+        },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    await runWithRateLimitExecutionContext(baseCtx, () =>
+      queuedFetch({ queue: 'petbooqz_calendar_booking', key: 'cal-1' }, async () => {
+        // Simulates legacy integration that still calls queuedFetch per HTTP request
+        await queuedFetch('petbooqz_api', async () => 'http-1')
+        await queuedFetch('petbooqz_api', async () => 'http-2')
+        await queuedFetch('petbooqz_api', async () => 'http-3')
+        return 'booked'
+      }),
+    )
+
+    assert.equal(acquireCalls.length, 1)
+    assert.match(acquireCalls[0]!, /petbooqz_calendar_booking:cal-1/)
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
   it('still acquires petbooqz_api per call outside booking mutex', async () => {
     resetRateLimitBackendForTests()
     clearRegisteredQueueConfig()

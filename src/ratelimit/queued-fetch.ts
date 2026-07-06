@@ -7,6 +7,7 @@ import {
   setActiveQueuedOperationLease,
   updateActiveQueuedOperationAttempt,
   getActiveQueuedOperation,
+  isInsidePetbooqzCalendarBookingMutex,
 } from './context'
 import { getRateLimitBackend } from './backends'
 import {
@@ -125,6 +126,13 @@ async function executeWithRetries<T>(
     operation.resolved.queueKey,
     rateLimitCtx,
   )
+
+  if (
+    operation.resolved.name === 'petbooqz_api' &&
+    isInsidePetbooqzCalendarBookingMutex()
+  ) {
+    return operation.fn()
+  }
 
   if (preAcquired) {
     try {
