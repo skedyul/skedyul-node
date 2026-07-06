@@ -123,6 +123,7 @@ export {
   QueuedFetchExhaustedError,
   RequeueOutsideContextError,
   RateLimitBackendError,
+  RateLimitExceededError,
 } from './ratelimit'
 export type {
   QueueInput,

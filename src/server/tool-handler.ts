@@ -13,6 +13,7 @@ import { getJsonSchemaFromToolSchema, normalizeBilling } from './utils'
 import { runWithConfig } from '../core/client'
 import { runWithRateLimitExecutionContext } from '../ratelimit/context'
 import { AppAuthInvalidError } from '../errors'
+import { RateLimitExceededError } from '../ratelimit/errors'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
 import { buildToolExecutionEnv } from './utils/env'
@@ -28,6 +29,8 @@ export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
     const rawRetries = tool.retries ?? toolConfig.retries
     const timeout = typeof rawTimeout === 'number' && rawTimeout > 0 ? rawTimeout : 10000
     const retries = typeof rawRetries === 'number' && rawRetries >= 1 ? rawRetries : 1
+    const queueTouchPoints =
+      tool.queueTouchPoints ?? toolConfig.queueTouchPoints
     return {
       name: tool.name,
       displayName: tool.label || tool.name,
@@ -37,10 +40,12 @@ export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
       // Include timeout/retries at top-level for tools/list response (used by syncExecutableTools)
       timeout,
       retries,
+      queueTouchPoints,
       config: {
         timeout,
         retries,
         completionHints: toolConfig.completionHints,
+        queueTouchPoints,
       },
     }
   })
@@ -249,6 +254,28 @@ export function createCallToolHandler<T extends ToolRegistry>(
         cursor: functionResult.cursor,
       }
     } catch (error) {
+      if (error instanceof RateLimitExceededError) {
+        return {
+          success: false,
+          output: null,
+          billing: { credits: 0 },
+          meta: {
+            success: false,
+            message: error.message,
+            toolName,
+          },
+          error: {
+            code: 'RATE_LIMITED',
+            message: error.message,
+            category: 'external',
+          },
+          retry: {
+            allowed: true,
+            afterMs: error.retryAfterMs,
+          },
+        }
+      }
+
       // Check if it's an AppAuthInvalidError
       if (error instanceof AppAuthInvalidError) {
         return {

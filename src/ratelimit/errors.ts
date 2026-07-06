@@ -56,3 +56,15 @@ export class RateLimitBackendError extends Error {
     this.statusCode = statusCode
   }
 }
+
+/** Thrown when queuedFetch cannot acquire a rate-limit slot within the queue timeout. */
+export class RateLimitExceededError extends Error {
+  readonly code = 'RATE_LIMITED'
+  readonly retryAfterMs: number
+
+  constructor(retryAfterMs: number, message = 'Rate limit exceeded. Please try again later.') {
+    super(message)
+    this.name = 'RateLimitExceededError'
+    this.retryAfterMs = retryAfterMs
+  }
+}

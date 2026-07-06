@@ -134,9 +134,19 @@ export interface ToolCompletionHints {
 }
 
 /**
- * Configuration options for tool execution behavior.
- * Groups timeout, retry, and completion hint settings.
+ * Declares which rate-limit queues a tool may touch (for orchestration probes).
  */
+export interface QueueTouchPoint {
+  /** Queue name from skedyul.config queues (e.g. petbooqz_api) */
+  queue: string
+  /** Conservative max upstream HTTP calls this handler may make */
+  estimatedCalls: number
+  /** Arg field used as sub-key for per-resource mutex queues */
+  subKeyFromArg?: string
+  /** True for correctness mutexes — excluded from rate-limit probe admission */
+  mutexOnly?: boolean
+}
+
 export interface ToolConfig {
   /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
   timeout?: number
@@ -144,6 +154,8 @@ export interface ToolConfig {
   retries?: number
   /** Hints for controlling tool completion behavior in agent loops */
   completionHints?: ToolCompletionHints
+  /** Rate-limit queue touch points for orchestration admission probes */
+  queueTouchPoints?: QueueTouchPoint[]
 }
 
 /**
@@ -232,6 +244,8 @@ export interface ToolExecutionResult<Output = unknown> {
   meta?: ToolResponseMeta
   effect?: ToolEffect
   error?: ToolError | null
+  /** Retry guidance for transient failures (e.g. rate limiting) */
+  retry?: ToolRetry
   /** Rich data blocks for UI rendering (profiles, spreadsheets, datetime cards) */
   dataBlocks?: import('./data-blocks').DataBlock[]
   /** Cursor state for cron subscriptions - saved and passed to the next run */
@@ -281,6 +295,8 @@ export interface ToolDefinition<
   outputSchema?: ToolSchema<OutputSchema>
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
+  /** Rate-limit queue touch points (also accepted at top level for ergonomics) */
+  queueTouchPoints?: QueueTouchPoint[]
   /**
    * Execution scope for this tool.
    * - `installation` (default): Requires appInstallationId, receives sk_wkp_ token.
@@ -300,6 +316,8 @@ export interface ToolRegistryEntry {
   outputSchema?: ToolSchema
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
+  /** Rate-limit queue touch points */
+  queueTouchPoints?: QueueTouchPoint[]
   /** Execution scope for this tool */
   executionScope?: ExecutionScope
   [key: string]: unknown
@@ -321,6 +339,8 @@ export interface ToolMetadata {
   retries?: number
   /** Tool execution configuration (timeout, retries, completion hints) */
   config?: ToolConfig
+  /** Rate-limit queue touch points for orchestration admission probes */
+  queueTouchPoints?: QueueTouchPoint[]
   /** Execution scope for this tool */
   executionScope?: ExecutionScope
 }

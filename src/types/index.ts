@@ -54,6 +54,7 @@ export type {
   // Tool configuration
   ToolCompletionHints,
   ToolConfig,
+  QueueTouchPoint,
   // Legacy types (backward compatibility)
   BillingInfo,
   ToolResponseMeta,

@@ -14,6 +14,8 @@ import {
   QueueContextError,
   QueuedFetchExhaustedError,
   RequeueOutsideContextError,
+  RateLimitBackendError,
+  RateLimitExceededError,
 } from './errors'
 import { defaultShouldRetry, sleep } from './should-retry'
 import type { RateLimitExecutionContext } from './types'
@@ -95,11 +97,36 @@ async function executeWithRetries<T>(
     getQueueConfigWithRetry(operation.resolved.name)?.shouldRetry ??
     defaultShouldRetry
 
-  const lease = await backend.acquire(
-    operation.resolved.queueKey,
-    operation.resolved.limits,
-    timeoutMs,
-  )
+  let lease
+  try {
+    lease = await backend.acquire(
+      operation.resolved.queueKey,
+      operation.resolved.limits,
+      timeoutMs,
+    )
+  } catch (acquireError) {
+    if (
+      acquireError instanceof RateLimitBackendError &&
+      acquireError.statusCode === 408
+    ) {
+      const retryAfterMs = Math.max(
+        operation.resolved.limits.minTime ?? 1000,
+        operation.resolved.config.retryDelayMs ?? 1000,
+      )
+      throw new RateLimitExceededError(retryAfterMs)
+    }
+    if (
+      acquireError instanceof Error &&
+      acquireError.message.includes('timed out')
+    ) {
+      const retryAfterMs = Math.max(
+        operation.resolved.limits.minTime ?? 1000,
+        operation.resolved.config.retryDelayMs ?? 1000,
+      )
+      throw new RateLimitExceededError(retryAfterMs)
+    }
+    throw acquireError
+  }
   operation.lease = lease
   setActiveQueuedOperationLease(lease)
 

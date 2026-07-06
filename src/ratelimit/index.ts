@@ -20,6 +20,7 @@ export {
   QueuedFetchExhaustedError,
   RequeueOutsideContextError,
   RateLimitBackendError,
+  RateLimitExceededError,
 } from './errors'
 export {
   registerQueueConfig,
