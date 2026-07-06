@@ -44,6 +44,7 @@ export interface RateLimitBackend {
     queueKey: string,
     limits: QueueLimits,
     timeoutMs?: number,
+    executionHoldMs?: number,
   ): Promise<Lease>
   release(lease: Lease): Promise<void>
 }

@@ -75,11 +75,13 @@ export class PlatformRateLimitBackend implements RateLimitBackend {
     queueKey: string,
     limits: QueueLimits,
     timeoutMs?: number,
+    executionHoldMs?: number,
   ): Promise<Lease> {
     const data = await callRateLimitApi<AcquireResponse>('acquire', {
       queueKey,
       limits,
       timeoutMs,
+      executionHoldMs,
     })
     return {
       leaseId: data.leaseId,
@@ -91,6 +93,7 @@ export class PlatformRateLimitBackend implements RateLimitBackend {
   async release(lease: Lease): Promise<void> {
     await callRateLimitApi<{ released: boolean }>('release', {
       leaseId: lease.leaseId,
+      queueKey: lease.queueKey,
     })
   }
 }

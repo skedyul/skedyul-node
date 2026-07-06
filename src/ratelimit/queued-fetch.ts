@@ -99,6 +99,7 @@ async function executeWithRetries<T>(
 ): Promise<T> {
   const backend = getRateLimitBackend()
   const timeoutMs = operation.resolved.config.timeout ?? 120_000
+  const executionHoldMs = operation.resolved.config.timeout ?? timeoutMs
   const retryDelayMs = operation.resolved.config.retryDelayMs ?? 1000
   const shouldRetryFn =
     getQueueConfigWithRetry(operation.resolved.name)?.shouldRetry ??
@@ -133,6 +134,7 @@ async function executeWithRetries<T>(
       operation.resolved.queueKey,
       operation.resolved.limits,
       timeoutMs,
+      executionHoldMs,
     )
   } catch (acquireError) {
     if (

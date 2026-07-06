@@ -13,6 +13,7 @@ import {
 import { registerQueueConfig, clearRegisteredQueueConfig } from '../src/ratelimit/config-loader.js'
 import { queuedFetch, requeue } from '../src/ratelimit/queued-fetch.js'
 import { RequeueOutsideContextError } from '../src/ratelimit/errors.js'
+import { parsePreAcquiredLeases } from '../src/server/tool-handler.js'
 
 const baseCtx: RateLimitExecutionContext = {
   app: { id: 'app_1', versionId: 'av_1' },
@@ -105,5 +106,141 @@ describe('queuedFetch', () => {
 
   it('requeue throws outside queuedFetch context', async () => {
     await assert.rejects(() => requeue(), RequeueOutsideContextError)
+  })
+
+  it('skips acquire and release when preAcquiredLeases matches queueKey', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Test',
+      queues: { testQueue: { scope: 'install', maxConcurrent: 1 } },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const queueKey = resolveQueueKey('testQueue', cfg('install'), baseCtx)
+    const acquireCalls: string[] = []
+    const releaseCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+    const originalRelease = memoryRateLimitBackend.release.bind(memoryRateLimitBackend)
+
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+    memoryRateLimitBackend.release = async (lease) => {
+      releaseCalls.push(lease.queueKey)
+      return originalRelease(lease)
+    }
+
+    const ctx: RateLimitExecutionContext = {
+      ...baseCtx,
+      preAcquiredLeases: [{ queueKey, leaseId: 'orchestration_lease_1' }],
+    }
+
+    const result = await runWithRateLimitExecutionContext(ctx, () =>
+      queuedFetch('testQueue', async () => 'pre-leased'),
+    )
+
+    assert.equal(result, 'pre-leased')
+    assert.deepEqual(acquireCalls, [])
+    assert.deepEqual(releaseCalls, [])
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    memoryRateLimitBackend.release = originalRelease
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
+  it('still acquires when preAcquiredLeases does not match queueKey', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Test',
+      queues: {
+        queueA: { scope: 'install', maxConcurrent: 1 },
+        queueB: { scope: 'install', maxConcurrent: 1 },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const queueAKey = resolveQueueKey('queueA', cfg('install'), baseCtx)
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    const ctx: RateLimitExecutionContext = {
+      ...baseCtx,
+      preAcquiredLeases: [{ queueKey: queueAKey, leaseId: 'lease_a' }],
+    }
+
+    await runWithRateLimitExecutionContext(ctx, () =>
+      queuedFetch('queueB', async () => 'other-queue'),
+    )
+
+    assert.equal(acquireCalls.length, 1)
+    assert.match(acquireCalls[0]!, /queueB/)
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
+  it('allows multiple queuedFetch calls with one pre-lease without extra acquires', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Test',
+      queues: { testQueue: { scope: 'install', maxConcurrent: 1 } },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const queueKey = resolveQueueKey('testQueue', cfg('install'), baseCtx)
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    const ctx: RateLimitExecutionContext = {
+      ...baseCtx,
+      preAcquiredLeases: [{ queueKey, leaseId: 'orchestration_lease_1' }],
+    }
+
+    await runWithRateLimitExecutionContext(ctx, async () => {
+      await queuedFetch('testQueue', async () => 'first')
+      await queuedFetch('testQueue', async () => 'second')
+    })
+
+    assert.deepEqual(acquireCalls, [])
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+})
+
+describe('parsePreAcquiredLeases', () => {
+  it('parses SKEDYUL_RATE_LIMIT_LEASES JSON env payload', () => {
+    const leases = parsePreAcquiredLeases(
+      JSON.stringify([
+        { queueKey: 'rl:in:ai_1:petbooqz_api', leaseId: 'lease_1' },
+      ]),
+    )
+
+    assert.deepEqual(leases, [
+      { queueKey: 'rl:in:ai_1:petbooqz_api', leaseId: 'lease_1' },
+    ])
+  })
+
+  it('returns undefined for invalid payloads', () => {
+    assert.equal(parsePreAcquiredLeases(undefined), undefined)
+    assert.equal(parsePreAcquiredLeases('not-json'), undefined)
+    assert.equal(parsePreAcquiredLeases('{"queueKey":"x"}'), undefined)
   })
 })
