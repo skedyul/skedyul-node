@@ -104,15 +104,11 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
           }
         }
       } catch (transpileError) {
-        // Fall back to tsx for configs with TypeScript-only static imports
-        const config = loadTypeScriptConfigModule(absolutePath)
-        if (!config || typeof config !== 'object') {
-          throw new Error('Config file must export a configuration object')
-        }
-        if (!config.name || typeof config.name !== 'string') {
-          throw new Error('Config must have a "name" property')
-        }
-        return config
+        throw new Error(
+          `Cannot load TypeScript config metadata from ${absolutePath}: ${
+            transpileError instanceof Error ? transpileError.message : String(transpileError)
+          }`,
+        )
       }
     }
 
