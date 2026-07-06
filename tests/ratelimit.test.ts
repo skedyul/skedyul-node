@@ -12,7 +12,7 @@ import {
 } from '../src/ratelimit/context.js'
 import { registerQueueConfig, clearRegisteredQueueConfig } from '../src/ratelimit/config-loader.js'
 import { queuedFetch, requeue } from '../src/ratelimit/queued-fetch.js'
-import { RequeueOutsideContextError } from '../src/ratelimit/errors.js'
+import { RequeueOutsideContextError, RateLimitExceededError, QueuedFetchExhaustedError } from '../src/ratelimit/errors.js'
 import { parsePreAcquiredLeases } from '../src/server/tool-handler.js'
 
 const baseCtx: RateLimitExecutionContext = {
@@ -219,6 +219,110 @@ describe('queuedFetch', () => {
     })
 
     assert.deepEqual(acquireCalls, [])
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
+  it('rethrows RateLimitExceededError when maxRetries is 0', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Test',
+      queues: { testQueue: { scope: 'install', maxConcurrent: 1, maxRetries: 0 } },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    await assert.rejects(
+      () =>
+        runWithRateLimitExecutionContext(baseCtx, () =>
+          queuedFetch('testQueue', async () => {
+            throw new RateLimitExceededError(1500, 'Rate limit exceeded')
+          }),
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof RateLimitExceededError)
+        return true
+      },
+    )
+
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
+  it('uses only calendar booking acquire when inner work avoids nested api queuedFetch', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Petbooqz',
+      queues: {
+        petbooqz_calendar_booking: { scope: 'install', maxConcurrent: 1, maxRetries: 0 },
+        petbooqz_api: {
+          scope: 'install',
+          maxConcurrent: 2,
+          maxRetries: 0,
+          reservoir: 12,
+        },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    await runWithRateLimitExecutionContext(baseCtx, () =>
+      queuedFetch({ queue: 'petbooqz_calendar_booking', key: 'cal-1' }, async () => {
+        // Simulates direct-fetch client inside booking mutex (no nested api queuedFetch)
+        await Promise.resolve('http-1')
+        await Promise.resolve('http-2')
+        await Promise.resolve('http-3')
+        return 'booked'
+      }),
+    )
+
+    assert.equal(acquireCalls.length, 1)
+    assert.match(acquireCalls[0]!, /petbooqz_calendar_booking:cal-1/)
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
+  it('still acquires petbooqz_api per call outside booking mutex', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Petbooqz',
+      queues: {
+        petbooqz_api: {
+          scope: 'install',
+          maxConcurrent: 2,
+          maxRetries: 0,
+          reservoir: 12,
+        },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    await runWithRateLimitExecutionContext(baseCtx, async () => {
+      await queuedFetch('petbooqz_api', async () => 'call-1')
+      await queuedFetch('petbooqz_api', async () => 'call-2')
+    })
+
+    assert.equal(acquireCalls.length, 2)
+    assert.ok(acquireCalls.every((key) => key.includes('petbooqz_api')))
 
     memoryRateLimitBackend.acquire = originalAcquire
     delete process.env.SKEDYUL_RATE_LIMIT_MEMORY

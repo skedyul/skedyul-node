@@ -93,6 +93,21 @@ function findPreAcquiredLease(
   return ctx?.preAcquiredLeases?.find((lease) => lease.queueKey === queueKey)
 }
 
+function shouldRethrowRateLimitCause(
+  maxRetries: number,
+  error: unknown,
+  attempt: number,
+  shouldRetryFn: (error: unknown, attempt: number) => boolean,
+): boolean {
+  if (maxRetries !== 0 || !shouldRetryFn(error, attempt)) {
+    return false
+  }
+  return (
+    error instanceof RateLimitExceededError ||
+    error instanceof RateLimitBackendError
+  )
+}
+
 async function executeWithRetries<T>(
   operation: ActiveQueuedOperation<T>,
   maxRetries: number,
@@ -115,6 +130,9 @@ async function executeWithRetries<T>(
     try {
       return await operation.fn()
     } catch (error) {
+      if (shouldRethrowRateLimitCause(maxRetries, error, operation.attempt, shouldRetryFn)) {
+        throw error
+      }
       if (
         shouldRetryFn(error, operation.attempt) &&
         operation.attempt < maxRetries
@@ -168,6 +186,10 @@ async function executeWithRetries<T>(
     await backend.release(lease)
     operation.lease = null
     setActiveQueuedOperationLease(null)
+
+    if (shouldRethrowRateLimitCause(maxRetries, error, operation.attempt, shouldRetryFn)) {
+      throw error
+    }
 
     if (
       shouldRetryFn(error, operation.attempt) &&
