@@ -18,6 +18,35 @@ import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
 import { buildToolExecutionEnv } from './utils/env'
 
+export function parsePreAcquiredLeases(
+  raw: string | undefined,
+): Array<{ queueKey: string; leaseId: string }> | undefined {
+  if (!raw) {
+    return undefined
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) {
+      return undefined
+    }
+    const leases = parsed
+      .filter(
+        (item): item is { queueKey: string; leaseId: string } =>
+          item != null &&
+          typeof item === 'object' &&
+          typeof (item as { queueKey?: unknown }).queueKey === 'string' &&
+          typeof (item as { leaseId?: unknown }).leaseId === 'string',
+      )
+      .map((item) => ({
+        queueKey: item.queueKey,
+        leaseId: item.leaseId,
+      }))
+    return leases.length > 0 ? leases : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Builds tool metadata array from a tool registry
  */
@@ -211,6 +240,7 @@ export function createCallToolHandler<T extends ToolRegistry>(
             : (rawContext.appInstallationId as string | undefined),
         invocation,
         isProvisionContext: trigger === 'provision',
+        preAcquiredLeases: parsePreAcquiredLeases(toolEnv.SKEDYUL_RATE_LIMIT_LEASES),
       }
 
       // Call handler with two arguments: (input, context)

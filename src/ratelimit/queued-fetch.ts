@@ -86,6 +86,13 @@ export async function queuedFetch<T>(
   )
 }
 
+function findPreAcquiredLease(
+  queueKey: string,
+  ctx?: RateLimitExecutionContext,
+): { queueKey: string; leaseId: string } | undefined {
+  return ctx?.preAcquiredLeases?.find((lease) => lease.queueKey === queueKey)
+}
+
 async function executeWithRetries<T>(
   operation: ActiveQueuedOperation<T>,
   maxRetries: number,
@@ -96,6 +103,29 @@ async function executeWithRetries<T>(
   const shouldRetryFn =
     getQueueConfigWithRetry(operation.resolved.name)?.shouldRetry ??
     defaultShouldRetry
+
+  const rateLimitCtx = getRateLimitExecutionContext()
+  const preAcquired = findPreAcquiredLease(
+    operation.resolved.queueKey,
+    rateLimitCtx,
+  )
+
+  if (preAcquired) {
+    try {
+      return await operation.fn()
+    } catch (error) {
+      if (
+        shouldRetryFn(error, operation.attempt) &&
+        operation.attempt < maxRetries
+      ) {
+        await sleep(retryDelayMs)
+        operation.attempt += 1
+        updateActiveQueuedOperationAttempt(operation.attempt)
+        return executeWithRetries(operation, maxRetries)
+      }
+      throw error
+    }
+  }
 
   let lease
   try {
