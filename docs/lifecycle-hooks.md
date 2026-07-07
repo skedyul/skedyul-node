@@ -13,27 +13,43 @@ Lifecycle hooks allow your app to execute code at key moments: when users instal
 
 ## Defining Hooks
 
-Hooks are defined in your server configuration:
+Hooks are defined in `skedyul.config.ts` or passed to `server.create()`:
 
 ```ts
 import { server } from 'skedyul'
 import { toolRegistry } from './tools/registry'
 import { webhookRegistry } from './webhooks/registry'
+import { installHandler, provisionHandler, uninstallHandler } from './hooks'
 
-const mcpServer = server.create(
-  {
-    computeLayer: 'serverless',
-    metadata: { name: 'my-app', version: '1.0.0' },
-    hooks: {
-      install: installHandler,
-      oauth_callback: oauthCallbackHandler,  // Required if using OAuth
-      provision: provisionHandler,
-      uninstall: uninstallHandler,
-    },
+const mcpServer = server.create({
+  name: 'my-app',
+  version: '1.0.0',
+  computeLayer: 'serverless',
+  tools: toolRegistry,
+  webhooks: webhookRegistry,
+  hooks: {
+    install: installHandler,
+    oauth_callback: oauthCallbackHandler,
+    provision: provisionHandler,
+    uninstall: uninstallHandler,
   },
-  toolRegistry,
-  webhookRegistry,
-)
+})
+```
+
+Or inline in config:
+
+```ts
+export default defineConfig({
+  name: 'my-app',
+  version: '1.0.0',
+  computeLayer: 'serverless',
+  tools: import('./src/registries'),
+  hooks: {
+    install: installHandler,
+    provision: provisionHandler,
+    uninstall: uninstallHandler,
+  },
+})
 ```
 
 ### With Timeouts
@@ -461,15 +477,14 @@ import { toolRegistry } from '../tools/registry'
 import { webhookRegistry } from '../webhooks/registry'
 import { hooks } from './hooks'
 
-const mcpServer = server.create(
-  {
-    computeLayer: 'serverless',
-    metadata: { name: 'my-oauth-app', version: '1.0.0' },
-    hooks,
-  },
-  toolRegistry,
-  webhookRegistry,
-)
+const mcpServer = server.create({
+  name: 'my-oauth-app',
+  version: '1.0.0',
+  computeLayer: 'serverless',
+  tools: toolRegistry,
+  webhooks: webhookRegistry,
+  hooks,
+})
 
 export const handler = mcpServer.handler
 ```

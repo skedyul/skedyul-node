@@ -32,20 +32,35 @@ The top-level configuration interface:
 
 ```ts
 interface SkedyulConfig {
-  // Required
-  name: string                    // App display name
-  version: string                 // Semantic version
-  computeLayer: 'dedicated' | 'serverless'
-
-  // Optional description
+  // Identity
+  name: string
+  version?: string
   description?: string
 
-  // Registries (dynamic imports)
-  tools?: Promise<{ default: ToolRegistry }>
-  webhooks?: Promise<{ default: WebhookRegistry }>
+  // Runtime
+  computeLayer?: 'dedicated' | 'serverless'
+  defaultPort?: number
+  maxRequests?: number | null
+  ttlExtendSeconds?: number
+  cors?: CorsOptions
+  coreApi?: CoreApiConfig
 
-  // Provision configuration (aggregates modular configs)
-  provision?: Promise<{ default: ProvisionConfig }>
+  // Registries (object or dynamic import)
+  tools?: ToolRegistry | Promise<{ toolRegistry: ToolRegistry }>
+  webhooks?: WebhookRegistry | Promise<{ webhookRegistry: WebhookRegistry }>
+
+  // Lifecycle hooks
+  hooks?: ServerHooks
+
+  // Declarative config
+  provision?: ProvisionConfig | Promise<{ default: ProvisionConfig }>
+  install?: InstallConfig | Promise<{ default: InstallConfig }>
+  agents?: AgentDefinition[]
+  events?: AppEventDefinition[]
+
+  // Build & rate limits
+  build?: { external?: string[] }
+  queues?: QueueRegistry
 }
 ```
 
@@ -87,6 +102,40 @@ my-app/
 
 ---
 
+## Install config
+
+Per-installation configuration — collected when a user installs your app:
+
+```ts
+// install.ts
+import type { InstallConfig } from 'skedyul'
+import installEnv from './install-env'
+import { sharedModels, sharedRelationships } from './crm/shared'
+
+export default {
+  env: installEnv,
+  models: Object.values(sharedModels),      // SHARED scope models
+  relationships: sharedRelationships,
+} satisfies InstallConfig
+```
+
+| Field | Description |
+|-------|-------------|
+| `env` | Per-install env vars (`scope: 'install'`) |
+| `models` | SHARED models mapped to user's existing data |
+| `relationships` | Relationships between SHARED models |
+
+Reference from config:
+
+```ts
+export default defineConfig({
+  // ...
+  install: import('./install'),
+})
+```
+
+---
+
 ## Provision Config
 
 Aggregates all modular config files for the app:
@@ -108,9 +157,111 @@ const config: ProvisionConfig = {
   channels: Object.values(channels),
   pages: Object.values(pages),
   relationships,
+  signals,   // Optional: install-time event subscriptions
 }
 
 export default config
+```
+
+### Signals
+
+Signals subscribe workplaces to workflows when the app is installed:
+
+```ts
+signals: [
+  {
+    handle: 'booking_confirmed',
+    label: 'Booking Confirmed',
+    workflowHandle: 'send_confirmation',
+  },
+]
+```
+
+---
+
+## App events catalog
+
+Declare events your app emits via `event.create` (for UI documentation and CLI testing):
+
+```ts
+export default defineConfig({
+  // ...
+  events: [
+    {
+      name: 'customer.sync',
+      description: 'Customer records synced from external system',
+    },
+    {
+      name: 'order.created',
+      description: 'New order placed',
+    },
+  ],
+})
+```
+
+Emit from tools:
+
+```ts
+import { event } from 'skedyul'
+
+await event.create('customer.sync', { customers: [...] })
+```
+
+Test via CLI: `skedyul event create customer.sync '{}' --workplace <subdomain>`
+
+---
+
+## Lifecycle hooks
+
+Define hooks inline in config (used by `server.create()`):
+
+```ts
+export default defineConfig({
+  // ...
+  hooks: {
+    install: installHandler,
+    provision: provisionHandler,
+    uninstall: uninstallHandler,
+    oauth_callback: oauthCallbackHandler,
+  },
+})
+```
+
+See [Lifecycle hooks](./lifecycle-hooks.md).
+
+---
+
+## Build configuration
+
+Control how `skedyul build` bundles your integration:
+
+```ts
+export default defineConfig({
+  // ...
+  build: {
+    external: ['twilio', 'stripe'],  // Exclude from bundle
+  },
+})
+```
+
+---
+
+## Rate-limit queues
+
+Define queues for `queuedFetch` — see [Rate-limit queues](./rate-limit-queues.md):
+
+```ts
+export default defineConfig({
+  // ...
+  queues: {
+    stripeApi: {
+      scope: 'provision',
+      maxConcurrent: 5,
+      minTime: 100,
+      maxRetries: 3,
+    },
+  },
+})
 ```
 
 ---
@@ -532,9 +683,9 @@ export default navigation
 
 ---
 
-## Agents
+## Agents (provision)
 
-Define AI agents using `defineAgent`:
+Define simple multi-tenant agents in your app config using `defineAgent`:
 
 ```ts
 // agents/booking.ts
@@ -544,19 +695,26 @@ export default defineAgent({
   handle: 'booking_assistant',
   label: 'Booking Assistant',
   description: 'Helps users schedule and manage appointments',
-  systemPrompt: `You are an appointment scheduling assistant.
+  system: `You are an appointment scheduling assistant.
 Help users find available times and book appointments.
 Always confirm the date, time, and service before booking.`,
   tools: ['list_availability', 'create_appointment', 'cancel_appointment'],
+  parentAgent: 'composer',  // Optional: bind as sub-agent to Composer
 })
 ```
 
-### Agents Index
+Add to `skedyul.config.ts`:
 
 ```ts
-// agents/index.ts
-export { default as bookingAssistant } from './booking'
+import bookingAssistant from './agents/booking'
+
+export default defineConfig({
+  // ...
+  agents: [bookingAssistant],
+})
 ```
+
+For skills-based Agent YAML v3 (workplace-deployed agents), see [Agents, skills & workflows](./agents.md).
 
 ---
 
