@@ -4,11 +4,13 @@ import * as readline from 'readline'
 import { parseArgs } from '../utils'
 import { getCredentials, getServerUrl } from '../utils/auth'
 import {
+  type SkedyulConfig,
+} from '../../config'
+import {
   loadConfig,
   validateConfig,
   CONFIG_FILE_NAMES,
-  type SkedyulConfig,
-} from '../../config'
+} from '../../config/loader'
 
 function printHelp(): void {
   console.log(`

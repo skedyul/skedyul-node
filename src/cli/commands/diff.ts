@@ -2,12 +2,14 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { parseArgs, loadRegistry } from '../utils'
 import {
-  loadConfig,
-  validateConfig,
-  CONFIG_FILE_NAMES,
   type SkedyulConfig,
   type EnvSchema,
 } from '../../config'
+import {
+  loadConfig,
+  validateConfig,
+  CONFIG_FILE_NAMES,
+} from '../../config/loader'
 
 function printHelp(): void {
   console.log(`

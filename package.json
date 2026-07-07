@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,6 +31,12 @@
       "types": "./dist/cli/utils/auth.d.ts",
       "require": "./dist/cli/utils/auth.js",
       "default": "./dist/cli/utils/auth.js"
+    },
+    "./config/loader": {
+      "types": "./dist/config/loader.d.ts",
+      "import": "./dist/config/loader.mjs",
+      "require": "./dist/config/loader.js",
+      "default": "./dist/config/loader.js"
     },
     "./schemas/agent-schema": {
       "types": "./dist/schemas/agent-schema.d.ts",
