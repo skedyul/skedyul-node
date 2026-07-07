@@ -141,6 +141,10 @@ export function serializeResolvedConfig(config: ResolvedConfig): SerializableSke
           // Read timeout/retries from top-level first, then fallback to config
           timeout: (tool.timeout ?? tool.config?.timeout) as number | undefined,
           retries: (tool.retries ?? tool.config?.retries) as number | undefined,
+          queueTouchPoints: (tool.queueTouchPoints ??
+            tool.config?.queueTouchPoints) as
+            | import('../types/tool').QueueTouchPoint[]
+            | undefined,
         }))
       : [],
     webhooks: config.webhooks
