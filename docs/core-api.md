@@ -349,6 +349,39 @@ const { deleted } = await instance.delete('compliance_record', 'ins_abc123')
 
 **Returns:** `Promise<{ deleted: boolean }>`
 
+### Batch operations
+
+```ts
+// Create multiple records
+const { data } = await instance.createMany('contact', [
+  { name: 'Alice', email: 'alice@example.com' },
+  { name: 'Bob', email: 'bob@example.com' },
+])
+
+// Update multiple records
+await instance.updateMany('contact', [
+  { id: 'ins_1', data: { status: 'active' } },
+  { id: 'ins_2', data: { status: 'active' } },
+])
+
+// Delete multiple records
+await instance.deleteMany('contact', ['ins_1', 'ins_2'])
+
+// Upsert by match field
+await instance.upsertMany('contact', records, { matchField: 'email' })
+```
+
+### createInstanceClient()
+
+Create a standalone client with explicit config (same methods as global `instance`):
+
+```ts
+import { createInstanceClient } from 'skedyul'
+
+const client = createInstanceClient({ baseUrl, apiToken })
+await client.list('member')
+```
+
 ---
 
 ## token
@@ -357,12 +390,12 @@ Token exchange operations.
 
 ### token.exchange()
 
-Exchange an app token for an installation-scoped token.
+Exchange an app or provision token for an installation-scoped **`InstanceClient`**:
 
-**Requires:** `sk_app_*` token
+**Requires:** `sk_app_*` or `sk_prv_*` token
 
 ```ts
-import { token, runWithConfig } from 'skedyul'
+import { token, instance } from 'skedyul'
 
 // Find the installation first
 const { data: instances } = await instance.list('phone_number', {
@@ -371,14 +404,23 @@ const { data: instances } = await instance.list('phone_number', {
 
 const appInstallationId = instances[0]._meta.appInstallationId
 
-// Exchange for scoped token
-const { token: scopedToken } = await token.exchange(appInstallationId)
+// Returns a scoped InstanceClient (sk_wkp_* internally)
+const scopedInstance = await token.exchange(appInstallationId)
 
-// Use scoped token
+// Use scoped client for all CRM operations
+await scopedInstance.update('phone_number', instances[0].id, { status: 'active' })
+```
+
+### token.exchangeRaw()
+
+Returns the raw token when you need manual `runWithConfig`:
+
+```ts
+const { token: scopedToken, appInstallationId } = await token.exchangeRaw(installId)
+
 await runWithConfig(
   { apiToken: scopedToken, baseUrl: process.env.SKEDYUL_API_URL! },
   async () => {
-    // Operations now scoped to this installation
     await communicationChannel.receiveMessage({ ... })
   }
 )
@@ -389,15 +431,25 @@ await runWithConfig(
 |------|------|-------------|
 | `appInstallationId` | `string` | Installation ID |
 
-**Returns:** `Promise<{ token: string }>`
+**Returns:** `Promise<InstanceClient>` (exchange) or `Promise<{ token, appInstallationId }>` (exchangeRaw)
 
-The returned token is a short-lived JWT (1 hour) scoped to the installation.
+The scoped token is a short-lived JWT (~1 hour) for the installation.
 
 ---
 
 ## file
 
 File upload and download operations.
+
+### file.get()
+
+Get file metadata.
+
+```ts
+const info = await file.get('fl_abc123')
+```
+
+**Returns:** `Promise<FileInfo>`
 
 ### file.getUrl()
 
@@ -576,54 +628,147 @@ const { instanceId } = await resource.link({
 
 ---
 
-## contactAssociationLink
+## cron
 
-Link communication channels to contact models.
+Subscribe to scheduled events.
 
-### contactAssociationLink.create()
-
-Create a link between a channel and a model for contact association.
+### cron.subscribe()
 
 ```ts
-import { contactAssociationLink } from 'skedyul'
+import { cron } from 'skedyul'
 
-const link = await contactAssociationLink.create({
-  communicationChannelId: channel.id,
-  modelId: clientsModelId,
-  identifierFieldId: phoneFieldId,
+const { id } = await cron.subscribe({
+  name: 'daily_sync',
+  schedule: '0 9 * * *',  // Cron expression
+  timezone: 'Australia/Sydney',
+})
+```
+
+### cron.unsubscribe()
+
+```ts
+await cron.unsubscribe(subscriptionId)
+```
+
+### cron.list()
+
+```ts
+const { subscriptions } = await cron.list({ name: 'daily_sync' })
+```
+
+---
+
+## event
+
+Emit app events to the event bus.
+
+### event.create()
+
+```ts
+import { event } from 'skedyul'
+
+const result = await event.create('customer.sync', {
+  customers: [{ id: '1', name: 'Jane' }],
+}, {
+  trigger: 'tool',
+  correlationId: 'run_abc',
+  app: 'my-app',
+  context: { source: 'nightly_sync' },
+})
+```
+
+Events must be declared in `skedyul.config.ts` under `events` to appear in the catalog.
+
+---
+
+## ai
+
+Generate structured output from an LLM.
+
+### ai.generateObject()
+
+```ts
+import { ai, z } from 'skedyul'
+
+const schema = z.object({
+  summary: z.string(),
+  sentiment: z.enum(['positive', 'neutral', 'negative']),
 })
 
-console.log(`Linked to ${link.modelName} via ${link.identifierFieldLabel}`)
+const { object } = await ai.generateObject({
+  model: 'gpt-4o',
+  schema,
+  prompt: 'Summarize this message: ...',
+  // Optional multimodal input
+  files: [{ fileId: 'fl_abc', mimeType: 'application/pdf' }],
+  messages: [{ role: 'user', content: 'Analyze the attached document' }],
+})
 ```
 
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| `communicationChannelId` | `string` | Channel ID |
-| `modelId` | `string` | Model to associate contacts with |
-| `identifierFieldId` | `string` | Field providing identifier |
+---
 
-**Returns:** `Promise<ContactAssociationLinkCreateResult>`
+## call
 
-### contactAssociationLink.list()
+Voice call lifecycle (real-time transcription).
 
-List links for a channel.
+### call.start()
 
 ```ts
-const links = await contactAssociationLink.list('ch_abc123')
+import { call } from 'skedyul'
+
+const { callId } = await call.start({
+  communicationChannelId: 'ch_abc',
+  from: '+61400000000',
+  to: '+61411111111',
+})
 ```
 
-**Returns:** `Promise<ContactAssociationLinkCreateResult[]>`
-
-### contactAssociationLink.delete()
-
-Delete a contact association link.
+### call.appendTranscript()
 
 ```ts
-const { success } = await contactAssociationLink.delete('cal_abc123')
+await call.appendTranscript({
+  callId,
+  speaker: 'agent',
+  text: 'How can I help you today?',
+})
 ```
 
-**Returns:** `Promise<{ success: boolean }>`
+### call.end()
+
+```ts
+await call.end({ callId, reason: 'completed' })
+```
+
+### call.summarize()
+
+```ts
+const { summary } = await call.summarize({ callId })
+```
+
+---
+
+## report
+
+Generate and manage reports.
+
+### report.generate()
+
+```ts
+import { report } from 'skedyul'
+
+const { url, reportId } = await report.generate({
+  definitionHandle: 'monthly_summary',
+  parameters: { month: '2026-01' },
+})
+```
+
+### report.define()
+
+Register a report definition.
+
+### report.list() / report.get()
+
+List and retrieve report definitions and generated reports.
 
 ---
 

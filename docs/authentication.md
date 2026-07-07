@@ -113,10 +113,16 @@ const provisionHandler: ProvisionHandler = async (ctx) => {
 ```bash
 # Base URL for the Skedyul API
 SKEDYUL_API_URL=https://app.skedyul.com
+# Alias accepted by the SDK
+SKEDYUL_NODE_URL=https://app.skedyul.com
 
 # Your API token
 SKEDYUL_API_TOKEN=sk_app_xxxxx
 ```
+
+### CLI profiles
+
+The CLI stores auth in `~/.skedyul/profiles.json` (multi-profile support). Switch profiles with `skedyul auth use <name>`. Legacy `~/.skedyul/credentials.json` is migrated automatically.
 
 ### Programmatic Configuration
 
