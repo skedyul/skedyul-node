@@ -28,6 +28,8 @@ export interface ChannelCapability {
   receive?: string
   /** Outbound tool handle */
   send?: string
+  /** Batch outbound tool handle (e.g. send_sms_batch) */
+  send_batch?: string
 }
 
 /**

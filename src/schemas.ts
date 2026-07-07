@@ -1103,16 +1103,9 @@ export const MessageBulkSendInputSchema = z.object({
   schedule: z.object({ at: z.string() }).optional(),
 })
 
-export const MessageBulkSendBatchSchema = z.object({
-  operationId: z.string(),
-  addresses: z.array(z.string()),
-})
-
 export const MessageBulkSendOutputSchema = z.object({
   status: z.enum(['accepted', 'failed']),
   operationId: z.string().optional(),
-  operationIds: z.array(z.string()).optional(),
-  batches: z.array(MessageBulkSendBatchSchema).optional(),
   acceptedCount: z.number().int().nonnegative(),
   rejectedCount: z.number().int().nonnegative().optional(),
 })
