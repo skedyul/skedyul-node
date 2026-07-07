@@ -334,6 +334,51 @@ describe('queuedFetch', () => {
     delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
   })
 
+  it('waits for petbooqz_api slot with maxRetries before failing', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Petbooqz',
+      queues: {
+        petbooqz_api: {
+          scope: 'install',
+          maxConcurrent: 1,
+          maxRetries: 2,
+          retryDelayMs: 10,
+          timeout: 5000,
+        },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const queueKey = resolveQueueKey('petbooqz_api', cfg('install'), baseCtx)
+    const held = await memoryRateLimitBackend.acquire(
+      queueKey,
+      { maxConcurrent: 1 },
+      5000,
+    )
+
+    let completed = false
+    const waiter = runWithRateLimitExecutionContext(baseCtx, () =>
+      queuedFetch('petbooqz_api', async () => {
+        completed = true
+        return 'ok'
+      }),
+    )
+
+    await new Promise((r) => setTimeout(r, 30))
+    assert.equal(completed, false)
+
+    await memoryRateLimitBackend.release(held)
+    const result = await waiter
+
+    assert.equal(result, 'ok')
+    assert.equal(completed, true)
+
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
   it('still acquires petbooqz_api per call outside booking mutex', async () => {
     resetRateLimitBackendForTests()
     clearRegisteredQueueConfig()
