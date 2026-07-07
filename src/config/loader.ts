@@ -43,12 +43,12 @@ async function transpileTypeScript(filePath: string): Promise<string> {
     .replace(/defineConfig\s*\(\s*\{/, '{')
     .replace(/\}\s*\)\s*;?\s*$/, '}')
 
-  // Default import: import pkg from './path'
+  // Default import: import pkg from './path' (optional `with { type: 'json' }`)
   transpiled = transpiled.replace(
-    /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"]\s*(?:with\s*\{[^}]*\})?/g,
+    /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"](?:\s+with\s*\{[^}]*\})?/g,
     (_match, varName, relativePath) => {
       const absolutePath = path.resolve(configDir, relativePath)
-      return `const ${varName} = require('${absolutePath.replace(/\\/g, '/')}')`
+      return `const ${varName} = require('${absolutePath.replace(/\\/g, '/')}')\n`
     },
   )
 
