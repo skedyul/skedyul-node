@@ -217,6 +217,7 @@ export const ChannelCapabilitySchema = z.object({
   icon: z.string().optional(), // Lucide icon name
   receive: z.string().optional(), // Inbound webhook handler
   send: z.string().optional(), // Outbound tool handle
+  send_batch: z.string().optional(), // Batch outbound tool handle
 })
 
 /**
@@ -1086,6 +1087,39 @@ export type MessageSendAttachment = z.infer<typeof MessageSendAttachmentSchema>
 export type MessageSendMessage = z.infer<typeof MessageSendMessageSchema>
 export type MessageSendInput = z.infer<typeof MessageSendInputSchema>
 export type MessageSendOutput = z.infer<typeof MessageSendOutputSchema>
+
+export const MessageBulkRecipientSchema = z.object({
+  address: z.string(),
+  renderedBody: z.string(),
+  instanceId: z.string().optional(),
+  threadId: z.string().optional(),
+  messageId: z.string().optional(),
+  contactId: z.string().optional(),
+})
+
+export const MessageBulkSendInputSchema = z.object({
+  channel: MessageSendChannelSchema,
+  recipients: z.array(MessageBulkRecipientSchema).min(1).max(10000),
+  schedule: z.object({ at: z.string() }).optional(),
+})
+
+export const MessageBulkSendBatchSchema = z.object({
+  operationId: z.string(),
+  addresses: z.array(z.string()),
+})
+
+export const MessageBulkSendOutputSchema = z.object({
+  status: z.enum(['accepted', 'failed']),
+  operationId: z.string().optional(),
+  operationIds: z.array(z.string()).optional(),
+  batches: z.array(MessageBulkSendBatchSchema).optional(),
+  acceptedCount: z.number().int().nonnegative(),
+  rejectedCount: z.number().int().nonnegative().optional(),
+})
+
+export type MessageBulkRecipient = z.infer<typeof MessageBulkRecipientSchema>
+export type MessageBulkSendInput = z.infer<typeof MessageBulkSendInputSchema>
+export type MessageBulkSendOutput = z.infer<typeof MessageBulkSendOutputSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type Guards
