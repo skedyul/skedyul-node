@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import type { SkedyulConfig } from './app-config'
+import { transpileConfigMetadata } from './transpileConfigMetadata'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config Loading Utilities
@@ -14,59 +15,6 @@ export const CONFIG_FILE_NAMES = [
   'skedyul.config.cjs',
 ]
 
-function loadTypeScriptConfigModule(absolutePath: string): SkedyulConfig {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('tsx/cjs')
-    delete require.cache[absolutePath]
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const module = require(absolutePath)
-    return (module.default ?? module) as SkedyulConfig
-  } catch (error) {
-    throw new Error(
-      `Cannot load TypeScript config: ${absolutePath}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    )
-  }
-}
-
-async function transpileTypeScript(filePath: string): Promise<string> {
-  const content = fs.readFileSync(filePath, 'utf-8')
-  const configDir = path.dirname(path.resolve(filePath))
-
-  let transpiled = content
-    .replace(/import\s+type\s+\{[^}]+\}\s+from\s+['"][^'"]+['"]\s*;?\n?/g, '')
-    .replace(/import\s+\{\s*defineConfig\s*\}\s+from\s+['"]skedyul['"]\s*;?\n?/g, '')
-    .replace(/:\s*SkedyulConfig/g, '')
-    .replace(/export\s+default\s+/, 'module.exports = ')
-    .replace(/defineConfig\s*\(\s*\{/, '{')
-    .replace(/\}\s*\)\s*;?\s*$/, '}')
-
-  // Default import: import pkg from './path' (optional `with { type: 'json' }`)
-  transpiled = transpiled.replace(
-    /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"](?:\s+with\s*\{[^}]*\})?/g,
-    (_match, varName, relativePath) => {
-      const absolutePath = path.resolve(configDir, relativePath)
-      return `const ${varName} = require('${absolutePath.replace(/\\/g, '/')}')\n`
-    },
-  )
-
-  // Named import: import { foo, bar } from './path'
-  transpiled = transpiled.replace(
-    /import\s+\{\s*([^}]+)\s*\}\s+from\s+['"](\.[^'"]+)['"]\s*;?\n?/g,
-    (_match, namedImports, relativePath) => {
-      const absolutePath = path.resolve(configDir, relativePath)
-      return `const { ${namedImports.trim()} } = require('${absolutePath.replace(/\\/g, '/')}')\n`
-    },
-  )
-
-  // Replace dynamic imports with null - they're not needed for config extraction
-  transpiled = transpiled.replace(/import\s*\(\s*['"][^'"]+['"]\s*\)/g, 'null')
-
-  return transpiled
-}
-
 export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
   const absolutePath = path.resolve(configPath)
 
@@ -78,11 +26,10 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
 
   try {
     if (isTypeScript) {
-      // Prefer lightweight transpile for metadata-only loads (build, validate).
-      // Full tsx load executes dynamic import() in skedyul.config.ts; those promises
-      // reject asynchronously and crash the process even when build only needs name/computeLayer.
+      // Metadata-only load (build, validate): esbuild transpile + stub dynamic imports.
+      // Full tsx load (config:export) executes dynamic import() and can crash the process.
       try {
-        const transpiled = await transpileTypeScript(absolutePath)
+        const transpiled = await transpileConfigMetadata(absolutePath)
         const tempFile = path.join(os.tmpdir(), `skedyul-config-${Date.now()}.cjs`)
         fs.writeFileSync(tempFile, transpiled)
         try {

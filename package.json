@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "1.4.12",
+  "version": "1.4.13",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -64,7 +64,7 @@
     "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && tsup",
     "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
-    "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js dist-tests/tests/agent-schema-v3.test.js dist-tests/tests/ratelimit.test.js"
+    "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js dist-tests/tests/agent-schema-v3.test.js dist-tests/tests/ratelimit.test.js dist-tests/tests/config-loader.test.js"
   },
   "keywords": [
     "mcp",
@@ -81,6 +81,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.23.0",
+    "esbuild": "^0.27.7",
     "tsx": "^4.19.0",
     "yaml": "^2.3.1",
     "zod": "^4.0.0"
