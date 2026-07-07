@@ -100,9 +100,6 @@ export {
   defineAgent,
   defineEnv,
   defineNavigation,
-  loadConfig,
-  validateConfig,
-  CONFIG_FILE_NAMES,
   getAllEnvKeys,
   getRequiredInstallEnvKeys,
 } from './config'

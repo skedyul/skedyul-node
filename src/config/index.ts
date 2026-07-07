@@ -38,9 +38,6 @@ export {
   defineNavigation,
 } from './define'
 
-// Re-export loader utilities
-export { CONFIG_FILE_NAMES, loadConfig, validateConfig } from './loader'
-
 // Re-export schema loader utilities (for CRM migrations)
 export {
   SCHEMA_FILE_EXTENSIONS,

@@ -40,6 +40,16 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, ...cliExternals],
   },
+  // Config loader build (CLI-only; uses esbuild and must not ship in main bundle)
+  {
+    entry: { 'config/loader': 'src/config/loader.ts' },
+    format: ['cjs', 'esm'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, ...cliExternals],
+  },
   // Schemas build (for agent-schema and other shared schemas)
   // Exported via package.json "exports" field as "./schemas/agent-schema"
   {

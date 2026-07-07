@@ -1,4 +1,3 @@
-import * as esbuild from 'esbuild'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -15,6 +14,7 @@ function isJsonImport(importPath: string): boolean {
 }
 
 export async function transpileConfigMetadata(configPath: string): Promise<string> {
+  const esbuild = await import('esbuild')
   const absolutePath = path.resolve(configPath)
   const configDir = path.dirname(absolutePath)
   const configBasename = path.basename(absolutePath)

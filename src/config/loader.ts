@@ -2,7 +2,6 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import type { SkedyulConfig } from './app-config'
-import { transpileConfigMetadata } from './transpileConfigMetadata'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config Loading Utilities
@@ -29,6 +28,7 @@ export async function loadConfig(configPath: string): Promise<SkedyulConfig> {
       // Metadata-only load (build, validate): esbuild transpile + stub dynamic imports.
       // Full tsx load (config:export) executes dynamic import() and can crash the process.
       try {
+        const { transpileConfigMetadata } = await import('./transpileConfigMetadata')
         const transpiled = await transpileConfigMetadata(absolutePath)
         const tempFile = path.join(os.tmpdir(), `skedyul-config-${Date.now()}.cjs`)
         fs.writeFileSync(tempFile, transpiled)
