@@ -97,11 +97,19 @@ export interface ToolBilling {
   credits?: number
   tokens?: number
   cost?: number
-  /** Estimated charge lower bound in minor currency units (e.g. cents). */
+  /** Standard estimate payload (preferred for estimate-mode tool calls). */
+  estimation?: import('./estimation').Estimation
+  /**
+   * @deprecated Use `estimation.cost` — legacy flat minor-unit bounds.
+   */
   costCentsLow?: number
-  /** Estimated charge upper bound in minor currency units (e.g. cents). */
+  /**
+   * @deprecated Use `estimation.cost` — legacy flat minor-unit bounds.
+   */
   costCentsHigh?: number
-  /** ISO 4217 currency code for costCents* fields (e.g. AUD). */
+  /**
+   * @deprecated Use `estimation.cost.currency` — legacy ISO 4217 code.
+   */
   currency?: string
 }
 
@@ -254,7 +262,7 @@ export interface ToolExecutionResult<Output = unknown> {
   /** Discriminator for new ToolResult shape (true=success, false=failure) */
   success?: boolean
   output: Output | null
-  billing: BillingInfo
+  billing: ToolBilling
   meta?: ToolResponseMeta
   effect?: ToolEffect
   error?: ToolError | null

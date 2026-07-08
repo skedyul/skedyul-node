@@ -1,14 +1,19 @@
 import * as z from 'zod'
-import type { BillingInfo, ToolSchema, ToolSchemaWithJson } from '../../types'
+import type { BillingInfo, ToolBilling, ToolSchema, ToolSchemaWithJson } from '../../types'
 
 /**
- * Normalizes billing info to ensure credits field exists
+ * Normalizes billing info to ensure credits field exists while preserving estimate data.
  */
-export function normalizeBilling(billing?: BillingInfo): BillingInfo {
-  if (!billing || typeof billing.credits !== 'number') {
+export function normalizeBilling(billing?: BillingInfo | ToolBilling): ToolBilling {
+  if (!billing || typeof billing !== 'object') {
     return { credits: 0 }
   }
-  return billing
+
+  if (typeof billing.credits !== 'number') {
+    return { ...billing, credits: 0 }
+  }
+
+  return billing as ToolBilling
 }
 
 /**
