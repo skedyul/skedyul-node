@@ -91,6 +91,16 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, 'zod', 'zod/v4'],
   },
+  // Estimation build (lightweight; safe for Next.js server bundles)
+  {
+    entry: { 'types/estimation': 'src/types/estimation.ts' },
+    format: ['cjs', 'esm'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, 'zod', 'zod/v4'],
+  },
   // Schemas ESM build (for ESM packages like skedyul-mcp)
   {
     entry: { 'agent-schema': 'src/schemas/agent-schema.ts' },
