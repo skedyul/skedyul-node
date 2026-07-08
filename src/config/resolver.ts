@@ -145,6 +145,10 @@ export function serializeResolvedConfig(config: ResolvedConfig): SerializableSke
             tool.config?.queueTouchPoints) as
             | import('../types/tool').QueueTouchPoint[]
             | undefined,
+          rateLimitHandoff: (tool.rateLimitHandoff ??
+            tool.config?.rateLimitHandoff) as
+            | import('../types/tool').RateLimitHandoff
+            | undefined,
         }))
       : [],
     webhooks: config.webhooks

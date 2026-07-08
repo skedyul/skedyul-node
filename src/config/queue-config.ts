@@ -29,6 +29,10 @@ export interface SerializableQueueConfig {
   retryDelayMs?: number
   /** Hard timeout for acquire wait + fn execution (ms) */
   timeout?: number
+  /** Mark queue as a correctness mutex (typically maxConcurrent: 1). */
+  mutex?: boolean
+  /** Nested queue names that skip acquire while this mutex holds a lease. */
+  suppressesQueues?: string[]
 }
 
 /**

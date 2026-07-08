@@ -147,6 +147,12 @@ export interface QueueTouchPoint {
   mutexOnly?: boolean
 }
 
+/** Workflow mutex handoff role for multi-step tool.call sequences. */
+export interface RateLimitHandoff {
+  role: 'mutex_reserve' | 'mutex_confirm'
+  group?: string
+}
+
 export interface ToolConfig {
   /** Timeout in milliseconds. Defaults to 10000 (10 seconds) if not specified. */
   timeout?: number
@@ -156,6 +162,8 @@ export interface ToolConfig {
   completionHints?: ToolCompletionHints
   /** Rate-limit queue touch points for orchestration admission probes */
   queueTouchPoints?: QueueTouchPoint[]
+  /** Mutex lease handoff between workflow tool.call steps */
+  rateLimitHandoff?: RateLimitHandoff
 }
 
 /**
@@ -297,6 +305,8 @@ export interface ToolDefinition<
   config?: ToolConfig
   /** Rate-limit queue touch points (also accepted at top level for ergonomics) */
   queueTouchPoints?: QueueTouchPoint[]
+  /** Mutex lease handoff between workflow tool.call steps */
+  rateLimitHandoff?: RateLimitHandoff
   /**
    * Execution scope for this tool.
    * - `installation` (default): Requires appInstallationId, receives sk_wkp_ token.
@@ -341,6 +351,8 @@ export interface ToolMetadata {
   config?: ToolConfig
   /** Rate-limit queue touch points for orchestration admission probes */
   queueTouchPoints?: QueueTouchPoint[]
+  /** Mutex lease handoff between workflow tool.call steps */
+  rateLimitHandoff?: RateLimitHandoff
   /** Execution scope for this tool */
   executionScope?: ExecutionScope
 }

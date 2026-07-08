@@ -7,7 +7,7 @@ import {
   setActiveQueuedOperationLease,
   updateActiveQueuedOperationAttempt,
   getActiveQueuedOperation,
-  isInsidePetbooqzCalendarBookingMutex,
+  shouldSkipNestedAcquire,
 } from './context'
 import { getRateLimitBackend } from './backends'
 import {
@@ -127,10 +127,7 @@ async function executeWithRetries<T>(
     rateLimitCtx,
   )
 
-  if (
-    operation.resolved.name === 'petbooqz_api' &&
-    isInsidePetbooqzCalendarBookingMutex()
-  ) {
+  if (shouldSkipNestedAcquire(operation.resolved.name)) {
     return operation.fn()
   }
 

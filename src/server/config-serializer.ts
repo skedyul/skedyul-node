@@ -30,6 +30,10 @@ export function serializeConfig(config: SkedyulConfig): SerializableSkedyulConfi
           retries: (tool.retries ?? tool.config?.retries) as number | undefined,
           queueTouchPoints: (tool.queueTouchPoints ??
             tool.config?.queueTouchPoints) as import('../types/tool').QueueTouchPoint[] | undefined,
+          rateLimitHandoff: (tool.rateLimitHandoff ??
+            tool.config?.rateLimitHandoff) as
+            | import('../types/tool').RateLimitHandoff
+            | undefined,
         }))
       : [],
     webhooks: webhookRegistry

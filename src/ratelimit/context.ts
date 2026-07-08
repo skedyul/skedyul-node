@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'async_hooks'
 import type { RateLimitExecutionContext, ActiveQueuedOperation } from './types'
+import { getQueueConfigWithRetry } from './config-loader'
 
 const executionContextStorage = new AsyncLocalStorage<RateLimitExecutionContext>()
 const activeOperationStorage = new AsyncLocalStorage<ActiveQueuedOperation<unknown>>()
@@ -37,12 +38,32 @@ export function getActiveQueuedOperationStack(): ActiveQueuedOperation<unknown>[
   return activeOperationStackStorage.getStore() ?? []
 }
 
-/** True when petbooqz_calendar_booking holds a lease in an outer queuedFetch. */
-export function isInsidePetbooqzCalendarBookingMutex(): boolean {
-  return getActiveQueuedOperationStack().some(
-    (operation) =>
-      operation.resolved.name === 'petbooqz_calendar_booking' && operation.lease !== null,
-  )
+/** Active mutex queue names holding a lease in an outer queuedFetch. */
+export function getActiveMutexQueueNames(): string[] {
+  const names = new Set<string>()
+
+  for (const operation of getActiveQueuedOperationStack()) {
+    if (operation.lease === null) {
+      continue
+    }
+    const config = getQueueConfigWithRetry(operation.resolved.name)
+    if (config?.mutex === true) {
+      names.add(operation.resolved.name)
+    }
+  }
+
+  return [...names]
+}
+
+/** True when an active mutex queue suppresses acquire for the target queue name. */
+export function shouldSkipNestedAcquire(queueName: string): boolean {
+  for (const mutexQueueName of getActiveMutexQueueNames()) {
+    const config = getQueueConfigWithRetry(mutexQueueName)
+    if (config?.suppressesQueues?.includes(queueName)) {
+      return true
+    }
+  }
+  return false
 }
 
 export function setActiveQueuedOperationLease(
