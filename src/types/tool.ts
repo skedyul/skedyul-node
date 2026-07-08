@@ -94,9 +94,15 @@ export interface ToolPagination {
  * Billing/usage information.
  */
 export interface ToolBilling {
-  credits: number
+  credits?: number
   tokens?: number
   cost?: number
+  /** Estimated charge lower bound in minor currency units (e.g. cents). */
+  costCentsLow?: number
+  /** Estimated charge upper bound in minor currency units (e.g. cents). */
+  costCentsHigh?: number
+  /** ISO 4217 currency code for costCents* fields (e.g. AUD). */
+  currency?: string
 }
 
 /**
