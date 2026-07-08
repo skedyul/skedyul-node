@@ -586,3 +586,11 @@ export type {
   TimeWindowBehavior,
   TimeWindowPolicies,
 } from './schemas/agent-schema-v3'
+
+// Explicit re-exports: `export *` does not surface type-only exports from ./schemas or ./types.
+export type {
+  MessageBulkRecipient,
+  MessageBulkSendInput,
+  MessageBulkSendOutput,
+} from './schemas'
+export type { QueueTouchPoint } from './types'
