@@ -588,6 +588,11 @@ export type {
 } from './schemas/agent-schema-v3'
 
 // Explicit re-exports: `export *` does not surface type-only exports from ./schemas or ./types.
+export {
+  MessageBulkRecipientSchema,
+  MessageBulkSendInputSchema,
+  MessageBulkSendOutputSchema,
+} from './schemas'
 export type {
   MessageBulkRecipient,
   MessageBulkSendInput,
