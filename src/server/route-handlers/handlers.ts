@@ -460,7 +460,11 @@ async function handleMcpToolsCall(
   const rawArgs = (params?.arguments ?? {}) as Record<string, unknown>
 
   const hasSkedyulFormat =
-    'inputs' in rawArgs || 'env' in rawArgs || 'context' in rawArgs || 'invocation' in rawArgs
+    'inputs' in rawArgs ||
+    'env' in rawArgs ||
+    'context' in rawArgs ||
+    'invocation' in rawArgs ||
+    'estimate' in rawArgs
   const toolInputs = hasSkedyulFormat ? (rawArgs.inputs ?? {}) : rawArgs
   const toolContext = hasSkedyulFormat
     ? (rawArgs.context as Record<string, unknown> | undefined)
@@ -471,6 +475,7 @@ async function handleMcpToolsCall(
   const toolInvocation = hasSkedyulFormat
     ? (rawArgs.invocation as InvocationContext | undefined)
     : undefined
+  const estimate = hasSkedyulFormat && rawArgs.estimate === true
 
   const found = findToolInRegistry(ctx.registry, toolName)
   if (!found) {
@@ -498,6 +503,7 @@ async function handleMcpToolsCall(
       context: toolContext,
       env: toolEnv,
       invocation: toolInvocation,
+      estimate,
     })
 
     let result: unknown
