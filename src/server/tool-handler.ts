@@ -146,7 +146,9 @@ export function createCallToolHandler<T extends ToolRegistry>(
     const fn = tool.handler
 
     const args = (toolArgsInput ?? {}) as ToolCallArgs
-    const estimateMode = args.estimate === true
+    const rawContextForMode = (args.context ?? {}) as Record<string, unknown>
+    const estimateMode =
+      args.estimate === true || rawContextForMode.mode === 'estimate'
     if (!estimateMode) {
       state.incrementRequestCount()
       if (state.shouldShutdown()) {
