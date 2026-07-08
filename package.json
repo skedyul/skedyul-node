@@ -1,6 +1,6 @@
 {
   "name": "skedyul",
-  "version": "1.5.6",
+  "version": "1.5.7",
   "description": "The Skedyul SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -73,7 +73,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && tsup",
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && pnpm exec tsup-node",
     "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
     "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js dist-tests/tests/agent-schema-v3.test.js dist-tests/tests/ratelimit.test.js dist-tests/tests/config-loader.test.js"
