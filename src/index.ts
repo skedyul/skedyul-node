@@ -608,3 +608,5 @@ export type {
   MessageBulkSendOutput,
 } from './schemas'
 export type { QueueTouchPoint } from './types'
+export { toGsm7, estimateSmsSegments } from './tools/sms/gsm7'
+export type { SmsEncoding, SmsSegmentEstimate } from './tools/sms/gsm7'
