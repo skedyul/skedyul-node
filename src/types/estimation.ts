@@ -90,7 +90,7 @@ export type FormatMoneyMinorEstimateOptions = {
   locale?: string
   /** When set, overrides computed skew for display. */
   expectedMinorUnits?: number
-  /** Show a range instead of ~estimate when high/low ratio exceeds this (default 3). */
+  /** Show a range instead of ~estimate when high/low ratio exceeds this (default 4). */
   maxSpreadRatio?: number
 }
 
@@ -126,7 +126,7 @@ export function formatMoneyMinorEstimate(
     currency: range.currency,
   })
 
-  const maxSpreadRatio = options?.maxSpreadRatio ?? 3
+  const maxSpreadRatio = options?.maxSpreadRatio ?? 4
   const spreadRatio =
     range.minorUnitsLow > 0
       ? range.minorUnitsHigh / range.minorUnitsLow

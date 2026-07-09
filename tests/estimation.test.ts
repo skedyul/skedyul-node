@@ -33,6 +33,19 @@ describe('formatMoneyMinorEstimate', () => {
     assert.match(formatted, /^~.*3\.70/)
   })
 
+  test('shows ~estimate at 3x spread when expected is set', () => {
+    const range = createMoneyMinorRange({
+      currency: 'AUD',
+      minorUnitsLow: 308,
+      minorUnitsHigh: 924,
+      minorUnitsExpected: 320,
+    })
+
+    const formatted = formatMoneyMinorEstimate(range, { locale: 'en-AU' })
+    assert.match(formatted, /^~.*3\.20/)
+    assert.doesNotMatch(formatted, /–/)
+  })
+
   test('falls back to range when spread exceeds threshold', () => {
     const range = createMoneyMinorRange({
       currency: 'AUD',
