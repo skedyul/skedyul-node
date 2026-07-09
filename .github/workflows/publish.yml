@@ -47,7 +47,7 @@ jobs:
 
       - name: Upgrade npm for trusted publishing
         run: |
-          npm install -g npm@latest
+          npm install -g npm@latest sigstore
           npm --version
           node --version
 
