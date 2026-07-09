@@ -18,6 +18,8 @@ export interface MoneyMinorRange {
   currency: string
   minorUnitsLow: number
   minorUnitsHigh: number
+  /** Optional skewed expected charge for single-value display (~$X.XX). */
+  minorUnitsExpected?: number
 }
 
 /**
@@ -34,6 +36,7 @@ export const MoneyMinorRangeSchema = z.object({
   currency: z.string().min(3).max(3),
   minorUnitsLow: z.number().int().nonnegative(),
   minorUnitsHigh: z.number().int().nonnegative(),
+  minorUnitsExpected: z.number().int().nonnegative().optional(),
 })
 
 export const EstimationSchema = z.object({
@@ -46,11 +49,15 @@ export function createMoneyMinorRange(params: {
   currency: string
   minorUnitsLow: number
   minorUnitsHigh: number
+  minorUnitsExpected?: number
 }): MoneyMinorRange {
   return {
     currency: params.currency,
     minorUnitsLow: params.minorUnitsLow,
     minorUnitsHigh: params.minorUnitsHigh,
+    ...(params.minorUnitsExpected !== undefined
+      ? { minorUnitsExpected: params.minorUnitsExpected }
+      : {}),
   }
 }
 
@@ -64,6 +71,80 @@ export function createEstimation(params: {
     ...(params.skippedCount !== undefined ? { skippedCount: params.skippedCount } : {}),
     ...(params.cost ? { cost: params.cost } : {}),
   }
+}
+
+/** Skew expected cost toward the typical case when only a range is known. */
+export function computeSkewedExpectedMinorUnits(range: MoneyMinorRange): number {
+  if (range.minorUnitsExpected !== undefined) {
+    return range.minorUnitsExpected
+  }
+
+  if (range.minorUnitsLow === range.minorUnitsHigh) {
+    return range.minorUnitsLow
+  }
+
+  return Math.round(0.8 * range.minorUnitsLow + 0.2 * range.minorUnitsHigh)
+}
+
+export type FormatMoneyMinorEstimateOptions = {
+  locale?: string
+  /** When set, overrides computed skew for display. */
+  expectedMinorUnits?: number
+  /** Show a range instead of ~estimate when high/low ratio exceeds this (default 3). */
+  maxSpreadRatio?: number
+}
+
+/** Format a minor-unit cost range for display (single amount when low === high). */
+export function formatMoneyMinorRange(
+  range: MoneyMinorRange,
+  locale?: string,
+): string {
+  const formatter = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: range.currency,
+  })
+  const low = formatter.format(range.minorUnitsLow / 100)
+  const high = formatter.format(range.minorUnitsHigh / 100)
+
+  if (range.minorUnitsLow === range.minorUnitsHigh) {
+    return low
+  }
+
+  return `${low} – ${high}`
+}
+
+/**
+ * Format an estimated charge for UI: prefer a single ~$X.XX educated guess.
+ * Falls back to a low–high range when the spread is still too wide.
+ */
+export function formatMoneyMinorEstimate(
+  range: MoneyMinorRange,
+  options?: FormatMoneyMinorEstimateOptions,
+): string {
+  const formatter = new Intl.NumberFormat(options?.locale, {
+    style: 'currency',
+    currency: range.currency,
+  })
+
+  const maxSpreadRatio = options?.maxSpreadRatio ?? 3
+  const spreadRatio =
+    range.minorUnitsLow > 0
+      ? range.minorUnitsHigh / range.minorUnitsLow
+      : 1
+
+  if (spreadRatio > maxSpreadRatio) {
+    return formatMoneyMinorRange(range, options?.locale)
+  }
+
+  const expectedMinorUnits =
+    options?.expectedMinorUnits ?? computeSkewedExpectedMinorUnits(range)
+  const expected = formatter.format(expectedMinorUnits / 100)
+
+  if (range.minorUnitsLow === range.minorUnitsHigh) {
+    return expected
+  }
+
+  return `~${expected}`
 }
 
 /** Read standardized estimation from tool billing (supports legacy flat cost fields). */
@@ -99,6 +180,12 @@ export function parseEstimationFromBilling(
       : typeof record.costCentsHigh === 'number'
         ? record.costCentsHigh
         : undefined
+  const minorUnitsExpected =
+    typeof record.minorUnitsExpected === 'number'
+      ? record.minorUnitsExpected
+      : typeof record.costCentsExpected === 'number'
+        ? record.costCentsExpected
+        : undefined
   const deliverableCount =
     typeof record.deliverableCount === 'number' ? record.deliverableCount : undefined
 
@@ -119,25 +206,7 @@ export function parseEstimationFromBilling(
       currency,
       minorUnitsLow,
       minorUnitsHigh,
+      ...(minorUnitsExpected !== undefined ? { minorUnitsExpected } : {}),
     }),
   })
-}
-
-/** Format a minor-unit cost range for display (single amount when low === high). */
-export function formatMoneyMinorRange(
-  range: MoneyMinorRange,
-  locale?: string,
-): string {
-  const formatter = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: range.currency,
-  })
-  const low = formatter.format(range.minorUnitsLow / 100)
-  const high = formatter.format(range.minorUnitsHigh / 100)
-
-  if (range.minorUnitsLow === range.minorUnitsHigh) {
-    return low
-  }
-
-  return `${low} – ${high}`
 }

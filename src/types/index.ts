@@ -80,7 +80,10 @@ export {
   createEstimation,
   parseEstimationFromBilling,
   formatMoneyMinorRange,
+  formatMoneyMinorEstimate,
+  computeSkewedExpectedMinorUnits,
 } from './estimation'
+export type { FormatMoneyMinorEstimateOptions } from './estimation'
 export { ToolResponseMetaSchema } from './tool'
 
 // Tool response helpers
