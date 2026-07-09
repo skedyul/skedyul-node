@@ -22,6 +22,14 @@ export interface MoneyMinorRange {
   minorUnitsExpected?: number
 }
 
+/** Why a cohort member was excluded from a bulk send estimate. */
+export interface EstimationSkippedBreakdown {
+  missingAddress: number
+  optOut: number
+  emptyMessage: number
+  unavailable: number
+}
+
 /**
  * Standard estimate payload for tool estimate mode and platform estimate APIs.
  * Channel-agnostic — integrations populate `cost` when pricing is known.
@@ -29,6 +37,7 @@ export interface MoneyMinorRange {
 export interface Estimation {
   deliverableCount: number
   skippedCount?: number
+  skippedBreakdown?: EstimationSkippedBreakdown
   cost?: MoneyMinorRange
 }
 
@@ -39,9 +48,17 @@ export const MoneyMinorRangeSchema = z.object({
   minorUnitsExpected: z.number().int().nonnegative().optional(),
 })
 
+export const EstimationSkippedBreakdownSchema = z.object({
+  missingAddress: z.number().int().nonnegative(),
+  optOut: z.number().int().nonnegative(),
+  emptyMessage: z.number().int().nonnegative(),
+  unavailable: z.number().int().nonnegative(),
+})
+
 export const EstimationSchema = z.object({
   deliverableCount: z.number().int().nonnegative(),
   skippedCount: z.number().int().nonnegative().optional(),
+  skippedBreakdown: EstimationSkippedBreakdownSchema.optional(),
   cost: MoneyMinorRangeSchema.optional(),
 })
 
@@ -64,11 +81,13 @@ export function createMoneyMinorRange(params: {
 export function createEstimation(params: {
   deliverableCount: number
   skippedCount?: number
+  skippedBreakdown?: EstimationSkippedBreakdown
   cost?: MoneyMinorRange
 }): Estimation {
   return {
     deliverableCount: params.deliverableCount,
     ...(params.skippedCount !== undefined ? { skippedCount: params.skippedCount } : {}),
+    ...(params.skippedBreakdown ? { skippedBreakdown: params.skippedBreakdown } : {}),
     ...(params.cost ? { cost: params.cost } : {}),
   }
 }

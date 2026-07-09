@@ -72,7 +72,7 @@ export type {
   ToolCallResponse,
   ExecutionScope,
 } from './tool'
-export type { MoneyMinorUnits, MoneyMinorRange, Estimation } from './estimation'
+export type { MoneyMinorUnits, MoneyMinorRange, Estimation, EstimationSkippedBreakdown } from './estimation'
 export {
   MoneyMinorRangeSchema,
   EstimationSchema,
