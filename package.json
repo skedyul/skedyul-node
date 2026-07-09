@@ -70,7 +70,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "docs",
+    ".claude"
   ],
   "scripts": {
     "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && pnpm exec tsup-node",

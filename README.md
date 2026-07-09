@@ -2,7 +2,7 @@
 
 The official Node.js SDK for building [Skedyul](https://skedyul.com) integration apps. Publish tools, webhooks, CRM models, agents, skills, and workflows — then run them on serverless (Lambda) or dedicated (Docker/ECS) compute.
 
-**Package:** `skedyul` · **Version:** 1.4.x · **Node:** 22+
+**Package:** `skedyul` · **Version:** 1.5.x · **Node:** 22+
 
 ## What you can build
 
@@ -177,12 +177,28 @@ Full documentation lives in [`docs/`](./docs/README.md).
 | [Authentication](./docs/authentication.md) | Token types, scopes, and SDK configuration |
 | [Core API](./docs/core-api.md) | Platform resource client reference |
 | [Errors](./docs/errors.md) | Install and runtime error types |
+| [Package exports](./docs/package-exports.md) | Subpath imports (`skedyul/scheduling`, etc.) |
+
+### Integration patterns
+
+Guides based on real apps (BFT, Vetnostics):
+
+| Guide | Description |
+|-------|-------------|
+| [Project structure](./docs/integration-patterns/project-structure.md) | Standard app layout |
+| [Provision-only app](./docs/integration-patterns/provision-only-app.md) | Minimal CRM + tools pattern |
+| [Developer tools](./docs/integration-patterns/developer-tools.md) | Admin tools with token exchange |
+| [App events & workflows](./docs/integration-patterns/app-events-and-workflows.md) | Event catalog and workflows |
+| [Webhooks & external events](./docs/integration-patterns/webhooks-and-external-events.md) | Webhook registry patterns |
+| [AI and files](./docs/integration-patterns/ai-and-files.md) | Document parsing with AI |
 
 ### Platform features
 
 | Guide | Description |
 |-------|-------------|
 | [Agents, skills & workflows](./docs/agents.md) | Agent YAML v3, skills, workflow YAML, compiler, context |
+| [Events and triggers](./docs/events-and-triggers.md) | Thread events, app events, workflow bindings |
+| [Estimation and billing](./docs/estimation-and-billing.md) | Tool billing, `createEstimation`, money helpers |
 | [CRM schema](./docs/crm-schema.md) | Workplace-level schema migrations (`defineSchema`) |
 | [Rate-limit queues](./docs/rate-limit-queues.md) | `queuedFetch` for external API throttling |
 | [Server runtime](./docs/server.md) | HTTP endpoints, dedicated vs serverless, MCP protocol |

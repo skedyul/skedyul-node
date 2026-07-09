@@ -15,7 +15,7 @@ A tool consists of:
 ### Basic Structure
 
 ```ts
-import { z } from 'skedyul'
+import { z, createSuccessResponse } from 'skedyul'
 import type { ToolHandler, ToolDefinition } from 'skedyul'
 
 // 1. Define input schema
@@ -29,18 +29,11 @@ type Input = z.infer<typeof inputSchema>
 type Output = { message: string }
 
 // 3. Implement handler
-const handler: ToolHandler<Input, Output> = async (input, context) => {
+const handler: ToolHandler<Input, Output> = async (input) => {
   const greeting = input.formal ? 'Good day' : 'Hello'
-  
-  return {
-    output: { message: `${greeting}, ${input.name}!` },
-    billing: { credits: 1 },
-    meta: {
-      success: true,
-      message: 'Greeting generated',
-      toolName: 'greet',
-    },
-  }
+  return createSuccessResponse({
+    message: `${greeting}, ${input.name}!`,
+  })
 }
 
 // 4. Export tool definition
@@ -82,8 +75,10 @@ export const toolRegistry: ToolRegistry = {
 type ToolHandler<Input, Output> = (
   input: Input,
   context: ToolExecutionContext,
-) => Promise<ToolExecutionResult<Output>> | ToolExecutionResult<Output>
+) => Promise<ToolResult<Output>> | ToolResult<Output>
 ```
+
+Handlers return a **`ToolResult`** discriminated union (`ToolSuccess` or `ToolFailure`). Use the `create*` helpers from `skedyul` — do not return legacy `{ output, billing, meta }` shapes.
 
 ### Input Parameter
 
@@ -216,188 +211,132 @@ const handler: ToolHandler<Input, Output> = async (input, context) => {
 
 ---
 
-## Tool Execution Result
+## Tool Result (`ToolResult`)
 
-Every handler must return a `ToolExecutionResult`:
+Every handler returns `ToolSuccess<T>` or `ToolFailure`:
 
 ```ts
-interface ToolExecutionResult<Output> {
-  output: Output | null           // Tool-specific output (null on error)
-  billing: BillingInfo            // Credits consumed
-  meta: ToolResponseMeta          // Metadata for AI evaluation
-  effect?: ToolEffect             // Optional client-side effects
-  error?: ToolError | null        // Structured error info
+// Success
+type ToolSuccess<T> = {
+  success: true
+  output: T
+  dataBlocks?: DataBlock[]   // Rich UI cards (datetime, spreadsheet, etc.)
+  warnings?: ToolWarning[]
+  pagination?: ToolPagination
+  billing?: ToolBilling
+  effect?: ToolEffect        // e.g. { redirect: '/path' }
+  cursor?: Record<string, unknown>
+}
+
+// Failure
+type ToolFailure = {
+  success: false
+  error: {
+    code: ErrorCode          // VALIDATION_ERROR, NOT_FOUND, EXTERNAL_SERVICE_ERROR, ...
+    message: string
+    category?: ErrorCategory // validation | auth | network | timeout | external | internal
+    field?: string
+    details?: Record<string, unknown>
+  }
+  retry?: ToolRetry          // { allowed: true, afterMs: 60000 }
+  partialOutput?: unknown
+  billing?: ToolBilling
+  effect?: ToolEffect
 }
 ```
 
-### Output
-
-The tool's result data. Set to `null` if the tool failed.
+### Success helpers
 
 ```ts
-return {
-  output: {
-    contacts: [
-      { id: '1', name: 'John Doe', email: 'john@example.com' },
-      { id: '2', name: 'Jane Smith', email: 'jane@example.com' },
-    ],
-    total: 2,
+import {
+  createSuccessResponse,
+  createListResponse,
+} from 'skedyul'
+
+// Simple success
+return createSuccessResponse({ orderId: 'ord_123' })
+
+// With rich UI data blocks
+return createSuccessResponse(
+  { booking: bookingData },
+  {
+    dataBlocks: [{
+      type: 'dateTime',
+      title: 'Booking Confirmed',
+      datetime: '2026-05-20T14:00:00',
+      status: 'confirmed',
+    }],
   },
-  // ...
+)
+
+// Paginated list
+return createListResponse(items, { hasMore: true, total: 100 })
+```
+
+### Error helpers
+
+```ts
+import {
+  createValidationError,
+  createNotFoundError,
+  createExternalError,
+  createAuthError,
+  createRateLimitError,
+  createErrorResponse,
+} from 'skedyul'
+
+return createValidationError('Email is required', 'email')
+return createNotFoundError('Order', orderId)
+return createExternalError('Glofox API', 'Connection timeout')
+return createAuthError('Invalid API key', { expired: true })
+return createRateLimitError(60_000)
+```
+
+### Type guards
+
+```ts
+import { isSuccess, isFailure, isRetryable, getRetryDelay } from 'skedyul'
+
+if (isSuccess(result)) {
+  console.log(result.output)
+}
+if (isFailure(result) && isRetryable(result)) {
+  const delay = getRetryDelay(result)
 }
 ```
 
 ### Billing
 
-Every tool must report credits consumed:
+Optional `billing` on success or failure:
 
 ```ts
-interface BillingInfo {
-  credits: number
-}
-```
-
-Calculate credits based on your pricing model:
-
-```ts
-const handler: ToolHandler<Input, Output> = async (input, context) => {
-  // Calculate credits based on work done
-  const messageLength = input.message.length
-  const credits = Math.ceil(messageLength / 100)  // 1 credit per 100 chars
-
-  return {
-    output: { sent: true },
-    billing: { credits },
-    meta: { success: true, message: 'Message sent', toolName: 'send_message' },
-  }
-}
-```
-
-### Meta
-
-Metadata for AI evaluation and debugging:
-
-```ts
-interface ToolResponseMeta {
-  success: boolean   // Whether the tool succeeded
-  message: string    // Human-readable result description
-  toolName: string   // Name of the tool
-}
-```
-
-The `message` field helps AI agents understand what happened:
-
-```ts
-// Success
-meta: {
-  success: true,
-  message: 'Created 3 appointments for next week',
-  toolName: 'create_appointments',
-}
-
-// Failure
-meta: {
-  success: false,
-  message: 'Calendar is fully booked for the requested dates',
-  toolName: 'create_appointments',
-}
-```
-
-### Effect
-
-Optional client-side effects to execute after the tool completes:
-
-```ts
-interface ToolEffect {
-  redirect?: string  // URL to navigate to
-}
-```
-
-Example: Redirect after creating a resource:
-
-```ts
-return {
-  output: { id: newRecord.id },
-  billing: { credits: 1 },
-  meta: { success: true, message: 'Record created', toolName: 'create_record' },
-  effect: {
-    redirect: `/records/${newRecord.id}`,
-  },
-}
-```
-
-### Error
-
-Structured error information for failed tools:
-
-```ts
-interface ToolError {
-  code: string     // Error code for programmatic handling
-  message: string  // Human-readable error message
-}
-```
-
-```ts
-return {
-  output: null,
-  billing: { credits: 0 },
-  meta: {
-    success: false,
-    message: 'Contact not found',
-    toolName: 'get_contact',
-  },
-  error: {
-    code: 'NOT_FOUND',
-    message: 'No contact exists with the given ID',
-  },
-}
+return createSuccessResponse(output, {
+  billing: { credits: 2 },
+})
 ```
 
 ---
 
 ## Estimate Mode
 
-Tools can be called in estimate mode to calculate billing without executing side effects:
+Tools can be called in estimate mode (`context.mode === 'estimate'`) to calculate billing without side effects:
 
 ```ts
+import { createSuccessResponse, createEstimation } from 'skedyul'
+
 const handler: ToolHandler<Input, Output> = async (input, context) => {
-  // Check if this is an estimate request
   if (context.mode === 'estimate') {
-    // Calculate credits without doing actual work
-    const estimatedCredits = calculateCredits(input)
-    
-    return {
-      output: null,
-      billing: { credits: estimatedCredits },
-      meta: { success: true, message: 'Estimate calculated', toolName: 'send_email' },
-    }
+    return createSuccessResponse(null as unknown as Output, {
+      billing: { credits: 5 },
+    })
   }
 
-  // Execute the actual tool
   await sendEmail(input)
-  
-  return {
-    output: { sent: true },
-    billing: { credits: calculateCredits(input) },
-    meta: { success: true, message: 'Email sent', toolName: 'send_email' },
-  }
+  return createSuccessResponse({ sent: true }, { billing: { credits: 5 } })
 }
 ```
 
-The estimate endpoint is available at `POST /estimate`:
-
-```json
-POST /estimate
-{
-  "name": "send_email",
-  "inputs": { "to": "user@example.com", "subject": "Hello", "body": "..." }
-}
-
-200 OK
-{
-  "billing": { "credits": 5 }
-}
-```
+See [Estimation and billing](./estimation-and-billing.md) for `createEstimation` and money helpers.
 
 ---
 
@@ -475,9 +414,14 @@ export const sendEmailTool: ToolDefinition<Input, Output> = {
 
 ```ts
 // src/tools/create-appointment.ts
-import { z } from 'skedyul'
+import {
+  z,
+  instance,
+  createSuccessResponse,
+  createNotFoundError,
+  createValidationError,
+} from 'skedyul'
 import type { ToolHandler, ToolDefinition } from 'skedyul'
-import { instance } from 'skedyul'
 
 const inputSchema = z.object({
   clientId: z.string().describe('Client ID'),
@@ -497,27 +441,17 @@ type Input = z.infer<typeof inputSchema>
 type Output = z.infer<typeof outputSchema>
 
 const handler: ToolHandler<Input, Output> = async (input, context) => {
-  // Estimate mode - just calculate credits
   if (context.mode === 'estimate') {
-    return {
-      output: null,
+    return createSuccessResponse(null as unknown as Output, {
       billing: { credits: 2 },
-      meta: { success: true, message: 'Estimate: 2 credits', toolName: 'create_appointment' },
-    }
+    })
   }
 
-  // Validate client exists
   const client = await instance.get('client', input.clientId)
   if (!client) {
-    return {
-      output: null,
-      billing: { credits: 0 },
-      meta: { success: false, message: 'Client not found', toolName: 'create_appointment' },
-      error: { code: 'CLIENT_NOT_FOUND', message: `No client with ID ${input.clientId}` },
-    }
+    return createNotFoundError('Client', input.clientId)
   }
 
-  // Create the appointment
   const appointment = await instance.create('appointment', {
     client_id: input.clientId,
     service_id: input.serviceId,
@@ -527,25 +461,19 @@ const handler: ToolHandler<Input, Output> = async (input, context) => {
     status: 'confirmed',
   })
 
-  // Generate confirmation number
   const confirmationNumber = `APT-${Date.now().toString(36).toUpperCase()}`
 
-  return {
-    output: {
+  return createSuccessResponse(
+    {
       appointmentId: appointment.id,
       confirmationNumber,
       scheduledAt: input.dateTime,
     },
-    billing: { credits: 2 },
-    meta: {
-      success: true,
-      message: `Appointment ${confirmationNumber} created for ${input.dateTime}`,
-      toolName: 'create_appointment',
+    {
+      billing: { credits: 2 },
+      effect: { redirect: `/appointments/${appointment.id}` },
     },
-    effect: {
-      redirect: `/appointments/${appointment.id}`,
-    },
-  }
+  )
 }
 
 export const createAppointmentTool: ToolDefinition<Input, Output> = {
@@ -555,7 +483,7 @@ export const createAppointmentTool: ToolDefinition<Input, Output> = {
   inputSchema,
   outputSchema,
   handler,
-  timeout: 30000,  // 30 seconds
+  timeout: 30000,
 }
 ```
 
@@ -563,29 +491,27 @@ export const createAppointmentTool: ToolDefinition<Input, Output> = {
 
 ## Best Practices
 
-### 1. Always Return Billing
+### 1. Use response helpers
 
-Even on errors, return billing info (usually 0 credits for failures):
+Prefer `createSuccessResponse` / `createValidationError` over hand-rolled objects:
 
 ```ts
-return {
-  output: null,
-  billing: { credits: 0 },
-  meta: { success: false, message: 'Error occurred', toolName: 'my_tool' },
-  error: { code: 'ERROR', message: 'Something went wrong' },
+if (!input.email) {
+  return createValidationError('Email is required', 'email')
 }
+return createSuccessResponse({ sent: true }, { billing: { credits: 1 } })
 ```
 
-### 2. Write Descriptive Meta Messages
+### 2. Write clear error messages
 
 Help AI agents understand results:
 
 ```ts
-// Good
-meta: { success: true, message: 'Found 15 contacts matching "John"', toolName: 'search_contacts' }
+// Good — specific, actionable
+return createValidationError('Contact not found for email "john@example.com"', 'email')
 
-// Bad
-meta: { success: true, message: 'OK', toolName: 'search_contacts' }
+// Bad — vague
+return createValidationError('Not found')
 ```
 
 ### 3. Use Appropriate Error Codes
@@ -593,14 +519,11 @@ meta: { success: true, message: 'OK', toolName: 'search_contacts' }
 Use consistent error codes for programmatic handling:
 
 ```ts
-// Common error codes
-'NOT_FOUND'
-'VALIDATION_ERROR'
-'PERMISSION_DENIED'
-'RATE_LIMITED'
-'EXTERNAL_SERVICE_ERROR'
-'TIMEOUT'
+return createErrorResponse('Contact not found', 'NOT_FOUND')
+return createValidationError('Invalid date range', 'VALIDATION_ERROR')
 ```
+
+Common codes: `NOT_FOUND`, `VALIDATION_ERROR`, `PERMISSION_DENIED`, `RATE_LIMITED`, `EXTERNAL_SERVICE_ERROR`, `TIMEOUT`.
 
 ### 4. Handle Estimate Mode
 
@@ -608,11 +531,10 @@ Support billing estimation for cost transparency:
 
 ```ts
 if (context.mode === 'estimate') {
-  return {
-    output: null,
-    billing: { credits: estimateCredits(input) },
-    meta: { success: true, message: 'Estimate calculated', toolName: 'my_tool' },
-  }
+  return createEstimation({
+    credits: estimateCredits(input),
+    message: 'Estimate calculated',
+  })
 }
 ```
 
