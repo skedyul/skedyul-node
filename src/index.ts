@@ -1,10 +1,11 @@
 import { z } from 'zod/v4'
 
 export * from './types'
-export type { MoneyMinorUnits, MoneyMinorRange, Estimation } from './types'
+export type { MoneyMinorUnits, MoneyMinorRange, Estimation, EstimationSkippedBreakdown } from './types'
 export {
   MoneyMinorRangeSchema,
   EstimationSchema,
+  EstimationSkippedBreakdownSchema,
   createMoneyMinorRange,
   createEstimation,
   parseEstimationFromBilling,

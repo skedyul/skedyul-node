@@ -76,6 +76,7 @@ export type { MoneyMinorUnits, MoneyMinorRange, Estimation, EstimationSkippedBre
 export {
   MoneyMinorRangeSchema,
   EstimationSchema,
+  EstimationSkippedBreakdownSchema,
   createMoneyMinorRange,
   createEstimation,
   parseEstimationFromBilling,
