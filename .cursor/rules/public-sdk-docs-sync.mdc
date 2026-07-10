@@ -1,0 +1,98 @@
+---
+description: Keep packages/skedyul-node docs/ and README in sync whenever public SDK surface changes (exports, types, CLI, config, server, core API).
+globs:
+  - src/**/*.ts
+  - package.json
+  - tsup.config.ts
+  - README.md
+  - docs/**/*.md
+alwaysApply: true
+---
+
+# Public SDK docs sync (mandatory)
+
+Whenever you add, change, rename, deprecate, or remove **public SDK surface** in this package (`skedyul` / `packages/skedyul-node`), you **must** update the matching documentation in the **same turn** before finishing. Do not leave docs for a follow-up.
+
+This package’s published docs live in:
+
+- `docs/` — topic reference (source of truth for API behavior)
+- `README.md` — install, quick start, package exports overview, doc index
+- `docs/README.md` — docs index / reading order
+
+Internal-only refactors with **no** observable public change do not require doc edits. If unsure whether something is public, treat it as public and update docs.
+
+## What counts as public SDK surface
+
+A change is public if any of the following is true:
+
+1. **Package exports** — anything reachable via `package.json` `"exports"` / `"main"` / `"types"` / `"bin"`, including subpaths:
+   - `.` (`src/index.ts`)
+   - `./serverless`, `./dedicated` (`src/server.ts` / server entrypoints)
+   - `./cli/utils/auth`, `./config/loader`
+   - `./schemas/agent-schema`, `./schemas/agent-schema-v3`
+   - `./skills/types`, `./scheduling`, `./estimation`
+2. **Root barrel** — symbols exported from `src/index.ts` (values, types, schemas, errors, helpers).
+3. **Server public API** — `server.create` / `createSkedyulServer`, HTTP endpoints, hooks, entrypoints documented for integrators (`src/server/**`, `src/server.ts`).
+4. **Config DSL** — `defineConfig`, `defineModel`, `defineChannel`, `definePage`, `defineAgent`, `defineWorkflow`, `defineEnv`, `defineNavigation`, `SkedyulConfig` and related types (`src/config/**`).
+5. **Core platform client** — `configure`, `runWithConfig`, `workplace`, `communicationChannel`, `instance`, `token`, `file`, `webhook`, `cron`, `event`, `resource`, `ai`, `call`, `report`, etc. (`src/core/**`).
+6. **Tools / webhooks / lifecycle** — handler signatures, context shapes, billing/estimate modes, webhook types, install/provision/uninstall/OAuth hooks (`src/types/**`, `src/schemas/**`, `src/server/handlers/**`).
+7. **Rate-limit queues** — `queuedFetch`, `requeue`, queue config/scopes/errors (`src/ratelimit/**`).
+8. **Agents / skills / workflows / events / triggers / context / memory / scheduling / compiler** — YAML schemas, helpers, CLI-facing formats (`src/agents`-related schemas, `src/skills/**`, `src/workflows/**`, `src/events/**`, `src/triggers/**`, `src/context/**`, `src/memory/**`, `src/scheduling/**`, `src/compiler/**`, `src/schemas/agent-schema*.ts`).
+9. **CRM schema** — `defineSchema` and related types/CLI (`src/schemas/**` CRM pieces, `src/cli/commands/crm.ts`, instances).
+10. **CLI** — commands, flags, config file paths, auth/dev/deploy flows (`src/cli/**`, `bin: skedyul`).
+11. **Errors** — public error classes/codes (`src/errors*`).
+12. **Build/publish surface** — new/changed `package.json` exports, CLI binary behavior, or documented env vars.
+
+**Not public** (docs usually unchanged): private helpers used only inside the package, test-only utilities, pure implementation moves that preserve signatures/behavior/docs already accurate.
+
+## Doc map (edit the right files)
+
+| Change area | Primary docs | Also check |
+|-------------|--------------|------------|
+| Install / quick start / exports overview | `README.md` | `docs/README.md` |
+| Docs index / topic list / reading order | `docs/README.md` | `README.md` doc table |
+| `skedyul.config.ts` / define* helpers / models / channels / pages / env / queues / signals / provision agents | `docs/configuration.md` | `docs/lifecycle-hooks.md`, `docs/agents.md`, `docs/rate-limit-queues.md` |
+| MCP tools, ToolHandler, context, billing, estimate mode | `docs/tools.md` | `docs/errors.md`, `docs/server.md` |
+| Webhook definitions, CALLBACK vs WEBHOOK | `docs/webhooks.md` | `docs/lifecycle-hooks.md`, `docs/core-api.md` (`webhook`) |
+| Install / provision / uninstall / OAuth hooks | `docs/lifecycle-hooks.md` | `docs/configuration.md`, `docs/errors.md`, `docs/server.md` |
+| `server.create`, endpoints, dedicated vs serverless, logging | `docs/server.md` | `README.md`, `docs/rate-limit-queues.md` |
+| `queuedFetch` / queue scopes / retry | `docs/rate-limit-queues.md` | `docs/configuration.md`, `docs/server.md` |
+| Tokens, `configure`, `runWithConfig` | `docs/authentication.md` | `docs/core-api.md` |
+| Core resource client methods/types | `docs/core-api.md` | `docs/authentication.md`, `docs/errors.md` |
+| InstallError hierarchy / AppAuthInvalidError / public errors | `docs/errors.md` | lifecycle / tools docs that show error usage |
+| Agent YAML, skills, workflows, compiler, context, events, triggers, scheduling, memory | `docs/agents.md` | `docs/cli.md`, `docs/configuration.md` |
+| `defineSchema` / CRM migrations | `docs/crm-schema.md` | `docs/cli.md`, `docs/core-api.md` (`instance`) |
+| CLI commands / flags / local paths | `docs/cli.md` | `README.md`, topic docs that mention the command |
+
+If a change spans areas, update **every** affected doc. Prefer extending the existing section over adding a duplicate page. Add a new `docs/*.md` only when no existing topic fits; then link it from `docs/README.md` and `README.md`.
+
+## Required update checklist (same turn as code)
+
+For each public change, complete all that apply:
+
+1. **Signatures & names** — Update code samples and prose to match real export names, import paths (`skedyul`, `skedyul/serverless`, …), and TypeScript types.
+2. **Behavior** — Document new options, defaults, return shapes, side effects, env vars, and error cases. Remove or mark obsolete behavior.
+3. **Examples** — Keep examples copy-pasteable and compiling against the new API. Prefer the same patterns already used in that doc (imports from `skedyul`, Zod v4, etc.).
+4. **Tables / indexes** — Refresh command tables, endpoint lists, export tables, and “related docs” links.
+5. **Deprecations** — Document replacements and migration notes; do not silently delete guidance until the API is removed.
+6. **Breaking changes** — Call out removals/renames explicitly in the relevant doc section (and README quick start if it breaks).
+7. **CLI** — Every new/changed command or flag must appear in `docs/cli.md` with usage.
+8. **Cross-links** — If you add a major capability, add a row/link in `docs/README.md` and the README docs table when it is a new topic or newly first-class.
+
+## Workflow (do not skip)
+
+1. Identify public surface touched (exports, types, CLI, config, HTTP, errors).
+2. Map to doc files using the table above.
+3. Edit those docs in the **same change set** as the code.
+4. Skim nearby sections for stale names/examples introduced by the change.
+5. Only then consider the task done.
+
+## Explicit non-goals
+
+- Do not invent undocumented internal architecture in public docs.
+- Do not rewrite unrelated chapters for style.
+- Do not defer docs with “TODO: update docs” comments in code or PR text as a substitute for editing `docs/`.
+
+## Enforcement
+
+PRs / agent turns that change public SDK surface without updating the mapped `docs/` (and README indexes when needed) are incomplete. Fix docs before ending the turn.
