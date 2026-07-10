@@ -163,7 +163,7 @@ export interface QueueTouchPoint {
 
 /** Workflow mutex handoff role for multi-step tool.call sequences. */
 export interface RateLimitHandoff {
-  role: 'mutex_reserve' | 'mutex_confirm'
+  role: 'mutex_reserve' | 'mutex_confirm' | 'mutex_book'
   group?: string
 }
 
