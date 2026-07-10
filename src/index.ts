@@ -458,6 +458,7 @@ export type {
   // Channel types
   CapabilityType,
   ChannelCapability,
+  ChannelBatchCapability,
   ChannelFieldPermissions,
   ChannelField,
   ChannelDefinition,
@@ -604,11 +605,20 @@ export {
   MessageBulkRecipientSchema,
   MessageBulkSendInputSchema,
   MessageBulkSendOutputSchema,
+  MessageBulkStatusInputSchema,
+  MessageBulkStatusOutputSchema,
+  MessageBulkStatusMessageSchema,
+  MessageBulkStatusStatsSchema,
+  ChannelBatchCapabilitySchema,
 } from './schemas'
 export type {
   MessageBulkRecipient,
   MessageBulkSendInput,
   MessageBulkSendOutput,
+  MessageBulkStatusInput,
+  MessageBulkStatusOutput,
+  MessageBulkStatusMessage,
+  MessageBulkStatusStats,
 } from './schemas'
 export type { QueueTouchPoint } from './types'
 export { toGsm7, estimateSmsSegments } from './tools/sms/gsm7'

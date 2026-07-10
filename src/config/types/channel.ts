@@ -17,6 +17,17 @@ import type { FieldVisibility, InlineFieldDefinition } from './model'
 export type CapabilityType = 'messaging' | 'voice' | 'video'
 
 /**
+ * Batch messaging capability: send tool + status poll tool.
+ * Prefer this over a bare `send_batch` string when status tracking is supported.
+ */
+export interface ChannelBatchCapability {
+  /** Tool that accepts the batch and returns an operationId */
+  send: string
+  /** Tool that fetches operation + per-message status by operationId */
+  get_status: string
+}
+
+/**
  * Capability definition with display info and handler references.
  */
 export interface ChannelCapability {
@@ -28,8 +39,12 @@ export interface ChannelCapability {
   receive?: string
   /** Outbound tool handle */
   send?: string
-  /** Batch outbound tool handle (e.g. send_sms_batch) */
-  send_batch?: string
+  /**
+   * Batch outbound capability.
+   * - string: send tool only (legacy)
+   * - object: send tool + get_status tool for operation tracking
+   */
+  send_batch?: string | ChannelBatchCapability
 }
 
 /**
