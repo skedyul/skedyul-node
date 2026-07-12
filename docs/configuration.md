@@ -498,6 +498,12 @@ export default defineChannel({
       icon: 'MessageSquare',
       receive: 'receive_sms',
       send: 'send_sms',
+      // Prefer { send, get_status } when the provider supports operation polling
+      send_batch: {
+        send: 'send_sms_batch',
+        get_status: 'get_sms_bulk_status',
+      },
+      // Legacy: send_batch: 'send_sms_batch' (string = send tool only)
     },
     voice: {
       label: 'Voice',
@@ -508,6 +514,15 @@ export default defineChannel({
   },
 })
 ```
+
+`capabilities.messaging.send_batch` may be:
+
+| Shape | Meaning |
+|-------|---------|
+| `string` | Tool handle for bulk send only |
+| `{ send, get_status }` | Bulk send tool + status-poll tool (`MessageBulkStatus*` schemas) |
+
+When `get_status` returns `{ complete: true, mock: true, messages: [] }`, the platform treats all recipients as sent (provider skipped real delivery).
 
 ### Channels Index
 

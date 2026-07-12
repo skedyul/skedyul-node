@@ -447,6 +447,15 @@ const inputSchema: ToolSchema = {
 }
 ```
 
+### Platform bulk messaging schemas
+
+For channel tools wired via `capabilities.messaging.send_batch`, reuse the shared schemas from `skedyul`:
+
+- **Send:** `MessageBulkInputSchema` / `MessageBulkOutputSchema`
+- **Status poll** (`get_status` tool): `MessageBulkStatusInputSchema` / `MessageBulkStatusOutputSchema`
+
+`MessageBulkStatusOutput` includes `complete`, optional `stats`, `messages[]`, and optional `mock`. Set `mock: true` with `complete: true` when the provider skipped real delivery so the platform can mark recipients sent without per-message rows.
+
 ---
 
 ## Output Schemas
