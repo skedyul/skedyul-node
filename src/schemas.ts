@@ -1148,14 +1148,17 @@ export const MessageBulkStatusStatsSchema = z.object({
 export const MessageBulkStatusInputSchema = z.object({
   channel: MessageSendChannelSchema,
   operationId: z.string().min(1),
-  /** Optional addresses for mock/deterministic mapping when provider returns none */
-  addresses: z.array(z.string()).optional(),
 })
 
 export const MessageBulkStatusOutputSchema = z.object({
   operationId: z.string(),
   status: z.string(),
   complete: z.boolean(),
+  /**
+   * When true, the provider skipped real delivery (e.g. MOCK_OUTBOUND_MESSAGES).
+   * Core should mark all recipients in the operation as sent without per-message rows.
+   */
+  mock: z.boolean().optional(),
   stats: MessageBulkStatusStatsSchema.optional(),
   messages: z.array(MessageBulkStatusMessageSchema),
 })
