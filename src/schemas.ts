@@ -1114,7 +1114,7 @@ export const MessageBulkSendInputSchema = z.object({
 export const MessageBulkSendOutputSchema = z.object({
   status: z.enum(['accepted', 'failed']),
   /** Provider async batch id for status polling. Integrations map provider ids to this field. */
-  chunk: z.string().optional(),
+  externalChunkId: z.string().optional(),
   acceptedCount: z.number().int().nonnegative(),
   rejectedCount: z.number().int().nonnegative().optional(),
 })
@@ -1148,11 +1148,11 @@ export const MessageBulkStatusStatsSchema = z.object({
 
 export const MessageBulkStatusInputSchema = z.object({
   channel: MessageSendChannelSchema,
-  chunk: z.string().min(1),
+  externalChunkId: z.string().min(1),
 })
 
 export const MessageBulkStatusOutputSchema = z.object({
-  chunk: z.string(),
+  externalChunkId: z.string(),
   status: z.string(),
   complete: z.boolean(),
   /**

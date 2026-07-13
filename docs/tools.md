@@ -461,17 +461,17 @@ For channel tools wired via `capabilities.messaging.send_batch`, reuse the share
 | Field | Description |
 |-------|-------------|
 | `status` | `'accepted'` or `'failed'` |
-| `chunk` | Provider async batch id for status polling. **Required** when `status` is `'accepted'` and `get_status` is configured. Map your provider's id to this field (e.g. Twilio `operationId` → `chunk`). |
+| `externalChunkId` | Provider async batch id for status polling. **Required** when `status` is `'accepted'` and `get_status` is configured. Map your provider's id to this field (e.g. Twilio JSON `operationId` → `externalChunkId`). |
 | `acceptedCount` | Recipients accepted by the provider |
 | `rejectedCount` | Optional count of rejected recipients |
 
 #### Status poll
 
-`MessageBulkStatusInput` accepts `{ channel, chunk }`.
+`MessageBulkStatusInput` accepts `{ channel, externalChunkId }`.
 
-`MessageBulkStatusOutput` returns `{ chunk, status, complete, messages[], stats?, mock? }`.
+`MessageBulkStatusOutput` returns `{ externalChunkId, status, complete, messages[], stats?, mock? }`.
 
-- `complete: true` — no further polling needed for this chunk
+- `complete: true` — no further polling needed for this external chunk
 - `messages[]` — per-recipient delivery rows matched by `address`
 - `mock: true` with `complete: true` — provider skipped real delivery; platform marks all recipients sent without per-message rows
 
@@ -480,7 +480,7 @@ Example send handler return:
 ```ts
 return createSuccessResponse({
   status: 'accepted',
-  chunk: providerBatchId, // e.g. Twilio comms_operation_*
+  externalChunkId: providerBatchId, // e.g. Twilio comms_operation_*
   acceptedCount: input.recipients.length,
 })
 ```
@@ -488,10 +488,10 @@ return createSuccessResponse({
 Example status handler input/output:
 
 ```ts
-// input.chunk from send_batch response
-const status = await fetchProviderChunkStatus(input.chunk)
+// input.externalChunkId from send_batch response
+const status = await fetchProviderChunkStatus(input.externalChunkId)
 return createSuccessResponse({
-  chunk: input.chunk,
+  externalChunkId: input.externalChunkId,
   status: status.state,
   complete: status.isDone,
   messages: status.recipients,

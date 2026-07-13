@@ -498,7 +498,7 @@ export default defineChannel({
       icon: 'MessageSquare',
       receive: 'receive_sms',
       send: 'send_sms',
-      // Prefer { send, get_status } when the provider supports chunk status polling
+      // Prefer { send, get_status } when the provider supports externalChunkId status polling
       send_batch: {
         send: 'send_sms_batch',
         get_status: 'get_sms_bulk_status',
@@ -520,19 +520,19 @@ export default defineChannel({
 | Shape | Meaning |
 |-------|---------|
 | `string` | Tool handle for bulk send only |
-| `{ send, get_status }` | Bulk send tool + status-poll tool (`MessageBulkStatus*` schemas). Send must return a `chunk` id; status tool accepts that `chunk` and returns per-recipient rows. |
+| `{ send, get_status }` | Bulk send tool + status-poll tool (`MessageBulkStatus*` schemas). Send must return `externalChunkId`; status tool accepts that id and returns per-recipient rows. |
 
 When `get_status` returns `{ complete: true, mock: true, messages: [] }`, the platform treats all recipients as sent (provider skipped real delivery).
 
-#### Bulk `chunk` id
+#### Bulk `externalChunkId`
 
-Skedyul uses **`chunk`** as the universal async batch identifier between `send_batch` and `get_status`:
+Skedyul uses **`externalChunkId`** as the universal async batch identifier between `send_batch` and `get_status`:
 
-1. **`send_batch` tool** — return `chunk` on accept (map from your provider's id, e.g. Twilio JSON `operationId`).
-2. **`get_status` tool** — accept `{ channel, chunk }`; return `{ chunk, status, complete, messages[] }`.
+1. **`send_batch` tool** — return `externalChunkId` on accept (map from your provider's id, e.g. Twilio JSON `operationId`).
+2. **`get_status` tool** — accept `{ channel, externalChunkId }`; return `{ externalChunkId, status, complete, messages[] }`.
 3. **Platform** — polls `get_status` until `complete` or idle timeout; reconciles `messages[]` to recipient rows by `address`.
 
-Do not expose provider-specific field names (like `operationId`) in tool output — always normalize to `chunk`.
+Do not expose provider-specific field names (like `operationId`) in tool output — always normalize to `externalChunkId`.
 
 ### Channels Index
 
