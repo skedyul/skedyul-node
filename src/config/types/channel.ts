@@ -21,9 +21,9 @@ export type CapabilityType = 'messaging' | 'voice' | 'video'
  * Prefer this over a bare `send_batch` string when status tracking is supported.
  */
 export interface ChannelBatchCapability {
-  /** Tool that accepts the batch and returns an operationId */
+  /** Tool that accepts the batch and returns a chunk id for status polling */
   send: string
-  /** Tool that fetches operation + per-message status by operationId */
+  /** Tool that fetches chunk + per-message status by chunk id */
   get_status: string
 }
 

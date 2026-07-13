@@ -1113,7 +1113,8 @@ export const MessageBulkSendInputSchema = z.object({
 
 export const MessageBulkSendOutputSchema = z.object({
   status: z.enum(['accepted', 'failed']),
-  operationId: z.string().optional(),
+  /** Provider async batch id for status polling (e.g. Twilio comms_operation_*). */
+  chunk: z.string().optional(),
   acceptedCount: z.number().int().nonnegative(),
   rejectedCount: z.number().int().nonnegative().optional(),
 })
@@ -1147,16 +1148,16 @@ export const MessageBulkStatusStatsSchema = z.object({
 
 export const MessageBulkStatusInputSchema = z.object({
   channel: MessageSendChannelSchema,
-  operationId: z.string().min(1),
+  chunk: z.string().min(1),
 })
 
 export const MessageBulkStatusOutputSchema = z.object({
-  operationId: z.string(),
+  chunk: z.string(),
   status: z.string(),
   complete: z.boolean(),
   /**
    * When true, the provider skipped real delivery (e.g. MOCK_OUTBOUND_MESSAGES).
-   * Core should mark all recipients in the operation as sent without per-message rows.
+   * Core should mark all recipients in the chunk as sent without per-message rows.
    */
   mock: z.boolean().optional(),
   stats: MessageBulkStatusStatsSchema.optional(),
