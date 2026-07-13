@@ -451,10 +451,52 @@ const inputSchema: ToolSchema = {
 
 For channel tools wired via `capabilities.messaging.send_batch`, reuse the shared schemas from `skedyul`:
 
-- **Send:** `MessageBulkInputSchema` / `MessageBulkOutputSchema`
+- **Send:** `MessageBulkSendInputSchema` / `MessageBulkSendOutputSchema`
 - **Status poll** (`get_status` tool): `MessageBulkStatusInputSchema` / `MessageBulkStatusOutputSchema`
 
-`MessageBulkStatusOutput` includes `complete`, optional `stats`, `messages[]`, and optional `mock`. Set `mock: true` with `complete: true` when the provider skipped real delivery so the platform can mark recipients sent without per-message rows.
+#### Send output
+
+`MessageBulkSendOutput` returns:
+
+| Field | Description |
+|-------|-------------|
+| `status` | `'accepted'` or `'failed'` |
+| `chunk` | Provider async batch id for status polling. **Required** when `status` is `'accepted'` and `get_status` is configured. Map your provider's id to this field (e.g. Twilio `operationId` → `chunk`). |
+| `acceptedCount` | Recipients accepted by the provider |
+| `rejectedCount` | Optional count of rejected recipients |
+
+#### Status poll
+
+`MessageBulkStatusInput` accepts `{ channel, chunk }`.
+
+`MessageBulkStatusOutput` returns `{ chunk, status, complete, messages[], stats?, mock? }`.
+
+- `complete: true` — no further polling needed for this chunk
+- `messages[]` — per-recipient delivery rows matched by `address`
+- `mock: true` with `complete: true` — provider skipped real delivery; platform marks all recipients sent without per-message rows
+
+Example send handler return:
+
+```ts
+return createSuccessResponse({
+  status: 'accepted',
+  chunk: providerBatchId, // e.g. Twilio comms_operation_*
+  acceptedCount: input.recipients.length,
+})
+```
+
+Example status handler input/output:
+
+```ts
+// input.chunk from send_batch response
+const status = await fetchProviderChunkStatus(input.chunk)
+return createSuccessResponse({
+  chunk: input.chunk,
+  status: status.state,
+  complete: status.isDone,
+  messages: status.recipients,
+})
+```
 
 ---
 

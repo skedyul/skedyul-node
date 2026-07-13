@@ -1113,7 +1113,7 @@ export const MessageBulkSendInputSchema = z.object({
 
 export const MessageBulkSendOutputSchema = z.object({
   status: z.enum(['accepted', 'failed']),
-  /** Provider async batch id for status polling (e.g. Twilio comms_operation_*). */
+  /** Provider async batch id for status polling. Integrations map provider ids to this field. */
   chunk: z.string().optional(),
   acceptedCount: z.number().int().nonnegative(),
   rejectedCount: z.number().int().nonnegative().optional(),
