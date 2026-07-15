@@ -498,6 +498,12 @@ export default defineChannel({
       icon: 'MessageSquare',
       receive: 'receive_sms',
       send: 'send_sms',
+      // Prefer { send, get_status } when the provider supports externalChunkId status polling
+      send_batch: {
+        send: 'send_sms_batch',
+        get_status: 'get_sms_bulk_status',
+      },
+      // Legacy: send_batch: 'send_sms_batch' (string = send tool only)
     },
     voice: {
       label: 'Voice',
@@ -508,6 +514,25 @@ export default defineChannel({
   },
 })
 ```
+
+`capabilities.messaging.send_batch` may be:
+
+| Shape | Meaning |
+|-------|---------|
+| `string` | Tool handle for bulk send only |
+| `{ send, get_status }` | Bulk send tool + status-poll tool (`MessageBulkStatus*` schemas). Send must return `externalChunkId`; status tool accepts that id and returns per-recipient rows. |
+
+When `get_status` returns `{ complete: true, mock: true, messages: [] }`, the platform treats all recipients as sent (provider skipped real delivery).
+
+#### Bulk `externalChunkId`
+
+Skedyul uses **`externalChunkId`** as the universal async batch identifier between `send_batch` and `get_status`:
+
+1. **`send_batch` tool** — return `externalChunkId` on accept (map from your provider's id, e.g. Twilio JSON `operationId`).
+2. **`get_status` tool** — accept `{ channel, externalChunkId }`; return `{ externalChunkId, status, complete, messages[] }`.
+3. **Platform** — polls `get_status` until `complete` or idle timeout; reconciles `messages[]` to recipient rows by `address`.
+
+Do not expose provider-specific field names (like `operationId`) in tool output — always normalize to `externalChunkId`.
 
 ### Channels Index
 

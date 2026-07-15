@@ -386,6 +386,57 @@ const inputSchema: ToolSchema = {
 }
 ```
 
+### Platform bulk messaging schemas
+
+For channel tools wired via `capabilities.messaging.send_batch`, reuse the shared schemas from `skedyul`:
+
+- **Send:** `MessageBulkSendInputSchema` / `MessageBulkSendOutputSchema`
+- **Status poll** (`get_status` tool): `MessageBulkStatusInputSchema` / `MessageBulkStatusOutputSchema`
+
+#### Send output
+
+`MessageBulkSendOutput` returns:
+
+| Field | Description |
+|-------|-------------|
+| `status` | `'accepted'` or `'failed'` |
+| `externalChunkId` | Provider async batch id for status polling. **Required** when `status` is `'accepted'` and `get_status` is configured. Map your provider's id to this field (e.g. Twilio JSON `operationId` → `externalChunkId`). |
+| `acceptedCount` | Recipients accepted by the provider |
+| `rejectedCount` | Optional count of rejected recipients |
+
+#### Status poll
+
+`MessageBulkStatusInput` accepts `{ channel, externalChunkId }`.
+
+`MessageBulkStatusOutput` returns `{ externalChunkId, status, complete, messages[], stats?, mock? }`.
+
+- `complete: true` — no further polling needed for this external chunk
+- `messages[]` — per-recipient delivery rows matched by `address`
+- `mock: true` with `complete: true` — provider skipped real delivery; platform marks all recipients sent without per-message rows
+
+Example send handler return:
+
+```ts
+return createSuccessResponse({
+  status: 'accepted',
+  externalChunkId: providerBatchId, // e.g. Twilio comms_operation_*
+  acceptedCount: input.recipients.length,
+})
+```
+
+Example status handler input/output:
+
+```ts
+// input.externalChunkId from send_batch response
+const status = await fetchProviderChunkStatus(input.externalChunkId)
+return createSuccessResponse({
+  externalChunkId: input.externalChunkId,
+  status: status.state,
+  complete: status.isDone,
+  messages: status.recipients,
+})
+```
+
 ---
 
 ## Output Schemas

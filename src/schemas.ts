@@ -211,13 +211,21 @@ export const ChannelCapabilityTypeSchema = z.enum([
   'video', // Video calls (future)
 ])
 
+/** Batch send + status poll capability (preferred over bare send_batch string) */
+export const ChannelBatchCapabilitySchema = z.object({
+  send: z.string(),
+  get_status: z.string(),
+})
+
 /** Capability definition with display info and handler references */
 export const ChannelCapabilitySchema = z.object({
   label: z.string(), // Display name: "SMS", "WhatsApp Messages"
   icon: z.string().optional(), // Lucide icon name
   receive: z.string().optional(), // Inbound webhook handler
   send: z.string().optional(), // Outbound tool handle
-  send_batch: z.string().optional(), // Batch outbound tool handle
+  send_batch: z
+    .union([z.string(), ChannelBatchCapabilitySchema])
+    .optional(), // Batch outbound tool handle, or { send, get_status }
 })
 
 /**
@@ -1105,7 +1113,8 @@ export const MessageBulkSendInputSchema = z.object({
 
 export const MessageBulkSendOutputSchema = z.object({
   status: z.enum(['accepted', 'failed']),
-  operationId: z.string().optional(),
+  /** Provider async batch id for status polling. Integrations map provider ids to this field. */
+  externalChunkId: z.string().optional(),
   acceptedCount: z.number().int().nonnegative(),
   rejectedCount: z.number().int().nonnegative().optional(),
 })
@@ -1113,6 +1122,56 @@ export const MessageBulkSendOutputSchema = z.object({
 export type MessageBulkRecipient = z.infer<typeof MessageBulkRecipientSchema>
 export type MessageBulkSendInput = z.infer<typeof MessageBulkSendInputSchema>
 export type MessageBulkSendOutput = z.infer<typeof MessageBulkSendOutputSchema>
+
+export const MessageBulkStatusMessageSchema = z.object({
+  address: z.string(),
+  status: z.string(),
+  messageId: z.string().optional(),
+  errorCode: z.union([z.string(), z.number()]).optional(),
+  errorMessage: z.string().optional(),
+})
+
+export const MessageBulkStatusStatsSchema = z.object({
+  total: z.number().int().nonnegative().optional(),
+  recipients: z.number().int().nonnegative().optional(),
+  attempts: z.number().int().nonnegative().optional(),
+  unaddressable: z.number().int().nonnegative().optional(),
+  queued: z.number().int().nonnegative().optional(),
+  sent: z.number().int().nonnegative().optional(),
+  scheduled: z.number().int().nonnegative().optional(),
+  delivered: z.number().int().nonnegative().optional(),
+  read: z.number().int().nonnegative().optional(),
+  undelivered: z.number().int().nonnegative().optional(),
+  failed: z.number().int().nonnegative().optional(),
+  canceled: z.number().int().nonnegative().optional(),
+})
+
+export const MessageBulkStatusInputSchema = z.object({
+  channel: MessageSendChannelSchema,
+  externalChunkId: z.string().min(1),
+})
+
+export const MessageBulkStatusOutputSchema = z.object({
+  externalChunkId: z.string(),
+  status: z.string(),
+  complete: z.boolean(),
+  /**
+   * When true, the provider skipped real delivery (e.g. MOCK_OUTBOUND_MESSAGES).
+   * Core should mark all recipients in the chunk as sent without per-message rows.
+   */
+  mock: z.boolean().optional(),
+  stats: MessageBulkStatusStatsSchema.optional(),
+  messages: z.array(MessageBulkStatusMessageSchema),
+})
+
+export type MessageBulkStatusMessage = z.infer<
+  typeof MessageBulkStatusMessageSchema
+>
+export type MessageBulkStatusStats = z.infer<typeof MessageBulkStatusStatsSchema>
+export type MessageBulkStatusInput = z.infer<typeof MessageBulkStatusInputSchema>
+export type MessageBulkStatusOutput = z.infer<
+  typeof MessageBulkStatusOutputSchema
+>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type Guards

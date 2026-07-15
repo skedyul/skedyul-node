@@ -91,6 +91,16 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, 'zod', 'zod/v4'],
   },
+  // Estimation CJS build (workflow-safe, no esbuild/tsx)
+  {
+    entry: { 'estimation/index': 'src/estimation/index.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, 'zod', 'zod/v4'],
+  },
   // Schemas ESM build (for ESM packages like skedyul-mcp)
   {
     entry: { 'agent-schema': 'src/schemas/agent-schema.ts' },
@@ -136,6 +146,16 @@ export default defineConfig([
     entry: { index: 'src/scheduling/index.ts' },
     format: ['esm'],
     outDir: 'dist/scheduling',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: ['zod', 'zod/v4'],
+  },
+  // Estimation ESM build (workflow-safe, no esbuild/tsx)
+  {
+    entry: { index: 'src/estimation/index.ts' },
+    format: ['esm'],
+    outDir: 'dist/estimation',
     dts: false,
     splitting: false,
     clean: false,

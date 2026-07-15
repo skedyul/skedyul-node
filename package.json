@@ -64,9 +64,9 @@
     },
     "./estimation": {
       "types": "./dist/types/estimation.d.ts",
-      "import": "./dist/esm/index.mjs",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/estimation/index.mjs",
+      "require": "./dist/estimation/index.js",
+      "default": "./dist/estimation/index.js"
     }
   },
   "files": [
