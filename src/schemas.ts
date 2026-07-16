@@ -1066,12 +1066,18 @@ export const MessageSendMessageSchema = z.object({
   attachments: z.array(MessageSendAttachmentSchema).optional(),
 })
 
+export const MessageSendGroupSchema = z.object({
+  id: z.string().optional(),
+  externalGroupId: z.string().optional(),
+})
+
 export const MessageSendInputSchema = z.object({
   channel: MessageSendChannelSchema,
   subscription: MessageSendSubscriptionSchema.optional(),
   contact: MessageSendContactSchema.optional(),
   recipient: MessageSendRecipientSchema.optional(),
   message: MessageSendMessageSchema,
+  group: MessageSendGroupSchema.optional(),
 })
 
 export const MessageSendOutputSchema = z.object({
@@ -1085,6 +1091,7 @@ export type MessageSendContact = z.infer<typeof MessageSendContactSchema>
 export type MessageSendRecipient = z.infer<typeof MessageSendRecipientSchema>
 export type MessageSendAttachment = z.infer<typeof MessageSendAttachmentSchema>
 export type MessageSendMessage = z.infer<typeof MessageSendMessageSchema>
+export type MessageSendGroup = z.infer<typeof MessageSendGroupSchema>
 export type MessageSendInput = z.infer<typeof MessageSendInputSchema>
 export type MessageSendOutput = z.infer<typeof MessageSendOutputSchema>
 

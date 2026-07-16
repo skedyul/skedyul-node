@@ -257,15 +257,24 @@ export interface ReceiveMessageContact {
   identifierValue?: string
 }
 
+export interface ReceiveMessageGroup {
+  externalGroupId?: string
+  groupName?: string
+}
+
 export interface ReceiveMessageInput {
   /** Communication channel ID */
   communicationChannelId: string
   /** Sender's identifier (e.g., phone number, email) */
   from: string
+  /** Receiver's identifier (defaults to channel identifierValue if not provided) */
+  to?: string
   /** Message payload */
   message: CreateMessageType
   /** Optional contact metadata to associate the message */
   contact?: ReceiveMessageContact
+  /** Optional group metadata (WhatsApp groups, etc.) */
+  group?: ReceiveMessageGroup
   /** Optional remote/external message ID (e.g., Twilio MessageSid) */
   remoteId?: string
 }
@@ -391,8 +400,10 @@ export const communicationChannel = {
     const { data } = await callCore<{ messageId: string }>('communicationChannel.receiveMessage', {
       communicationChannelId: input.communicationChannelId,
       from: input.from,
+      ...(input.to ? { to: input.to } : {}),
       message: input.message,
       contact: input.contact,
+      ...(input.group ? { group: input.group } : {}),
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
     })
     return data
