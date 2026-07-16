@@ -174,6 +174,7 @@ export const ModelDefinitionSchema = z.object({
   addNavigation: z.boolean().optional(),
   /** Root path for developer resource UI (e.g., '/access_requests'). Links internal model to a provision.pages entry. */
   page: z.string().optional(),
+  env: EnvSchemaSchema.optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
