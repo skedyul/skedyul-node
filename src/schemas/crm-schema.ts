@@ -203,6 +203,8 @@ export const CRMPageSchemaZ = z.object({
   icon: z.string().optional(),
   modelHandle: z.string(),
   parentPath: z.string().optional(),
+  isDefault: z.boolean().optional(),
+  visibility: z.enum(['team', 'private']).optional(),
   baseQuery: z.unknown().optional(),
   blocks: z.array(CRMBlockSchemaZ).optional(),
 })
