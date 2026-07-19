@@ -519,6 +519,10 @@ export interface InstanceListArgs {
   limit?: number
   /** Filter conditions using StructuredFilter format: { field: { operator: value } } */
   filter?: StructuredFilter
+  /** CRM field handles to hydrate. [] = meta-only objects. "*" = all model fields. */
+  fields?: string[]
+  /** "id" returns string[] of instance IDs. null/omitted returns object[]. */
+  return_format?: 'id' | null
 }
 
 /**
@@ -590,14 +594,21 @@ export function createInstanceClient(config: ClientConfig): InstanceClient {
 
   return {
     async list(modelHandle: string, args?: InstanceListArgs): Promise<InstanceListResult> {
-      const { data, pagination } = await callCoreWithConfig<InstanceData[]>('instance.list', {
-        modelHandle,
-        ...(args?.page !== undefined ? { page: args.page } : {}),
-        ...(args?.limit !== undefined ? { limit: args.limit } : {}),
-        ...(args?.filter ? { filter: args.filter } : {}),
-      })
+      const { data, pagination } = await callCoreWithConfig<InstanceData[] | string[]>(
+        'instance.list',
+        {
+          modelHandle,
+          ...(args?.page !== undefined ? { page: args.page } : {}),
+          ...(args?.limit !== undefined ? { limit: args.limit } : {}),
+          ...(args?.filter ? { filter: args.filter } : {}),
+          ...(args?.fields !== undefined ? { fields: args.fields } : {}),
+          ...(args?.return_format !== undefined
+            ? { return_format: args.return_format }
+            : {}),
+        },
+      )
       return {
-        data,
+        data: data as InstanceData[],
         pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: args?.limit ?? 50 },
       }
     },
@@ -740,14 +751,18 @@ export const instance: InstanceClient = {
     modelHandle: string,
     args?: InstanceListArgs,
   ): Promise<InstanceListResult> {
-    const { data, pagination } = await callCore<InstanceData[]>('instance.list', {
+    const { data, pagination } = await callCore<InstanceData[] | string[]>('instance.list', {
       modelHandle,
       ...(args?.page !== undefined ? { page: args.page } : {}),
       ...(args?.limit !== undefined ? { limit: args.limit } : {}),
       ...(args?.filter ? { filter: args.filter } : {}),
+      ...(args?.fields !== undefined ? { fields: args.fields } : {}),
+      ...(args?.return_format !== undefined
+        ? { return_format: args.return_format }
+        : {}),
     })
     return {
-      data,
+      data: data as InstanceData[],
       pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: args?.limit ?? 50 },
     }
   },
