@@ -182,6 +182,8 @@ export interface ModelDefinition extends BaseDefinition {
   addNavigation?: boolean
   /** Root path for developer resource UI (e.g., '/access_requests'). Links internal model to a provision.pages entry. */
   page?: string
+  /** Encrypted env vars scoped to each instance of this internal model */
+  env?: import('./env').EnvSchema
 }
 
 /**

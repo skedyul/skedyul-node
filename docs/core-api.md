@@ -253,9 +253,17 @@ import { instance } from 'skedyul'
 // List all instances
 const { data, pagination } = await instance.list('compliance_record')
 
-// With filters and pagination
+// With field projection and id-only response
+const { data: ids } = await instance.list('test_report', {
+  filter: { verified_at: { isNotEmpty: true } },
+  fields: [],
+  return_format: 'id',
+})
+
+// Full model hydration (legacy return_format: "full" equivalent)
 const { data, pagination } = await instance.list('compliance_record', {
   filter: { status: 'pending' },
+  fields: ['*'],
   page: 1,
   limit: 10,
 })
@@ -271,8 +279,12 @@ const { data } = await instance.list('phone_number', {
 |------|------|-------------|
 | `modelHandle` | `string` | Model handle from provision config |
 | `args.filter` | `Record<string, unknown>` | Filter conditions |
+| `args.fields` | `string[]` | Field handles to hydrate (`[]` = meta-only, `"*"` = all fields) |
+| `args.return_format` | `'id' \| null` | `"id"` returns `string[]`; omitted returns `InstanceData[]` |
 | `args.page` | `number` | Page number (1-indexed) |
 | `args.limit` | `number` | Results per page |
+
+Legacy workflow values `full`, `meta`, and `ids` are still accepted by the core API and shimmed automatically.
 
 **Returns:** `Promise<InstanceListResult>`
 

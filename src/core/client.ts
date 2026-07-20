@@ -477,8 +477,30 @@ export interface InstanceData {
   id: string
   /** The app installation this instance belongs to (if any) */
   appInstallationId?: string | null
+  /** Encrypted env vars for this instance (only when requested via includeEnv) */
+  env?: Record<string, string>
   _meta: InstanceMeta
   [fieldHandle: string]: unknown
+}
+
+export type InstanceEnv = Record<string, string>
+
+export interface InstanceWriteOptions {
+  env?: InstanceEnv
+}
+
+export interface InstanceGetOptions {
+  includeEnv?: boolean
+}
+
+export type InstanceCreateManyItem =
+  | Record<string, unknown>
+  | { data: Record<string, unknown>; env?: InstanceEnv }
+
+export type InstanceUpdateManyItem = {
+  id: string
+  data: Record<string, unknown>
+  env?: InstanceEnv
 }
 
 /**
@@ -497,6 +519,10 @@ export interface InstanceListArgs {
   limit?: number
   /** Filter conditions using StructuredFilter format: { field: { operator: value } } */
   filter?: StructuredFilter
+  /** CRM field handles to hydrate. [] = meta-only objects. "*" = all model fields. */
+  fields?: string[]
+  /** "id" returns string[] of instance IDs. null/omitted returns object[]. */
+  return_format?: 'id' | null
 }
 
 /**
@@ -507,13 +533,32 @@ export interface InstanceListArgs {
  */
 export interface InstanceClient {
   list(modelHandle: string, args?: InstanceListArgs): Promise<InstanceListResult>
-  get(modelHandle: string, id: string): Promise<InstanceData | null>
-  create(modelHandle: string, data: Record<string, unknown>): Promise<InstanceData>
-  update(modelHandle: string, id: string, data: Record<string, unknown>): Promise<InstanceData>
+  get(
+    modelHandle: string,
+    id: string,
+    options?: InstanceGetOptions,
+  ): Promise<InstanceData | null>
+  create(
+    modelHandle: string,
+    data: Record<string, unknown>,
+    options?: InstanceWriteOptions,
+  ): Promise<InstanceData>
+  update(
+    modelHandle: string,
+    id: string,
+    data: Record<string, unknown>,
+    options?: InstanceWriteOptions,
+  ): Promise<InstanceData>
   delete(modelHandle: string, id: string): Promise<{ deleted: boolean }>
   deleteMany(modelHandle: string, options: { ids: string[] } | { filter: StructuredFilter }): Promise<{ deleted: string[]; errors: Array<{ index: number; error: string }> }>
-  createMany(modelHandle: string, items: Record<string, unknown>[]): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>
-  updateMany(modelHandle: string, items: Array<{ id: string; data: Record<string, unknown> }>): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>
+  createMany(
+    modelHandle: string,
+    items: InstanceCreateManyItem[],
+  ): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>
+  updateMany(
+    modelHandle: string,
+    items: InstanceUpdateManyItem[],
+  ): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>
   upsertMany(modelHandle: string, items: Record<string, unknown>[], matchField: string): Promise<{ results: Array<InstanceData & { mode: 'created' | 'updated' }>; errors: Array<{ index: number; error: string }> }>
   isConfigured(modelHandle: string): Promise<boolean>
   getConfiguredModels(modelHandles: string[]): Promise<Map<string, boolean>>
@@ -549,39 +594,62 @@ export function createInstanceClient(config: ClientConfig): InstanceClient {
 
   return {
     async list(modelHandle: string, args?: InstanceListArgs): Promise<InstanceListResult> {
-      const { data, pagination } = await callCoreWithConfig<InstanceData[]>('instance.list', {
-        modelHandle,
-        ...(args?.page !== undefined ? { page: args.page } : {}),
-        ...(args?.limit !== undefined ? { limit: args.limit } : {}),
-        ...(args?.filter ? { filter: args.filter } : {}),
-      })
+      const { data, pagination } = await callCoreWithConfig<InstanceData[] | string[]>(
+        'instance.list',
+        {
+          modelHandle,
+          ...(args?.page !== undefined ? { page: args.page } : {}),
+          ...(args?.limit !== undefined ? { limit: args.limit } : {}),
+          ...(args?.filter ? { filter: args.filter } : {}),
+          ...(args?.fields !== undefined ? { fields: args.fields } : {}),
+          ...(args?.return_format !== undefined
+            ? { return_format: args.return_format }
+            : {}),
+        },
+      )
       return {
-        data,
+        data: data as InstanceData[],
         pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: args?.limit ?? 50 },
       }
     },
 
-    async get(modelHandle: string, id: string): Promise<InstanceData | null> {
+    async get(
+      modelHandle: string,
+      id: string,
+      options?: InstanceGetOptions,
+    ): Promise<InstanceData | null> {
       const { data } = await callCoreWithConfig<InstanceData | null>('instance.get', {
         modelHandle,
         id,
+        ...(options?.includeEnv ? { includeEnv: true } : {}),
       })
       return data
     },
 
-    async create(modelHandle: string, data: Record<string, unknown>): Promise<InstanceData> {
+    async create(
+      modelHandle: string,
+      data: Record<string, unknown>,
+      options?: InstanceWriteOptions,
+    ): Promise<InstanceData> {
       const { data: inst } = await callCoreWithConfig<InstanceData>('instance.create', {
         modelHandle,
         data,
+        ...(options?.env ? { env: options.env } : {}),
       })
       return inst
     },
 
-    async update(modelHandle: string, id: string, data: Record<string, unknown>): Promise<InstanceData> {
+    async update(
+      modelHandle: string,
+      id: string,
+      data: Record<string, unknown>,
+      options?: InstanceWriteOptions,
+    ): Promise<InstanceData> {
       const { data: inst } = await callCoreWithConfig<InstanceData>('instance.update', {
         modelHandle,
         id,
         data,
+        ...(options?.env ? { env: options.env } : {}),
       })
       return inst
     },
@@ -607,7 +675,7 @@ export function createInstanceClient(config: ClientConfig): InstanceClient {
 
     async createMany(
       modelHandle: string,
-      items: Record<string, unknown>[],
+      items: InstanceCreateManyItem[],
     ): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
       const { data } = await callCoreWithConfig<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.createMany', {
         modelHandle,
@@ -618,7 +686,7 @@ export function createInstanceClient(config: ClientConfig): InstanceClient {
 
     async updateMany(
       modelHandle: string,
-      items: Array<{ id: string; data: Record<string, unknown> }>,
+      items: InstanceUpdateManyItem[],
     ): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
       const { data } = await callCoreWithConfig<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.updateMany', {
         modelHandle,
@@ -683,14 +751,18 @@ export const instance: InstanceClient = {
     modelHandle: string,
     args?: InstanceListArgs,
   ): Promise<InstanceListResult> {
-    const { data, pagination } = await callCore<InstanceData[]>('instance.list', {
+    const { data, pagination } = await callCore<InstanceData[] | string[]>('instance.list', {
       modelHandle,
       ...(args?.page !== undefined ? { page: args.page } : {}),
       ...(args?.limit !== undefined ? { limit: args.limit } : {}),
       ...(args?.filter ? { filter: args.filter } : {}),
+      ...(args?.fields !== undefined ? { fields: args.fields } : {}),
+      ...(args?.return_format !== undefined
+        ? { return_format: args.return_format }
+        : {}),
     })
     return {
-      data,
+      data: data as InstanceData[],
       pagination: pagination ?? { page: 1, total: 0, hasMore: false, limit: args?.limit ?? 50 },
     }
   },
@@ -705,10 +777,15 @@ export const instance: InstanceClient = {
    * const record = await instance.get('phone_number', 'ins_abc123')
    * ```
    */
-  async get(modelHandle: string, id: string): Promise<InstanceData | null> {
+  async get(
+    modelHandle: string,
+    id: string,
+    options?: InstanceGetOptions,
+  ): Promise<InstanceData | null> {
     const { data } = await callCore<InstanceData | null>('instance.get', {
       modelHandle,
       id,
+      ...(options?.includeEnv ? { includeEnv: true } : {}),
     })
     return data
   },
@@ -729,10 +806,12 @@ export const instance: InstanceClient = {
   async create(
     modelHandle: string,
     data: Record<string, unknown>,
+    options?: InstanceWriteOptions,
   ): Promise<InstanceData> {
     const { data: instance } = await callCore<InstanceData>('instance.create', {
       modelHandle,
       data,
+      ...(options?.env ? { env: options.env } : {}),
     })
     return instance
   },
@@ -754,11 +833,13 @@ export const instance: InstanceClient = {
     modelHandle: string,
     id: string,
     data: Record<string, unknown>,
+    options?: InstanceWriteOptions,
   ): Promise<InstanceData> {
     const { data: instance } = await callCore<InstanceData>('instance.update', {
       modelHandle,
       id,
       data,
+      ...(options?.env ? { env: options.env } : {}),
     })
     return instance
   },
@@ -856,7 +937,7 @@ export const instance: InstanceClient = {
    */
   async createMany(
     modelHandle: string,
-    items: Record<string, unknown>[],
+    items: InstanceCreateManyItem[],
   ): Promise<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
     const { data } = await callCore<{ created: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.createMany', {
       modelHandle,
@@ -892,7 +973,7 @@ export const instance: InstanceClient = {
    */
   async updateMany(
     modelHandle: string,
-    items: Array<{ id: string; data: Record<string, unknown> }>,
+    items: InstanceUpdateManyItem[],
   ): Promise<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }> {
     const { data } = await callCore<{ updated: InstanceData[]; errors: Array<{ index: number; error: string }> }>('instance.updateMany', {
       modelHandle,
