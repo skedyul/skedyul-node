@@ -61,6 +61,7 @@ interface SkedyulConfig {
   // Build & rate limits
   build?: { external?: string[] }
   queues?: QueueRegistry
+  sequencers?: SequencerRegistry
 }
 ```
 
@@ -259,6 +260,25 @@ export default defineConfig({
       maxConcurrent: 5,
       minTime: 100,
       maxRetries: 3,
+    },
+  },
+})
+```
+
+---
+
+## Sequencers
+
+Optional timestamp-aware ordering and short-lived locks — see [Sequencer](./sequencer.md):
+
+```ts
+export default defineConfig({
+  // ...
+  sequencers: {
+    glofoxMember: {
+      scope: 'install',
+      enabled: true,
+      lockTtlMs: 60_000,
     },
   },
 })
