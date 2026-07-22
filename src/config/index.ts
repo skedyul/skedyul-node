@@ -24,6 +24,9 @@ export type {
   QueueConfig,
   SerializableQueueConfig,
   QueueRegistry,
+  SequencerScope,
+  SerializableSequencerConfig,
+  SequencerRegistry,
 } from './app-config'
 export { defineConfig } from './app-config'
 

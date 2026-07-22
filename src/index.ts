@@ -153,6 +153,41 @@ export type {
   QueueRegistry,
 } from './ratelimit'
 
+// Sequencer (timestamp-aware ordering + short-lived locks)
+export {
+  sequencer,
+  allow as sequencerAllow,
+  acquire as sequencerAcquire,
+  release as sequencerRelease,
+  resolveSequencer,
+  createSequencerHandle,
+  registerSequencerConfig,
+  clearRegisteredSequencerConfig,
+  getSequencerConfig,
+  getSequencerDefinitions,
+  resetSequencerBackendForTests,
+  memorySequencerBackend,
+  platformSequencerBackend,
+  SequencerContextError,
+  SequencerNotFoundError,
+  SequencerBackendError,
+  SequencerLockError,
+} from './sequencer'
+export type {
+  SequencerInput,
+  SequencerSelector,
+  SequencerAllowInput,
+  SequencerAcquireInput,
+  SequencerReleaseInput,
+  SequencerAllowResult,
+  ResolvedSequencer,
+  SequencerBackend,
+  SequencerScope,
+  SerializableSequencerConfig,
+  SequencerRegistry,
+  SequencerReason,
+} from './sequencer'
+
 // CRM Schema exports (for workplace-level migrations)
 export {
   defineSchema,

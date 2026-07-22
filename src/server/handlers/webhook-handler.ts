@@ -12,6 +12,8 @@ import type {
 import type { HandlerResult, EnvelopeContext } from './types'
 import { runWithConfig } from '../../core/client'
 import { runWithLogContext } from '../context-logger'
+import { runWithRateLimitExecutionContext } from '../../ratelimit/context'
+import { isRuntimeWebhookContext } from '../../types/webhook'
 import { createContextLogger } from '../logger'
 
 /**
@@ -167,9 +169,20 @@ export async function executeWebhookHandler(
 
   let webhookResponse: WebhookResponse
   try {
+    const rateLimitContext = {
+      app: data.webhookContext.app,
+      appInstallationId: isRuntimeWebhookContext(data.webhookContext)
+        ? data.webhookContext.appInstallationId
+        : undefined,
+      invocation: data.invocation,
+      isProvisionContext: !isRuntimeWebhookContext(data.webhookContext),
+    }
+
     webhookResponse = await runWithLogContext({ invocation: data.invocation }, async () => {
       return await runWithConfig(requestConfig, async () => {
-        return await webhookDef.handler(data.webhookRequest, data.webhookContext)
+        return await runWithRateLimitExecutionContext(rateLimitContext, async () => {
+          return await webhookDef.handler(data.webhookRequest, data.webhookContext)
+        })
       })
     })
   } catch (err) {

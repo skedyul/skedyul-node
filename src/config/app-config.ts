@@ -21,12 +21,18 @@ import type {
 } from './types'
 import type { AppEventDefinition } from './types/app-event'
 import type { QueueRegistry, SerializableQueueConfig } from './queue-config'
+import type { SequencerRegistry, SerializableSequencerConfig } from './sequencer-config'
 export type {
   QueueScope,
   QueueConfig,
   SerializableQueueConfig,
   QueueRegistry,
 } from './queue-config'
+export type {
+  SequencerScope,
+  SerializableSequencerConfig,
+  SequencerRegistry,
+} from './sequencer-config'
 
 /**
  * Install configuration - defines per-install env vars and SHARED models.
@@ -148,6 +154,9 @@ export interface SkedyulConfig {
 
   /** Rate-limit queue definitions for queuedFetch */
   queues?: QueueRegistry
+
+  /** Sequencer definitions for timestamp-aware ordering and short-lived locks */
+  sequencers?: SequencerRegistry
 }
 
 /**
@@ -171,6 +180,8 @@ export interface SerializableSkedyulConfig {
   events?: AppEventDefinition[]
   /** Rate-limit queue definitions */
   queues?: Record<string, SerializableQueueConfig>
+  /** Sequencer definitions */
+  sequencers?: Record<string, SerializableSequencerConfig>
 }
 
 /**

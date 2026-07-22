@@ -14,12 +14,13 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 
 | Doc | What it covers |
 |-----|----------------|
-| [Configuration](./configuration.md) | `SkedyulConfig`, provision/install, models, channels, pages, env, queues, signals |
+| [Configuration](./configuration.md) | `SkedyulConfig`, provision/install, models, channels, pages, env, queues, sequencers, signals |
 | [Tools](./tools.md) | MCP tool handlers, schemas, execution context, billing |
 | [Webhooks](./webhooks.md) | Webhook definitions, CALLBACK vs WEBHOOK, lifecycle hooks on channels |
 | [Lifecycle hooks](./lifecycle-hooks.md) | Install, provision, uninstall, OAuth callback |
 | [Server runtime](./server.md) | `server.create()`, HTTP endpoints, dedicated vs serverless |
 | [Rate-limit queues](./rate-limit-queues.md) | `queuedFetch`, queue scopes, retry via `requeue()` |
+| [Sequencer](./sequencer.md) | `sequencer.allow/acquire/release`, stale-event dropping, short-lived locks |
 
 ### Platform API
 

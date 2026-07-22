@@ -11,6 +11,7 @@ import type {
 import type { SkedyulConfig } from '../config/app-config'
 import { coreApiService } from '../core/service'
 import { registerQueueConfig } from '../ratelimit/config-loader'
+import { registerSequencerConfig } from '../sequencer/config-loader'
 import { buildToolMetadata, createRequestState, createCallToolHandler } from './tool-handler'
 import { createDedicatedServerInstance } from './dedicated'
 import { createServerlessInstance } from './serverless'
@@ -83,6 +84,7 @@ export function createSkedyulServer(
 ): SkedyulServerInstance {
   mergeRuntimeEnv()
   registerQueueConfig(config)
+  registerSequencerConfig(config)
 
   // Extract registries from config
   const registry = config.tools
