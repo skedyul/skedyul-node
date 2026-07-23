@@ -60,8 +60,6 @@ export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
     const retries = typeof rawRetries === 'number' && rawRetries >= 1 ? rawRetries : 1
     const queueTouchPoints =
       tool.queueTouchPoints ?? toolConfig.queueTouchPoints
-    const rateLimitHandoff = (tool.rateLimitHandoff ??
-      toolConfig.rateLimitHandoff) as import('../types/tool').RateLimitHandoff | undefined
     return {
       name: tool.name,
       displayName: tool.label || tool.name,
@@ -72,13 +70,11 @@ export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
       timeout,
       retries,
       queueTouchPoints,
-      rateLimitHandoff,
       config: {
         timeout,
         retries,
         completionHints: toolConfig.completionHints,
         queueTouchPoints,
-        rateLimitHandoff,
       },
     }
   })
