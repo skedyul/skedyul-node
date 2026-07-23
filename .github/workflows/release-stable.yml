@@ -110,6 +110,10 @@ jobs:
 
   publish:
     needs: prepare
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
     uses: ./.github/workflows/publish.yml
     with:
       dist-tag: latest

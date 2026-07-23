@@ -326,6 +326,10 @@ jobs:
   publish-prerelease:
     needs: summarize-pr
     if: needs.summarize-pr.outputs.skip != 'true'
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
     uses: ./.github/workflows/publish.yml
     with:
       dist-tag: ${{ needs.summarize-pr.outputs.npm_dist_tag }}
