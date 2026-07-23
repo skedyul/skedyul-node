@@ -1,0 +1,104 @@
+name: Publish package to npm
+
+on:
+  workflow_call:
+    inputs:
+      dist-tag:
+        description: npm dist-tag (e.g. alpha, latest)
+        required: true
+        type: string
+      git-ref:
+        description: Git ref to checkout and publish (defaults to caller ref)
+        required: false
+        type: string
+        default: ''
+      skip-if-already-published:
+        description: Exit successfully when version already exists on npm
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git-ref != '' && inputs.git-ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      - name: Setup Node.js for npm OIDC
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest sigstore
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read package version
+        id: pkg
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check npm registry
+        id: registry
+        run: |
+          VERSION="${{ steps.pkg.outputs.version }}"
+          if npm view "skedyul@${VERSION}" version >/dev/null 2>&1; then
+            if [ "${{ inputs.skip-if-already-published }}" = "true" ]; then
+              echo "already_published=true" >> "$GITHUB_OUTPUT"
+              echo "skedyul@${VERSION} already on npm; skipping."
+            else
+              echo "skedyul@${VERSION} is already published on npm." >&2
+              exit 1
+            fi
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "skedyul@${VERSION} is available to publish."
+          fi
+
+      - name: Run tests
+        if: steps.registry.outputs.already_published != 'true'
+        run: pnpm test
+
+      - name: Build package
+        if: steps.registry.outputs.already_published != 'true'
+        run: pnpm build
+
+      - name: Prepare npm OIDC auth
+        if: steps.registry.outputs.already_published != 'true'
+        run: bash scripts/release/prepare-npm-oidc.sh
+
+      - name: Publish to npm
+        if: steps.registry.outputs.already_published != 'true'
+        run: npm publish --access public --provenance --tag "${{ inputs.dist-tag }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### npm publish (\`${{ inputs.dist-tag }}\`)"
+            echo ""
+            echo "- Version: \`skedyul@${{ steps.pkg.outputs.version }}\`"
+            if [ "${{ steps.registry.outputs.already_published }}" = "true" ]; then
+              echo "- Skipped: already published"
+            else
+              echo "- Published with dist-tag \`${{ inputs.dist-tag }}\`"
+              echo "- https://www.npmjs.com/package/skedyul/v/${{ steps.pkg.outputs.version }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

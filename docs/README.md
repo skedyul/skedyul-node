@@ -9,7 +9,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 3. **Merge to `master`** — prerelease version and docs land on default branch.
 4. **Publish to NPM** (manual workflow) — Copilot picks patch or minor from diff since last stable tag; publishes stable `skedyul@X.Y.Z` on **`latest`**.
 
-Scripts: `scripts/changelog/` (PR template), `scripts/release/` (semver, prerelease, promote).
+Scripts: `scripts/changelog/` (PR template), `scripts/release/` (semver, prerelease, promote), `.github/workflows/publish-npm.yml` (OIDC npm publish — register this filename on npmjs.com trusted publishers).
 
 ## Quick links
 

@@ -14,7 +14,7 @@ On every PR open/sync against `master`:
 1. Enforces the plan-style PR template + classification labels (same sections as `skedyul/app`).
 2. **Copilot CLI** updates `README.md` and relevant `docs/*.md` for public SDK surface changes.
 3. Bumps `package.json` to a **prerelease** semver: `{nextMinor}.0-alpha.{prNumber}.{sync}` (e.g. `1.7.0-alpha.42.1`).
-4. Publishes to npm under dist-tag **`alpha`** (not `latest`) so integration apps can pin the exact prerelease version.
+4. Publishes to npm under dist-tag **`alpha`** via **`publish-npm.yml`** (the OIDC trusted publisher workflow).
 5. Commits docs + version to the PR branch and pushes git tag `v{prerelease}`.
 
 Skip automation with `<!-- skip-pr-template -->` in the PR body. Bot commits use `[skip ci]` to avoid loops.
@@ -28,8 +28,19 @@ When changes on `master` should ship to npm:
    gh workflow run "Publish to NPM" --repo skedyul/skedyul-node --ref master
    ```
 2. Copilot reads the diff since the last **stable** tag and chooses **`patch` or `minor` only** (never major). Fallback: patch.
-3. Workflow promotes to stable `X.Y.Z`, runs tests/build, publishes with OIDC provenance, tags `vX.Y.Z`, commits `package.json` to `master`.
+3. Workflow promotes to stable `X.Y.Z`, then calls **`publish-npm.yml`** to publish on dist-tag **`latest`**, tags `vX.Y.Z`, commits `package.json` to `master`.
 4. Update integration app pins in `skedyul/app` to the new **exact** npm version.
+
+## npm trusted publisher (required)
+
+npm OIDC only trusts **one workflow filename** per package. All publishes run in **`.github/workflows/publish-npm.yml`**.
+
+On [npmjs.com](https://www.npmjs.com/package/skedyul/access) → Publishing access → Trusted Publisher, set:
+
+- Repository: `skedyul/skedyul-node`
+- Workflow filename: **`publish-npm.yml`**
+
+If the trusted publisher still points at `publish.yml`, PR prerelease publishes fail with `ENEEDAUTH`.
 
 ## When a change does **not** need a publish
 
