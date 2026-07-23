@@ -72,3 +72,15 @@ export function nextPrereleaseVersion(input: {
 export function tagName(version: string): string {
   return `v${version}`
 }
+
+export function npmDistTagForVersion(version: string): 'latest' | 'alpha' | 'beta' | 'rc' {
+  const parsed = parseSemVer(version)
+  if (!parsed?.prerelease) return 'latest'
+
+  const identifier = parsed.prerelease.split('.')[0]?.toLowerCase()
+  if (identifier === 'alpha') return 'alpha'
+  if (identifier === 'beta') return 'beta'
+  if (identifier === 'rc') return 'rc'
+
+  return 'alpha'
+}

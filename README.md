@@ -270,9 +270,10 @@ Open a PR against `master`. GitHub Actions will:
 
 - Fill or upgrade the PR description (plan-style template + classification label)
 - Sync README/docs via Copilot when public SDK surface changes
-- Assign a prerelease version like `1.6.0-alpha.{pr}.{sync}` and tag `v{version}` on the PR branch
+- Assign a prerelease version like `1.7.0-alpha.{pr}.{sync}` and tag `v{version}` on the PR branch
+- Publish that prerelease to npm (`alpha` dist-tag). Pin it in an integration app while the feature is in development: `"skedyul": "1.7.0-alpha.42.1"`
 
-After merge, dispatch **Publish to NPM** from GitHub Actions when ready for a stable release. Copilot chooses patch vs minor (never major); integration apps should pin the published exact version.
+After merge, dispatch **Publish to NPM** from GitHub Actions when ready for a stable **`latest`** release. Copilot chooses patch vs minor (never major); other apps pin the new stable exact version.
 
 See [docs/README.md](./docs/README.md) for documentation structure.
 

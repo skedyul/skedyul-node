@@ -4,11 +4,16 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+concurrency:
+  group: npm-publish-skedyul
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
   issues: write
   copilot-requests: write
+  id-token: write
 
 jobs:
   summarize-pr:
@@ -43,10 +48,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest sigstore
 
       - name: Install Copilot CLI
         run: npm install -g @github/copilot@latest
@@ -203,8 +212,10 @@ jobs:
           echo "$RESULT" > /tmp/prerelease.json
           VERSION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/prerelease.json','utf8')).nextVersion")
           TAG=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/prerelease.json','utf8')).tag")
+          NPM_DIST_TAG=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/prerelease.json','utf8')).npmDistTag")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "npm_dist_tag=$NPM_DIST_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Docs fallback when Copilot made no doc edits
         if: steps.guard.outputs.skip != 'true' && steps.guard.outputs.run_docs == 'true'
@@ -287,6 +298,50 @@ jobs:
           fi
           git tag -a "$TAG" -m "skedyul prerelease $VERSION"
           git push origin "$TAG"
+
+      - name: Check npm registry
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.prerelease.outputs.version }}"
+          if npm view "skedyul@${VERSION}" version >/dev/null 2>&1; then
+            echo "skedyul@${VERSION} is already on npm; skipping publish."
+            echo "already_published=true" >> "$GITHUB_ENV"
+          else
+            echo "skedyul@${VERSION} is available to publish."
+            echo "already_published=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run tests
+        if: steps.guard.outputs.skip != 'true' && env.already_published != 'true'
+        run: pnpm test
+
+      - name: Build package
+        if: steps.guard.outputs.skip != 'true' && env.already_published != 'true'
+        run: pnpm build
+
+      - name: Prepare npm OIDC auth
+        if: steps.guard.outputs.skip != 'true' && env.already_published != 'true'
+        run: bash scripts/release/prepare-npm-oidc.sh
+
+      - name: Publish prerelease to NPM
+        if: steps.guard.outputs.skip != 'true' && env.already_published != 'true'
+        run: |
+          npm publish --access public --provenance --tag "${{ steps.prerelease.outputs.npm_dist_tag }}"
+
+      - name: Prerelease summary
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          {
+            echo "### Prerelease \`skedyul@${{ steps.prerelease.outputs.version }}\`"
+            echo ""
+            echo "- npm dist-tag: \`${{ steps.prerelease.outputs.npm_dist_tag }}\` (not \`latest\`)"
+            echo "- Pin in integration apps: \`\"skedyul\": \"${{ steps.prerelease.outputs.version }}\"\`"
+            echo "- npm: https://www.npmjs.com/package/skedyul/v/${{ steps.prerelease.outputs.version }}"
+            echo "- git tag: \`${{ steps.prerelease.outputs.tag }}\`"
+            if [ "${{ env.already_published }}" = "true" ]; then
+              echo "- npm publish skipped (version already published)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify no unexpected source changes
         if: steps.guard.outputs.skip != 'true'

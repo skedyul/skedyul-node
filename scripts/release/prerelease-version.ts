@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { nextPrereleaseVersion, tagName } from './semver'
+import { nextPrereleaseVersion, npmDistTagForVersion, tagName } from './semver'
 import { resolveLatestStableTag } from './resolve-stable-tag'
 
 interface CliArgs {
@@ -72,6 +72,7 @@ function main(): void {
     previousVersion: pkg.version,
     nextVersion,
     tag: tagName(nextVersion),
+    npmDistTag: npmDistTagForVersion(nextVersion),
   }
 
   if (args.write) {

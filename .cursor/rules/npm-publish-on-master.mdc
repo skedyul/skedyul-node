@@ -13,8 +13,9 @@ On every PR open/sync against `master`:
 
 1. Enforces the plan-style PR template + classification labels (same sections as `skedyul/app`).
 2. **Copilot CLI** updates `README.md` and relevant `docs/*.md` for public SDK surface changes.
-3. Bumps `package.json` to a **prerelease** semver: `{nextMinor}.0-alpha.{prNumber}.{sync}` (e.g. `1.6.0-alpha.42.1`).
-4. Commits docs + version to the PR branch and pushes git tag `v{prerelease}`.
+3. Bumps `package.json` to a **prerelease** semver: `{nextMinor}.0-alpha.{prNumber}.{sync}` (e.g. `1.7.0-alpha.42.1`).
+4. Publishes to npm under dist-tag **`alpha`** (not `latest`) so integration apps can pin the exact prerelease version.
+5. Commits docs + version to the PR branch and pushes git tag `v{prerelease}`.
 
 Skip automation with `<!-- skip-pr-template -->` in the PR body. Bot commits use `[skip ci]` to avoid loops.
 
