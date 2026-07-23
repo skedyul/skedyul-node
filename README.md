@@ -2,7 +2,7 @@
 
 The official Node.js SDK for building [Skedyul](https://skedyul.com) integration apps. Publish tools, webhooks, CRM models, agents, skills, and workflows — then run them on serverless (Lambda) or dedicated (Docker/ECS) compute.
 
-**Package:** `skedyul` · **Version:** 1.4.x · **Node:** 22+
+**Package:** `skedyul` · **Version:** 1.7.0-alpha.1.1 *(prerelease on PR branch)*
 
 ## What you can build
 
