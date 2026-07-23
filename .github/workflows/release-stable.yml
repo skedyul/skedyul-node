@@ -1,0 +1,154 @@
+name: Publish to NPM
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: npm-publish-skedyul
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      copilot-requests: write
+    outputs:
+      version: ${{ steps.version.outputs.new }}
+      previous: ${{ steps.version.outputs.previous }}
+      bump_type: ${{ steps.bump.outputs.bump_type }}
+      copilot_fallback: ${{ steps.bump.outputs.copilot_fallback }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Upgrade npm and install Copilot CLI
+        run: npm install -g npm@latest @github/copilot@latest
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve diff since last stable release
+        id: range
+        run: |
+          set -euo pipefail
+          STABLE_JSON=$(pnpm exec tsx scripts/release/resolve-stable-tag.ts --json)
+          echo "$STABLE_JSON" > /tmp/stable.json
+          STABLE_SHA=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/stable.json','utf8')).stableSha || ''")
+          if [ -n "$STABLE_SHA" ]; then
+            echo "base_sha=$STABLE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "base_sha=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Choose patch or minor bump with Copilot
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ steps.range.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.range.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release
+          PROMPT=$(cat <<'EOF'
+          Analyze SDK changes between BASE_SHA and HEAD_SHA for the skedyul npm package.
+          Decide patch or minor (never major). Write one word to /tmp/release/bump-type.txt: patch or minor
+          EOF
+          )
+          PROMPT="${PROMPT//BASE_SHA/$BASE_SHA}"
+          PROMPT="${PROMPT//HEAD_SHA/$HEAD_SHA}"
+          set +e
+          copilot --yolo -p "$PROMPT" --allow-tool='shell(git:*)' --allow-tool=write
+          COPILOT_EXIT=$?
+          set -e
+          BUMP=$(head -n 1 /tmp/release/bump-type.txt 2>/dev/null | tr -d '[:space:]' || true)
+          if [ $COPILOT_EXIT -ne 0 ] || { [ "$BUMP" != "patch" ] && [ "$BUMP" != "minor" ]; }; then
+            BUMP=patch
+            echo "copilot_fallback=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "bump_type=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Promote to stable version
+        id: version
+        run: |
+          set -euo pipefail
+          RESULT=$(pnpm exec tsx scripts/release/promote-version.ts \
+            --bump-type "${{ steps.bump.outputs.bump_type }}" \
+            --write \
+            --output-json /tmp/release/version.json)
+          NEW_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/release/version.json','utf8')).nextVersion")
+          STABLE_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/release/version.json','utf8')).stableVersion")
+          echo "new=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous=$STABLE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit stable version bump
+        run: |
+          git add package.json README.md
+          git commit -m "chore: release v${{ steps.version.outputs.new }}"
+          git push origin HEAD
+
+  publish:
+    needs: prepare
+    uses: ./.github/workflows/publish.yml
+    with:
+      dist-tag: latest
+      git-ref: master
+
+  finalize:
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create git tag
+        run: |
+          git tag "v${{ needs.prepare.outputs.version }}"
+          git push origin "v${{ needs.prepare.outputs.version }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published \`skedyul@${{ needs.prepare.outputs.version }}\`"
+            echo ""
+            echo "- Stable bump: \`${{ needs.prepare.outputs.previous }}\` → \`${{ needs.prepare.outputs.version }}\` (${{ needs.prepare.outputs.bump_type }})"
+            if [ "${{ needs.prepare.outputs.copilot_fallback }}" = "true" ]; then
+              echo "- Copilot bump fallback: defaulted to patch"
+            fi
+            echo "- npm dist-tag: \`latest\`"
+            echo "- npm: https://www.npmjs.com/package/skedyul/v/${{ needs.prepare.outputs.version }}"
+            echo "- git tag: \`v${{ needs.prepare.outputs.version }}\`"
+            echo ""
+            echo "- npm publish workflow: \`publish.yml\`"
+          } >> "$GITHUB_STEP_SUMMARY"

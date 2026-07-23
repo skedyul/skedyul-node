@@ -309,7 +309,7 @@ jobs:
             echo "- npm dist-tag: \`${{ steps.prerelease.outputs.npm_dist_tag }}\` (not \`latest\`)"
             echo "- Pin in integration apps: \`\"skedyul\": \"${{ steps.prerelease.outputs.version }}\"\`"
             echo "- git tag: \`${{ steps.prerelease.outputs.tag }}\`"
-            echo "- npm publish runs in \`publish-npm.yml\` (trusted publisher workflow)"
+            echo "- npm publish runs in \`publish.yml\` (trusted publisher workflow)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify no unexpected source changes
@@ -326,7 +326,7 @@ jobs:
   publish-prerelease:
     needs: summarize-pr
     if: needs.summarize-pr.outputs.skip != 'true'
-    uses: ./.github/workflows/publish-npm.yml
+    uses: ./.github/workflows/publish.yml
     with:
       dist-tag: ${{ needs.summarize-pr.outputs.npm_dist_tag }}
       git-ref: ${{ needs.summarize-pr.outputs.head_ref }}
