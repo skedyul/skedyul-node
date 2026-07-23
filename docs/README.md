@@ -2,6 +2,14 @@
 
 Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](https://github.com/skedyul/skedyul-node)).
 
+## Release process
+
+1. **PR** — automation updates PR template, docs, prerelease `package.json`, and git tag `v{prerelease}` (e.g. `1.6.0-alpha.42.1`).
+2. **Merge to `master`** — prerelease version and docs land on default branch.
+3. **Publish to NPM** (manual workflow) — Copilot picks patch or minor from diff since last stable tag; publishes stable `skedyul@X.Y.Z`.
+
+Scripts: `scripts/changelog/` (PR template), `scripts/release/` (semver, prerelease, promote).
+
 ## Quick links
 
 - [Main README](../README.md) — installation, quick start, package exports

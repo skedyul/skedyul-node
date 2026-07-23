@@ -266,7 +266,15 @@ pnpm test     # Node test runner
 3. Add unit tests under `tests/` for new behavior
 4. Update docs in `docs/` when adding public APIs or CLI commands
 
-Open a PR with a clear summary for review.
+Open a PR against `master`. GitHub Actions will:
+
+- Fill or upgrade the PR description (plan-style template + classification label)
+- Sync README/docs via Copilot when public SDK surface changes
+- Assign a prerelease version like `1.6.0-alpha.{pr}.{sync}` and tag `v{version}` on the PR branch
+
+After merge, dispatch **Publish to NPM** from GitHub Actions when ready for a stable release. Copilot chooses patch vs minor (never major); integration apps should pin the published exact version.
+
+See [docs/README.md](./docs/README.md) for documentation structure.
 
 ## License
 

@@ -2,19 +2,6 @@ name: Publish to NPM
 
 on:
   workflow_dispatch:
-    inputs:
-      version_bump:
-        description: >-
-          Bump package.json before publish. Use "skip" when the version is
-          already set (e.g. 1.2.49) and you only want to publish.
-        required: true
-        type: choice
-        default: patch
-        options:
-          - patch
-          - minor
-          - major
-          - skip
 
 concurrency:
   group: npm-publish-skedyul
@@ -25,11 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write # required for npm trusted publishing (OIDC)
+      id-token: write
+      copilot-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
@@ -47,7 +36,7 @@ jobs:
 
       - name: Upgrade npm for trusted publishing
         run: |
-          npm install -g npm@latest sigstore
+          npm install -g npm@latest sigstore @github/copilot@latest
           npm --version
           node --version
 
@@ -59,24 +48,77 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Resolve publish version
+      - name: Resolve diff since last stable release
+        id: range
+        run: |
+          set -euo pipefail
+          STABLE_JSON=$(pnpm exec tsx scripts/release/resolve-stable-tag.ts --json)
+          echo "$STABLE_JSON" > /tmp/stable.json
+          STABLE_TAG=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/stable.json','utf8')).stableTag || ''")
+          STABLE_SHA=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/stable.json','utf8')).stableSha || ''")
+          if [ -n "$STABLE_SHA" ]; then
+            echo "base_sha=$STABLE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "base_sha=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+          echo "stable_tag=$STABLE_TAG" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Choose patch or minor bump with Copilot
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ steps.range.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.range.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release
+
+          PROMPT=$(cat <<'EOF'
+          Analyze SDK changes between BASE_SHA and HEAD_SHA for the skedyul npm package.
+
+          Use git log and git diff. Decide whether the stable release bump should be:
+          - patch (bug fixes, internal fixes, docs-only, small additive API)
+          - minor (new public API, new exports, new CLI commands, meaningful features)
+
+          Never choose major.
+
+          Write exactly one word to /tmp/release/bump-type.txt: patch or minor
+          Do not modify any other files, commit, or publish.
+          EOF
+          )
+          PROMPT="${PROMPT//BASE_SHA/$BASE_SHA}"
+          PROMPT="${PROMPT//HEAD_SHA/$HEAD_SHA}"
+
+          set +e
+          copilot --yolo -p "$PROMPT" \
+            --allow-tool='shell(git:*)' \
+            --allow-tool=write
+          COPILOT_EXIT=$?
+          set -e
+
+          BUMP=$(head -n 1 /tmp/release/bump-type.txt 2>/dev/null | tr -d '[:space:]' || true)
+          if [ $COPILOT_EXIT -ne 0 ] || { [ "$BUMP" != "patch" ] && [ "$BUMP" != "minor" ]; }; then
+            echo "Copilot unavailable or invalid bump type; defaulting to patch." >&2
+            BUMP=patch
+            echo "copilot_fallback=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "bump_type=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "$BUMP" > /tmp/release/bump-type.txt
+
+      - name: Promote to stable version
         id: version
         run: |
-          BUMP="${{ inputs.version_bump }}"
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-
-          if [ "$BUMP" = "skip" ]; then
-            NEW_VERSION="$CURRENT_VERSION"
-            echo "Bumping skipped; publishing package.json version $NEW_VERSION"
-          else
-            npm version "$BUMP" --no-git-tag-version
-            NEW_VERSION=$(node -p "require('./package.json').version")
-            echo "Bumped $CURRENT_VERSION -> $NEW_VERSION ($BUMP)"
-          fi
-
-          echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          RESULT=$(pnpm exec tsx scripts/release/promote-version.ts \
+            --bump-type "${{ steps.bump.outputs.bump_type }}" \
+            --write \
+            --output-json /tmp/release/version.json)
+          echo "$RESULT" > /tmp/release/version.json
+          NEW_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/release/version.json','utf8')).nextVersion")
+          STABLE_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/release/version.json','utf8')).stableVersion")
           echo "new=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "bumped=$([ "$BUMP" = "skip" ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          echo "previous=$STABLE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check npm registry
         run: |
@@ -99,17 +141,9 @@ jobs:
             echo "OIDC token not available — ensure id-token: write is set."
             exit 1
           fi
-          echo "OIDC token endpoint available."
-          echo "npm $(npm --version), node $(node --version)"
-          # setup-node registry-url writes _authToken=${NODE_AUTH_TOKEN}; when unset,
-          # npm treats empty auth as configured and skips OIDC (ENEEDAUTH / 404).
           NPMRC_PATH="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
           if [ -f "$NPMRC_PATH" ]; then
-            echo "Before strip ($NPMRC_PATH):"
-            cat "$NPMRC_PATH"
             sed -i '/_authToken/d' "$NPMRC_PATH"
-            echo "After strip:"
-            cat "$NPMRC_PATH"
           fi
           if [ -f "$HOME/.npmrc" ] && [ "$HOME/.npmrc" != "$NPMRC_PATH" ]; then
             sed -i '/_authToken/d' "$HOME/.npmrc"
@@ -124,11 +158,10 @@ jobs:
           git tag "v${{ steps.version.outputs.new }}"
           git push origin "v${{ steps.version.outputs.new }}"
 
-      - name: Commit version bump
-        if: steps.version.outputs.bumped == 'true'
+      - name: Commit stable version bump
         run: |
-          git add package.json
-          git commit -m "chore: bump version to ${{ steps.version.outputs.new }}"
+          git add package.json README.md
+          git commit -m "chore: release v${{ steps.version.outputs.new }}"
           git push origin HEAD
 
       - name: Summary
@@ -136,10 +169,9 @@ jobs:
           {
             echo "### Published \`skedyul@${{ steps.version.outputs.new }}\`"
             echo ""
-            if [ "${{ steps.version.outputs.bumped }}" = "true" ]; then
-              echo "- Version bump: \`${{ steps.version.outputs.current }}\` → \`${{ steps.version.outputs.new }}\`"
-            else
-              echo "- Published existing version \`${{ steps.version.outputs.new }}\` (no bump)"
+            echo "- Stable bump: \`${{ steps.version.outputs.previous }}\` → \`${{ steps.version.outputs.new }}\` (${{ steps.bump.outputs.bump_type }})"
+            if [ "${{ steps.bump.outputs.copilot_fallback }}" = "true" ]; then
+              echo "- Copilot bump fallback: defaulted to patch"
             fi
             echo "- Auth: npm trusted publishing (OIDC)"
             echo "- npm: https://www.npmjs.com/package/skedyul/v/${{ steps.version.outputs.new }}"
