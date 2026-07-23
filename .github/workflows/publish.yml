@@ -1,43 +1,43 @@
-name: Publish to NPM
+name: Publish package to npm
 
+# Sole workflow file that runs `npm publish` (npm trusted publisher target).
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      version_bump:
-        description: >-
-          Bump package.json before publish. Use "skip" when the version is
-          already set (e.g. 1.2.49) and you only want to publish.
+      dist-tag:
+        description: npm dist-tag (e.g. alpha, latest)
         required: true
-        type: choice
-        default: patch
-        options:
-          - patch
-          - minor
-          - major
-          - skip
+        type: string
+      git-ref:
+        description: Git ref to checkout and publish (defaults to caller ref)
+        required: false
+        type: string
+        default: ''
+      skip-if-already-published:
+        description: Exit successfully when version already exists on npm
+        required: false
+        type: boolean
+        default: false
 
-concurrency:
-  group: npm-publish-skedyul
-  cancel-in-progress: false
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write # required for npm trusted publishing (OIDC)
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.git-ref != '' && inputs.git-ref || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.13.1
 
-      - name: Setup Node.js
+      - name: Setup Node.js for npm OIDC
         uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -46,102 +46,60 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Upgrade npm for trusted publishing
-        run: |
-          npm install -g npm@latest sigstore
-          npm --version
-          node --version
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+        run: npm install -g npm@latest sigstore
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Resolve publish version
-        id: version
+      - name: Read package version
+        id: pkg
         run: |
-          BUMP="${{ inputs.version_bump }}"
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-
-          if [ "$BUMP" = "skip" ]; then
-            NEW_VERSION="$CURRENT_VERSION"
-            echo "Bumping skipped; publishing package.json version $NEW_VERSION"
-          else
-            npm version "$BUMP" --no-git-tag-version
-            NEW_VERSION=$(node -p "require('./package.json').version")
-            echo "Bumped $CURRENT_VERSION -> $NEW_VERSION ($BUMP)"
-          fi
-
-          echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "new=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "bumped=$([ "$BUMP" = "skip" ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check npm registry
+        id: registry
         run: |
-          VERSION="${{ steps.version.outputs.new }}"
+          VERSION="${{ steps.pkg.outputs.version }}"
           if npm view "skedyul@${VERSION}" version >/dev/null 2>&1; then
-            echo "skedyul@${VERSION} is already published on npm."
-            exit 1
+            if [ "${{ inputs.skip-if-already-published }}" = "true" ]; then
+              echo "already_published=true" >> "$GITHUB_OUTPUT"
+              echo "skedyul@${VERSION} already on npm; skipping."
+            else
+              echo "skedyul@${VERSION} is already published on npm." >&2
+              exit 1
+            fi
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "skedyul@${VERSION} is available to publish."
           fi
-          echo "skedyul@${VERSION} is available to publish."
 
       - name: Run tests
+        if: steps.registry.outputs.already_published != 'true'
         run: pnpm test
 
       - name: Build package
+        if: steps.registry.outputs.already_published != 'true'
         run: pnpm build
 
       - name: Prepare npm OIDC auth
-        run: |
-          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL}" ]; then
-            echo "OIDC token not available — ensure id-token: write is set."
-            exit 1
-          fi
-          echo "OIDC token endpoint available."
-          echo "npm $(npm --version), node $(node --version)"
-          # setup-node registry-url writes _authToken=${NODE_AUTH_TOKEN}; when unset,
-          # npm treats empty auth as configured and skips OIDC (ENEEDAUTH / 404).
-          NPMRC_PATH="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-          if [ -f "$NPMRC_PATH" ]; then
-            echo "Before strip ($NPMRC_PATH):"
-            cat "$NPMRC_PATH"
-            sed -i '/_authToken/d' "$NPMRC_PATH"
-            echo "After strip:"
-            cat "$NPMRC_PATH"
-          fi
-          if [ -f "$HOME/.npmrc" ] && [ "$HOME/.npmrc" != "$NPMRC_PATH" ]; then
-            sed -i '/_authToken/d' "$HOME/.npmrc"
-          fi
-          unset NODE_AUTH_TOKEN
+        if: steps.registry.outputs.already_published != 'true'
+        run: bash scripts/release/prepare-npm-oidc.sh
 
-      - name: Publish to NPM
-        run: npm publish --access public --provenance
-
-      - name: Create git tag
-        run: |
-          git tag "v${{ steps.version.outputs.new }}"
-          git push origin "v${{ steps.version.outputs.new }}"
-
-      - name: Commit version bump
-        if: steps.version.outputs.bumped == 'true'
-        run: |
-          git add package.json
-          git commit -m "chore: bump version to ${{ steps.version.outputs.new }}"
-          git push origin HEAD
+      - name: Publish to npm
+        if: steps.registry.outputs.already_published != 'true'
+        run: npm publish --access public --provenance --tag "${{ inputs.dist-tag }}"
 
       - name: Summary
         run: |
           {
-            echo "### Published \`skedyul@${{ steps.version.outputs.new }}\`"
+            echo "### npm publish (\`${{ inputs.dist-tag }}\`)"
             echo ""
-            if [ "${{ steps.version.outputs.bumped }}" = "true" ]; then
-              echo "- Version bump: \`${{ steps.version.outputs.current }}\` → \`${{ steps.version.outputs.new }}\`"
+            echo "- Version: \`skedyul@${{ steps.pkg.outputs.version }}\`"
+            if [ "${{ steps.registry.outputs.already_published }}" = "true" ]; then
+              echo "- Skipped: already published"
             else
-              echo "- Published existing version \`${{ steps.version.outputs.new }}\` (no bump)"
+              echo "- Published with dist-tag \`${{ inputs.dist-tag }}\`"
+              echo "- https://www.npmjs.com/package/skedyul/v/${{ steps.pkg.outputs.version }}"
             fi
-            echo "- Auth: npm trusted publishing (OIDC)"
-            echo "- npm: https://www.npmjs.com/package/skedyul/v/${{ steps.version.outputs.new }}"
-            echo "- git tag: \`v${{ steps.version.outputs.new }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

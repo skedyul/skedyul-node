@@ -1,30 +1,51 @@
 ---
-description: Required npm releases go straight to master and must run the Publish to NPM workflow so apps can pin exact versions
+description: PR automation assigns prerelease tags; stable npm releases use manual Publish to NPM with Copilot-chosen patch or minor bumps
 alwaysApply: true
 ---
 
-# skedyul-node: master + Publish to NPM
+# skedyul-node: PR prerelease + Publish to NPM
 
 This package is published to npm as **`skedyul`**. Default branch is **`master`**.
 
-## When a change needs a new npm version
+## Workflow layout
 
-If the change must be consumed by integration apps or other Node clients via npm (public API, exports, CLI, documented behavior, or fixes they need from the registry):
+| File | Role |
+|------|------|
+| **`publish.yml`** | Reusable **`workflow_call` only** — runs `npm publish` (npm trusted publisher target) |
+| **`release-stable.yml`** | Manual **`workflow_dispatch`** — Copilot bump, commit, calls `publish.yml`, git tag |
+| **`pr-automate.yml`** | PR open/sync — template, docs, prerelease version, calls `publish.yml` |
 
-1. **Push the change to `master`** in this repo (`skedyul/skedyul-node`). Do not leave a required release only on a feature branch.
-2. **Dispatch the Publish to NPM workflow** (`.github/workflows/publish.yml`):
-   ```bash
-   gh workflow run "Publish to NPM" --repo skedyul/skedyul-node --ref master -f version_bump=patch
-   ```
-   Use `minor` / `major` when the semver change warrants it, or `skip` if `package.json` version is already set and only needs publishing.
-3. After publish, tell consumers (especially apps under `skedyul/app` → `packages/skedyul-integrations/*/integrations/*/package.json`) to **pin the new exact version** — not `latest`, not ranges.
+npm OIDC only trusts **one workflow filename**. Register **`publish.yml`** on npmjs.com.
 
-If `gh workflow run` returns 403, ask a human with Actions write access to run **Publish to NPM** from the GitHub Actions UI.
+## PR automation (`pr-automate.yml`)
 
-## When a change does **not** need a publish
+On every PR open/sync against `master`:
 
-Internal refactors, tests, Cursor rules, or docs-only work with no consumer-facing npm surface can use a normal PR → merge flow. Do not bump or publish unnecessarily.
+1. Plan-style PR template + classification labels
+2. Copilot syncs `README.md` and `docs/*.md`
+3. Prerelease semver: `{nextMinor}.0-alpha.{prNumber}.{sync}`
+4. Calls **`publish.yml`** with dist-tag **`alpha`**
+5. Commits docs + version, git tag `v{prerelease}`
+
+Skip with `<!-- skip-pr-template -->` in the PR body.
+
+## Stable release (manual)
+
+```bash
+gh workflow run "Publish to NPM" --repo skedyul/skedyul-node --ref master
+```
+
+(`release-stable.yml` — Copilot picks patch/minor, commits version, calls **`publish.yml`** with dist-tag **`latest`**, tags `vX.Y.Z`.)
+
+## npm trusted publisher
+
+On [npmjs.com](https://www.npmjs.com/package/skedyul/access) → Trusted Publisher:
+
+- Repository: `skedyul/skedyul-node`
+- Workflow filename: **`publish.yml`**
+
+Parent workflows (`pr-automate.yml`, `release-stable.yml`) must call `publish.yml`; do not run `npm publish` elsewhere.
 
 ## Related (monorepo)
 
-In `skedyul/app`, integration apps lock exact `skedyul` versions; monorepo packages use `workspace:*`. See `.cursor/rules/skedyul-dependency-versions.mdc` in the app repo.
+Integration apps pin exact `skedyul` versions. See `.cursor/rules/skedyul-dependency-versions.mdc` in the app repo.

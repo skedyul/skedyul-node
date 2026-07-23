@@ -2,7 +2,7 @@
 
 The official Node.js SDK for building [Skedyul](https://skedyul.com) integration apps. Publish tools, webhooks, CRM models, agents, skills, and workflows — then run them on serverless (Lambda) or dedicated (Docker/ECS) compute.
 
-**Package:** `skedyul` · **Version:** 1.4.x · **Node:** 22+
+**Package:** `skedyul` · **Version:** 1.7.0-alpha.1.2 *(prerelease on PR branch)*
 
 ## What you can build
 
@@ -266,7 +266,16 @@ pnpm test     # Node test runner
 3. Add unit tests under `tests/` for new behavior
 4. Update docs in `docs/` when adding public APIs or CLI commands
 
-Open a PR with a clear summary for review.
+Open a PR against `master`. GitHub Actions will:
+
+- Fill or upgrade the PR description (plan-style template + classification label)
+- Sync README/docs via Copilot when public SDK surface changes
+- Assign a prerelease version like `1.7.0-alpha.{pr}.{sync}` and tag `v{version}` on the PR branch
+- Publish that prerelease to npm (`alpha` dist-tag). Pin it in an integration app while the feature is in development: `"skedyul": "1.7.0-alpha.42.1"`
+
+After merge, dispatch **Publish to NPM** from GitHub Actions when ready for a stable **`latest`** release. Copilot chooses patch vs minor (never major); other apps pin the new stable exact version.
+
+See [docs/README.md](./docs/README.md) for documentation structure.
 
 ## License
 
