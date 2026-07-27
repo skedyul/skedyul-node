@@ -358,6 +358,7 @@ export {
   ThreadContextItemSchema,
   ThreadInfoSchema,
   SandboxConfigSchema,
+  SandboxScenarioSchema,
   
   // Agent Context Schemas (unified for sandbox and production)
   SubscriptionSchema,
@@ -384,6 +385,11 @@ export {
   getContextByHandle,
   getContextByModel,
   getAssociationByModel,
+  LEGACY_DEFAULT_SANDBOX_SCENARIO_ID,
+  listSandboxScenarios,
+  listSandboxScenariosWithContext,
+  resolveDefaultSandboxScenarioId,
+  resolveSandboxScenarioContext,
 } from './context'
 
 export type {
@@ -393,6 +399,8 @@ export type {
   ThreadContextItem,
   ThreadInfo,
   SandboxConfig,
+  SandboxScenario,
+  SandboxScenarioListItem,
   
   // Agent Context Types (unified for sandbox and production)
   Subscription,

@@ -116,6 +116,49 @@ skedyul chat --agent booking --workplace <subdomain>
 
 See [CLI reference](./cli.md#agents-skedyul-agents).
 
+### Sandbox testing
+
+Enable sandbox on an agent version to exercise flows with mocked CRM data and tool responses (see skill `sandbox.mock`).
+
+```yaml
+sandbox:
+  enabled: true
+  defaultScenario: new_lead   # optional; first scenario if omitted
+  scenarios:
+    new_lead:
+      label: New lead
+      context:
+        sender:
+          kind: contact
+          displayName: Alex
+          contact:
+            id: contact_test
+            subscription:
+              channelHandle: sms
+            associations:
+              prospect:
+                id: prospect_1
+                data:
+                  stage: new
+    qualified:
+      label: Qualified prospect
+      context:
+        sender:
+          kind: contact
+          displayName: Alex
+          contact:
+            associations:
+              prospect:
+                data:
+                  stage: qualified
+```
+
+- **`scenarios`**: Named starting `AgentContext` payloads for quick iteration.
+- **`defaultScenario`**: Which scenario loads when you open Sandbox Chat.
+- **Legacy**: A single top-level `context` or `mockContext` still works and appears as one implicit **Default** scenario.
+
+In the Skedyul web app agent version editor, Sandbox Chat shows a **Starting scenario** dropdown when two or more scenarios are defined. Changing scenario clears the sandbox thread and resets mock context to that scenario’s starting state. Each message sends `sandboxScenarioId` so server-side context merge uses the selected scenario as the YAML base.
+
 ### Planned features (schema accepted, not yet runtime)
 
 The v3 schema accepts `events` and `memory` blocks, but these are **not yet implemented** at runtime. Use thread events and workflow bindings for event-driven behavior today.

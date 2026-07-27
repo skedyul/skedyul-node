@@ -211,6 +211,14 @@ export const MockContextSchema = AgentContextSchema
 /** @deprecated Use AgentContext instead */
 export type MockContext = AgentContext
 
+/** Named sandbox starting scenario (mock CRM / sender state) */
+export const SandboxScenarioSchema = z.object({
+  label: z.string().optional(),
+  context: AgentContextSchema,
+})
+
+export type SandboxScenario = z.infer<typeof SandboxScenarioSchema>
+
 /**
  * Sandbox configuration in agent YAML
  */
@@ -219,6 +227,10 @@ export const SandboxConfigSchema = z.object({
   /** @deprecated Use 'context' instead of 'mockContext' */
   mockContext: AgentContextSchema.optional(),
   context: AgentContextSchema.optional(),
+  /** Named starting scenarios for sandbox testing (web editor dropdown) */
+  scenarios: z.record(z.string(), SandboxScenarioSchema).optional(),
+  /** Scenario id to select by default; falls back to first scenario or legacy default */
+  defaultScenario: z.string().optional(),
 })
 
 export type SandboxConfig = z.infer<typeof SandboxConfigSchema>
