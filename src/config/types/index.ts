@@ -16,6 +16,9 @@ export * from './resource'
 // Models and fields
 export * from './model'
 
+// App entities (CRM map contracts)
+export * from './entity'
+
 // Channels
 export * from './channel'
 

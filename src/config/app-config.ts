@@ -11,6 +11,7 @@ import type {
   EnvSchema,
   ComputeLayer,
   ModelDefinition,
+  EntityDefinition,
   RelationshipDefinition,
   ChannelDefinition,
   WorkflowDefinition,
@@ -56,6 +57,11 @@ export interface ProvisionConfig {
   env?: EnvSchema
   /** INTERNAL model definitions (app-owned, not visible to users) */
   models?: ModelDefinition[]
+  /**
+   * App entity contracts for install-time CRM maps (not shared models).
+   * Workplaces map these to CRM; workflows apply maps via app-handle Liquid filters.
+   */
+  entities?: EntityDefinition[]
   /** Relationship definitions between INTERNAL models */
   relationships?: RelationshipDefinition[]
   /** Communication channel definitions */

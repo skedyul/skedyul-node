@@ -111,6 +111,7 @@ export default { z }
 export {
   defineConfig,
   defineModel,
+  defineEntity,
   defineChannel,
   definePage,
   defineWorkflow,

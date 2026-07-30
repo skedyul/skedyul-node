@@ -33,6 +33,7 @@ export { defineConfig } from './app-config'
 // Re-export define helpers for modular config files
 export {
   defineModel,
+  defineEntity,
   defineChannel,
   definePage,
   defineWorkflow,

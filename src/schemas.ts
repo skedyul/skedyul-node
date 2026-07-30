@@ -178,6 +178,54 @@ export const ModelDefinitionSchema = z.object({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// App Entity Schemas (CRM map contracts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const EntityFieldDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  type: z
+    .enum([
+      'string',
+      'long_string',
+      'number',
+      'boolean',
+      'date',
+      'datetime',
+      'object',
+    ])
+    .optional(),
+  matchCandidate: z.boolean().optional(),
+  required: z.boolean().optional(),
+  options: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({ value: z.string(), label: z.string() }),
+      ]),
+    )
+    .optional(),
+})
+
+export const EntityRelationshipDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  targetEntity: z.string().optional(),
+  description: z.string().optional(),
+})
+
+export const EntityDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  labelPlural: z.string().optional(),
+  description: z.string().optional(),
+  fields: z.array(EntityFieldDefinitionSchema),
+  contextFields: z.array(EntityFieldDefinitionSchema).optional(),
+  relationships: z.array(EntityRelationshipDefinitionSchema).optional(),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Relationship Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -937,6 +985,8 @@ export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
   /** INTERNAL model definitions (app-owned, not visible to users) */
   models: z.array(ModelDefinitionSchema).optional(),
+  /** App entity contracts for install-time CRM maps (not shared models) */
+  entities: z.array(EntityDefinitionSchema).optional(),
   /** Relationship definitions between INTERNAL models */
   relationships: z.array(RelationshipDefinitionSchema).optional(),
   channels: z.array(ChannelDefinitionSchema).optional(),
@@ -1007,6 +1057,11 @@ export type WorkflowDependency = z.infer<typeof WorkflowDependencySchema>
 export type ResourceDependency = z.infer<typeof ResourceDependencySchema>
 export type ModelFieldDefinition = z.infer<typeof ModelFieldDefinitionSchema>
 export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>
+export type EntityFieldDefinition = z.infer<typeof EntityFieldDefinitionSchema>
+export type EntityRelationshipDefinition = z.infer<
+  typeof EntityRelationshipDefinitionSchema
+>
+export type EntityDefinition = z.infer<typeof EntityDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
 export type ChannelFieldDefinition = z.infer<typeof ChannelFieldDefinitionSchema>

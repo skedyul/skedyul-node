@@ -164,6 +164,44 @@ const config: ProvisionConfig = {
 export default config
 ```
 
+### Entities (CRM map contracts)
+
+Declare external payload shapes that workplaces map to CRM at install time.
+Entities are **not** shared models — the app does not write CRM through them.
+Workflows apply maps with an app-handle Liquid filter:
+
+```liquid
+{{ inputs.data | bft: "format", "member" }}
+{{ "model_handle" | bft: "config", "member" }}
+```
+
+```ts
+// provision/entities/member.ts
+import { defineEntity } from 'skedyul'
+
+export default defineEntity({
+  handle: 'member',
+  label: 'Glofox Member',
+  fields: [
+    { handle: 'glofox_id', label: 'Glofox ID', matchCandidate: true, required: true },
+    { handle: 'first_name', label: 'First Name' },
+    { handle: 'email', label: 'Email' },
+  ],
+  contextFields: [
+    {
+      handle: 'membership_status',
+      label: 'Membership Status',
+      options: ['prospect', 'trial_member', 'member', 'inactive_member'],
+    },
+  ],
+})
+```
+
+```ts
+// provision/index.ts
+entities: [member, membership, booking, event],
+```
+
 ### Signals
 
 Signals subscribe workplaces to workflows when the app is installed:
