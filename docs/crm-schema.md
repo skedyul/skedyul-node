@@ -2,6 +2,8 @@
 
 Workplace-level CRM schemas define models, fields, and relationships for a workplace's data layer. This is separate from **app provision models** (`defineModel` in `skedyul.config.ts`) — CRM schemas are managed per workplace and support migrations.
 
+`skedyul crm push` / `pull` apply and export **models, fields, and relationships only**. Optional `pages` and `navigation` keys in schema JSON (if present) are ignored — presentation stays UI-managed and is not written by migrations.
+
 Use the SDK's `defineSchema` helper and the `skedyul crm` CLI commands.
 
 ## When to use which
@@ -151,7 +153,7 @@ const validation = validateCRMSchema(schema)
 skedyul crm push --schema ./gym.schema.ts --workplace demo-clinic
 ```
 
-Applies schema changes to the workplace. Destructive changes require migration approval unless `--yes` is passed.
+Applies model/field/relationship changes to the workplace. Pages and navigation are not modified. Destructive changes require migration approval unless `--yes` is passed.
 
 ```bash
 skedyul crm push --schema ./gym.schema.ts --workplace demo-clinic --dry-run
