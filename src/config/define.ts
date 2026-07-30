@@ -17,6 +17,7 @@
  */
 
 import type { ModelDefinition } from './types/model'
+import type { EntityDefinition } from './types/entity'
 import type { ChannelDefinition } from './types/channel'
 import type { PageDefinition } from './types/page'
 import type { WorkflowDefinition } from './types/workflow'
@@ -40,6 +41,31 @@ import type { NavigationConfig } from './types/navigation'
  */
 export function defineModel(model: ModelDefinition): ModelDefinition {
   return model
+}
+
+/**
+ * Define an app entity (CRM map contract) with full type safety.
+ *
+ * Entities describe external payload shapes that workplaces map to CRM at
+ * install time. They are not shared models — workflows apply maps via Liquid
+ * filters named after the app handle (e.g. `| bft: "format", "member"`).
+ *
+ * @example
+ * export default defineEntity({
+ *   handle: 'member',
+ *   label: 'Glofox Member',
+ *   fields: [
+ *     { handle: 'glofox_id', label: 'Glofox ID', matchCandidate: true, required: true },
+ *     { handle: 'first_name', label: 'First Name' },
+ *   ],
+ *   contextFields: [
+ *     { handle: 'membership_status', label: 'Membership Status',
+ *       options: ['prospect', 'trial_member', 'member', 'inactive_member'] },
+ *   ],
+ * })
+ */
+export function defineEntity(entity: EntityDefinition): EntityDefinition {
+  return entity
 }
 
 /**
