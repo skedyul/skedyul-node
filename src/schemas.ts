@@ -196,6 +196,8 @@ export const EntityFieldDefinitionSchema = z.object({
       'object',
     ])
     .optional(),
+  isUnique: z.boolean().optional(),
+  /** @deprecated Prefer isUnique */
   matchCandidate: z.boolean().optional(),
   required: z.boolean().optional(),
   options: z
