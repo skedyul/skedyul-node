@@ -19,6 +19,7 @@ import type {
   NavigationConfig,
   AgentDefinition,
   SignalDefinition,
+  SetupStepDefinition,
 } from './types'
 import type { AppEventDefinition } from './types/app-event'
 import type { QueueRegistry, SerializableQueueConfig } from './queue-config'
@@ -74,6 +75,11 @@ export interface ProvisionConfig {
   pages?: PageDefinition[]
   /** App signal definitions (event bus subscriptions created on install) */
   signals?: SignalDefinition[]
+  /**
+   * Install setup checklist steps (opt-in).
+   * Seeded as AppInstallSetupStep rows; exposed via setup.* Core API.
+   */
+  setup?: SetupStepDefinition[]
 }
 
 /**

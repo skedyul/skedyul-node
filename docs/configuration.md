@@ -202,6 +202,58 @@ export default defineEntity({
 entities: [member, membership, booking, event],
 ```
 
+### Setup steps (`provision.setup`)
+
+Optional install checklist. When declared, the platform seeds `AppInstallSetupStep`
+rows on each installation and exposes them via the `setup.*` Core API and the
+`InstallSetupPanel` UI.
+
+```ts
+// provision/setup.ts
+import { defineSetupStep } from 'skedyul'
+
+export default [
+  defineSetupStep({
+    handle: 'request_access',
+    label: 'Request Access',
+    kind: 'app',
+    capabilities: ['access.requested'],
+  }),
+  defineSetupStep({
+    handle: 'crm_members',
+    label: 'Setup Members',
+    kind: 'crm',
+    requires: ['request_access'],
+    entities: ['member'],
+    listenToCrm: true,
+    capabilities: ['crm.member'],
+  }),
+  defineSetupStep({
+    handle: 'realtime_events',
+    label: 'Setup Live updates',
+    kind: 'realtime',
+    requires: ['crm_members'],
+    workflowHandles: ['sync-member-from-webhook'],
+    capabilities: ['realtime.member'],
+  }),
+]
+```
+
+| Field | Description |
+|-------|-------------|
+| `handle` | Stable step id (unique per app) |
+| `label` / `description?` | UI copy |
+| `kind` | `app` \| `crm` \| `realtime` \| `env` |
+| `requires?` | Prerequisite step handles |
+| `entities?` | CRM entity handles (CRM steps) |
+| `workflowHandles?` | Bundled workflows (realtime steps) |
+| `envKeys?` | Env keys this step depends on |
+| `listenToCrm?` | Receive `install.setup.crm_changed` + `hooks.setup.revalidate` |
+| `listenToEnv?` | Receive `install.setup.env_changed` + `hooks.setup.revalidate` |
+| `capabilities?` | Keys unlocked when step status is `READY` |
+
+Apps without `provision.setup` keep the existing env / OAuth / default page path.
+
 ### Signals
 
 Signals subscribe workplaces to workflows when the app is installed:
@@ -689,7 +741,7 @@ export default definePage({
 | Type | Description |
 |------|-------------|
 | `card` | Card with optional header and form |
-| `model_mapper` | UI for mapping shared models |
+| `list` | List of CRM instances |
 
 ### Form Components
 

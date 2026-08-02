@@ -396,15 +396,6 @@ export interface ListBlock {
 }
 
 /**
- * Model mapper block definition - for mapping SHARED models to workspace models.
- */
-export interface ModelMapperBlock {
-  type: 'model_mapper'
-  /** The SHARED model handle from provision config */
-  model: string
-}
-
-/**
  * Union of all block types.
  */
-export type BlockDefinition = CardBlock | ListBlock | ModelMapperBlock
+export type BlockDefinition = CardBlock | ListBlock

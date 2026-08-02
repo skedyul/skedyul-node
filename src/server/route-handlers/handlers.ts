@@ -32,6 +32,7 @@ import {
   handleInstall,
   handleUninstall,
   handleProvision,
+  handleSetupRevalidate,
   handleOAuthCallback,
   parseWebhookRequest,
   executeWebhookHandler,
@@ -39,6 +40,7 @@ import {
   type InstallRequestBody,
   type UninstallRequestBody,
   type ProvisionRequestBody,
+  type SetupRevalidateRequestBody,
 } from '../handlers'
 
 /**
@@ -296,6 +298,22 @@ export async function handleProvisionRoute(
   }
 
   const result = await handleProvision(parseResult.data, ctx.config.hooks)
+  return { status: result.status, body: result.body }
+}
+
+/**
+ * Handle POST /setup/revalidate
+ */
+export async function handleSetupRevalidateRoute(
+  req: UnifiedRequest,
+  ctx: RouteContext,
+): Promise<UnifiedResponse> {
+  const parseResult = parseJsonBody<SetupRevalidateRequestBody>(req)
+  if (!parseResult.success) {
+    return parseResult.error
+  }
+
+  const result = await handleSetupRevalidate(parseResult.data, ctx.config.hooks)
   return { status: result.status, body: result.body }
 }
 

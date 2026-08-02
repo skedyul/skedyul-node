@@ -768,19 +768,11 @@ export const ListBlockDefinitionSchema = z.object({
   emptyMessage: z.string().optional(),
 })
 
-/** Model mapper block definition - for mapping SHARED models to workspace models */
-export const ModelMapperBlockDefinitionSchema = z.object({
-  type: z.literal('model_mapper'),
-  /** The SHARED model handle from install config (e.g., "client", "patient") */
-  model: z.string(),
-})
-
 /** Union of all block types */
 export const PageBlockDefinitionSchema = z.union([
   CardBlockDefinitionSchema,
   LegacyFormBlockDefinitionSchema,
   ListBlockDefinitionSchema,
-  ModelMapperBlockDefinitionSchema,
 ])
 
 /** Mode for context data fetching */
@@ -983,6 +975,22 @@ export const InstallConfigSchema = z.object({
 // Provision Config Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const SetupStepKindSchema = z.enum(['app', 'crm', 'realtime', 'env'])
+
+export const SetupStepDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  kind: SetupStepKindSchema,
+  requires: z.array(z.string()).optional(),
+  entities: z.array(z.string()).optional(),
+  workflowHandles: z.array(z.string()).optional(),
+  envKeys: z.array(z.string()).optional(),
+  listenToCrm: z.boolean().optional(),
+  listenToEnv: z.boolean().optional(),
+  capabilities: z.array(z.string()).optional(),
+})
+
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
   /** INTERNAL model definitions (app-owned, not visible to users) */
@@ -996,6 +1004,8 @@ export const ProvisionConfigSchema = z.object({
   /** Base navigation configuration for all pages (can be overridden per page) */
   navigation: NavigationConfigSchema.optional(),
   pages: z.array(PageDefinitionSchema).optional(),
+  /** Install setup checklist steps (opt-in) */
+  setup: z.array(SetupStepDefinitionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1074,6 +1084,8 @@ export type WebhookHandlerDefinition = z.infer<typeof WebhookHandlerDefinitionSc
 export type Webhooks = z.infer<typeof WebhooksSchema>
 export type InstallConfig = z.infer<typeof InstallConfigSchema>
 export type ProvisionConfig = z.infer<typeof ProvisionConfigSchema>
+export type SetupStepKind = z.infer<typeof SetupStepKindSchema>
+export type SetupStepDefinition = z.infer<typeof SetupStepDefinitionSchema>
 
 // FormV2 types
 export type FormV2StyleProps = z.infer<typeof FormV2StylePropsSchema>
@@ -1088,7 +1100,6 @@ export type CardBlockHeader = z.infer<typeof CardBlockHeaderSchema>
 export type CardBlockDefinition = z.infer<typeof CardBlockDefinitionSchema>
 export type LegacyFormBlockDefinition = z.infer<typeof LegacyFormBlockDefinitionSchema>
 export type ListBlockDefinition = z.infer<typeof ListBlockDefinitionSchema>
-export type ModelMapperBlockDefinition = z.infer<typeof ModelMapperBlockDefinitionSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Messaging Tool Schemas

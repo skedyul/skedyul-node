@@ -82,3 +82,30 @@ export interface ProvisionRequestBody {
     app: { id: string; versionId: string }
   }
 }
+
+/**
+ * Setup revalidate request body format.
+ */
+export interface SetupRevalidateRequestBody {
+  env?: Record<string, string>
+  invocation?: InvocationContext
+  reason: 'crm_changed' | 'env_changed'
+  steps: string[]
+  crm?: {
+    migrationId?: string
+    deletedModelIds?: string[]
+    deletedFieldIds?: string[]
+    createdModelIds?: string[]
+    updatedModelIds?: string[]
+    createdFieldIds?: string[]
+    updatedFieldIds?: string[]
+  }
+  envChange?: {
+    keys: string[]
+  }
+  context?: {
+    app: { id: string; versionId: string; handle: string; versionHandle: string }
+    appInstallationId: string
+    workplace: { id: string; subdomain: string }
+  }
+}

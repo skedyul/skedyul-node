@@ -9,6 +9,7 @@ export * from './types'
 export { handleInstall } from './install-handler'
 export { handleUninstall } from './uninstall-handler'
 export { handleProvision } from './provision-handler'
+export { handleSetupRevalidate } from './setup-revalidate-handler'
 export { handleOAuthCallback } from './oauth-callback-handler'
 export {
   parseWebhookRequest,

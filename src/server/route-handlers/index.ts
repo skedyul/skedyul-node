@@ -37,6 +37,7 @@ export {
   handleInstallRoute,
   handleUninstallRoute,
   handleProvisionRoute,
+  handleSetupRevalidateRoute,
   handleOAuthCallbackRoute,
   handleWebhookRoute,
   handleMcpRoute,

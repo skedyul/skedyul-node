@@ -14,6 +14,7 @@ import {
   handleInstallRoute,
   handleUninstallRoute,
   handleProvisionRoute,
+  handleSetupRevalidateRoute,
   handleOAuthCallbackRoute,
   handleWebhookRoute,
   handleMcpRoute,
@@ -66,6 +67,10 @@ export async function routeRequest(
 
     if (req.path === '/provision' && req.method === 'POST') {
       return handleProvisionRoute(req, ctx)
+    }
+
+    if (req.path === '/setup/revalidate' && req.method === 'POST') {
+      return handleSetupRevalidateRoute(req, ctx)
     }
 
     if (req.path === '/oauth_callback' && req.method === 'POST') {

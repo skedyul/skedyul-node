@@ -114,6 +114,47 @@ export type ProvisionHandler = (
 ) => Promise<ProvisionHandlerResult>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Setup Revalidate Handler Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SetupRevalidateReason = 'crm_changed' | 'env_changed'
+
+export interface SetupRevalidateContext {
+  env: Record<string, string>
+  workplace: WorkplaceInfo
+  appInstallationId: string
+  app: AppInfoWithHandles
+  reason: SetupRevalidateReason
+  /** Step handles that listen for this change */
+  steps: string[]
+  crm?: {
+    migrationId?: string
+    deletedModelIds?: string[]
+    deletedFieldIds?: string[]
+    createdModelIds?: string[]
+    updatedModelIds?: string[]
+    createdFieldIds?: string[]
+    updatedFieldIds?: string[]
+  }
+  envChange?: {
+    keys: string[]
+  }
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
+}
+
+export interface SetupRevalidateResult {
+  completed?: string[]
+  invalidated?: string[]
+}
+
+export type SetupRevalidateHandler = (
+  ctx: SetupRevalidateContext,
+) => Promise<SetupRevalidateResult | void>
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Server Hooks Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -137,6 +178,19 @@ type BaseServerHooks = {
         /** Timeout in milliseconds. Defaults to 60000 (1 minute) if not specified. */
         timeout?: number
       }
+  /**
+   * Setup revalidation after CRM migrations or env key removal.
+   * App should call setup.complete / setup.invalidate for listening steps.
+   */
+  setup?: {
+    revalidate?:
+      | SetupRevalidateHandler
+      | {
+          handler: SetupRevalidateHandler
+          /** Timeout in milliseconds. Defaults to 60000 (1 minute) if not specified. */
+          timeout?: number
+        }
+  }
 }
 
 /**

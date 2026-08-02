@@ -34,6 +34,9 @@ export * from './webhook'
 // Signals
 export * from './signal'
 
+// Install setup steps
+export * from './setup'
+
 // App events
 export * from './app-event'
 

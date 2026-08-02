@@ -41,6 +41,7 @@ export {
   ai,
   call,
   report,
+  setup,
   configure,
   getConfig,
   runWithConfig,
@@ -99,6 +100,10 @@ export type {
   ReportListItem,
   ReportListResult,
   ReportDefinition,
+  SetupStepStatus,
+  SetupStepKindApi,
+  SetupStepView,
+  SetupListResult,
 } from './core/client'
 // Context-aware logger
 export { createContextLogger } from './server/logger'
@@ -118,6 +123,7 @@ export {
   defineAgent,
   defineEnv,
   defineNavigation,
+  defineSetupStep,
   getAllEnvKeys,
   getRequiredInstallEnvKeys,
 } from './config'
@@ -555,8 +561,9 @@ export type {
   CardHeader,
   CardBlock,
   ListBlock,
-  ModelMapperBlock,
   BlockDefinition,
+  SetupStepDefinition,
+  SetupStepKind,
   // Page types
   PageType,
   PageDefinition,

@@ -98,6 +98,7 @@ Dedicated mode uses the MCP SDK `StreamableHTTPServerTransport` for streaming `t
 | `POST` | `/install` | Install lifecycle hook |
 | `POST` | `/uninstall` | Uninstall lifecycle hook |
 | `POST` | `/provision` | Provision lifecycle hook |
+| `POST` | `/setup/revalidate` | Setup revalidate lifecycle hook |
 | `POST` | `/oauth_callback` | OAuth callback hook |
 | `POST` | `/webhooks/{handle}` | Dynamic webhook handler |
 | `OPTIONS` | `*` | CORS preflight |

@@ -24,6 +24,7 @@ import type { WorkflowDefinition } from './types/workflow'
 import type { AgentDefinition } from './types/agent'
 import type { EnvSchema } from './types/env'
 import type { NavigationConfig } from './types/navigation'
+import type { SetupStepDefinition } from './types/setup'
 
 /**
  * Define a model with full type safety.
@@ -174,4 +175,22 @@ export function defineEnv(env: EnvSchema): EnvSchema {
  */
 export function defineNavigation(navigation: NavigationConfig): NavigationConfig {
   return navigation
+}
+
+/**
+ * Define an install setup step with full type safety.
+ *
+ * @example
+ * export default defineSetupStep({
+ *   handle: 'crm_members_bookings_events',
+ *   label: 'Setup Members, Bookings and Events',
+ *   kind: 'crm',
+ *   requires: ['access_granted'],
+ *   entities: ['member', 'booking', 'event'],
+ *   listenToCrm: true,
+ *   capabilities: ['crm.member', 'crm.booking', 'crm.event'],
+ * })
+ */
+export function defineSetupStep(step: SetupStepDefinition): SetupStepDefinition {
+  return step
 }

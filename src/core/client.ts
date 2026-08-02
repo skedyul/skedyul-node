@@ -2224,3 +2224,104 @@ export const report = {
     return data
   },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Install Setup API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SetupStepStatus =
+  | 'PENDING'
+  | 'READY'
+  | 'SKIPPED'
+  | 'INVALIDATED'
+  | 'BLOCKED'
+
+export type SetupStepKindApi = 'APP' | 'CRM' | 'REALTIME' | 'ENV'
+
+export type SetupStepView = {
+  id: string
+  handle: string
+  kind: SetupStepKindApi
+  status: SetupStepStatus
+  sortOrder: number
+  label: string
+  description: string | null
+  requires: string[]
+  config: {
+    entities?: string[]
+    workflowHandles?: string[]
+    envKeys?: string[]
+    listenToCrm?: boolean
+    listenToEnv?: boolean
+    capabilities?: string[]
+  }
+  completedAt: string | null
+  skippedAt: string | null
+  invalidatedAt: string | null
+  metadata: Record<string, unknown> | null
+}
+
+export type SetupListResult = {
+  steps: SetupStepView[]
+  capabilities: Record<string, boolean>
+}
+
+/**
+ * Install setup checklist API (requires sk_wkp_ token).
+ */
+export const setup = {
+  async list(): Promise<SetupListResult> {
+    const { data } = await callCore<SetupListResult>('setup.list', {})
+    return data
+  },
+
+  async get(handle: string): Promise<SetupStepView | null> {
+    const { data } = await callCore<SetupStepView | null>('setup.get', {
+      handle,
+    })
+    return data
+  },
+
+  async complete(
+    handle: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<SetupStepView> {
+    const { data } = await callCore<SetupStepView>('setup.complete', {
+      handle,
+      ...(metadata ? { metadata } : {}),
+    })
+    return data
+  },
+
+  async skip(
+    handle: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<SetupStepView> {
+    const { data } = await callCore<SetupStepView>('setup.skip', {
+      handle,
+      ...(metadata ? { metadata } : {}),
+    })
+    return data
+  },
+
+  async invalidate(
+    handle: string,
+    reason?: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<SetupStepView> {
+    const { data } = await callCore<SetupStepView>('setup.invalidate', {
+      handle,
+      ...(reason ? { reason } : {}),
+      ...(metadata ? { metadata } : {}),
+    })
+    return data
+  },
+
+  async capabilities(): Promise<Record<string, boolean>> {
+    const { data } = await callCore<{ capabilities: Record<string, boolean> }>(
+      'setup.capabilities',
+      {},
+    )
+    return data.capabilities
+  },
+}

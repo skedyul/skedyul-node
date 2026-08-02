@@ -10,6 +10,7 @@ Lifecycle hooks allow your app to execute code at key moments: when users instal
 | `oauth_callback` | OAuth provider redirects | Exchange auth code for tokens |
 | `provision` | App version deployed | Setup version-level resources |
 | `uninstall` | User uninstalls app | Cleanup external resources |
+| `setup.revalidate` | CRM migration applied or install env key removed | Re-evaluate listening setup steps (`setup.complete` / `setup.invalidate`) |
 
 ## Defining Hooks
 
@@ -32,6 +33,7 @@ const mcpServer = server.create({
     oauth_callback: oauthCallbackHandler,
     provision: provisionHandler,
     uninstall: uninstallHandler,
+    setup: { revalidate: setupRevalidateHandler },
   },
 })
 ```
@@ -488,6 +490,78 @@ const mcpServer = server.create({
 
 export const handler = mcpServer.handler
 ```
+
+---
+
+## Setup Revalidate Handler
+
+Called when the platform notifies an installation that CRM schema or install env keys changed, for steps that declared `listenToCrm` / `listenToEnv` in `provision.setup`.
+
+The platform does **not** decide step validity. Your handler should inspect CRM maps / env and call `setup.complete(handle)` or `setup.invalidate(handle, reason)`.
+
+### Handler Signature
+
+```ts
+type SetupRevalidateHandler = (
+  ctx: SetupRevalidateContext,
+) => Promise<SetupRevalidateResult | void>
+
+interface SetupRevalidateContext {
+  env: Record<string, string>
+  workplace: { id: string; subdomain: string }
+  appInstallationId: string
+  app: {
+    id: string
+    versionId: string
+    handle: string
+    versionHandle: string
+  }
+  reason: 'crm_changed' | 'env_changed'
+  steps: string[] // listening step handles
+  crm?: {
+    migrationId?: string
+    deletedModelIds?: string[]
+    deletedFieldIds?: string[]
+    createdModelIds?: string[]
+    updatedModelIds?: string[]
+    createdFieldIds?: string[]
+    updatedFieldIds?: string[]
+  }
+  envChange?: { keys: string[] }
+}
+
+interface SetupRevalidateResult {
+  completed?: string[]
+  invalidated?: string[]
+}
+```
+
+### Example
+
+```ts
+import { setup, type SetupRevalidateHandler } from 'skedyul'
+
+export const setupRevalidateHandler: SetupRevalidateHandler = async (ctx) => {
+  const completed: string[] = []
+  const invalidated: string[] = []
+
+  for (const handle of ctx.steps) {
+    // Evaluate CRM maps / env for this step…
+    const ok = true
+    if (ok) {
+      await setup.complete(handle)
+      completed.push(handle)
+    } else {
+      await setup.invalidate(handle, 'CRM connection incomplete')
+      invalidated.push(handle)
+    }
+  }
+
+  return { completed, invalidated }
+}
+```
+
+Register under `hooks.setup.revalidate`. The platform invokes `POST /setup/revalidate`.
 
 ---
 

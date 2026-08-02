@@ -772,6 +772,57 @@ List and retrieve report definitions and generated reports.
 
 ---
 
+## setup
+
+Install-scoped setup checklist (requires a workplace token `sk_wkp_`). Steps are
+seeded from `provision.setup`.
+
+### setup.list()
+
+```ts
+import { setup } from 'skedyul'
+
+const { steps, capabilities } = await setup.list()
+// capabilities is a map of capability → boolean from READY steps
+```
+
+### setup.get(handle)
+
+```ts
+const step = await setup.get('crm_members')
+```
+
+### setup.complete(handle, metadata?)
+
+Mark a step `READY` (clears invalidation).
+
+```ts
+await setup.complete('request_access')
+```
+
+### setup.skip(handle, metadata?)
+
+Mark a step `SKIPPED`.
+
+### setup.invalidate(handle, reason?, metadata?)
+
+Mark a step `INVALIDATED` after CRM/env breakage.
+
+```ts
+await setup.invalidate('crm_members', 'Required entity map incomplete')
+```
+
+### setup.capabilities()
+
+```ts
+const caps = await setup.capabilities()
+if (caps['realtime.member']) {
+  // live updates unlocked
+}
+```
+
+---
+
 ## Error Handling
 
 All client methods throw errors on failure:

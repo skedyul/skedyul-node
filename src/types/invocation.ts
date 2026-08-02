@@ -10,7 +10,12 @@ export type InvocationType = 'tool_call' | 'server_hook' | 'workflow_step' | 'we
 /**
  * Server hook handles for lifecycle events
  */
-export type ServerHookHandle = 'provision' | 'install' | 'uninstall' | 'oauth_callback'
+export type ServerHookHandle =
+  | 'provision'
+  | 'install'
+  | 'uninstall'
+  | 'oauth_callback'
+  | 'setup.revalidate'
 
 /**
  * Context for tracking how an executable was invoked.
@@ -29,7 +34,7 @@ export interface InvocationContext {
   toolHandle?: string
 
   // Server hook context
-  /** Hook type: "provision", "install", "uninstall", "oauth_callback" */
+  /** Hook type: "provision", "install", "uninstall", "oauth_callback", "setup.revalidate" */
   serverHookHandle?: ServerHookHandle
 
   // App installation context

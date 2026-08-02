@@ -40,6 +40,7 @@ export {
   defineAgent,
   defineEnv,
   defineNavigation,
+  defineSetupStep,
 } from './define'
 
 // Re-export schema loader utilities (for CRM migrations)
