@@ -56,9 +56,25 @@ export interface NavigationBreadcrumb {
 }
 
 /**
+ * Optional Liquid context for base navigation (model lookups).
+ * Setup capabilities are always injected by the platform as `capabilities`.
+ */
+export type NavigationContextDefinition = Record<
+  string,
+  {
+    model: string
+    mode?: 'first' | 'list' | 'count'
+    filters?: Record<string, Record<string, unknown>>
+    limit?: number
+  }
+>
+
+/**
  * Full navigation configuration.
  */
 export interface NavigationConfig {
+  /** Optional model context for Liquid in sidebar items (e.g. studio) */
+  context?: NavigationContextDefinition
   /** Sidebar navigation */
   sidebar?: NavigationSidebar
   /** Breadcrumb navigation */
