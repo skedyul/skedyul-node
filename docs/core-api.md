@@ -812,6 +812,16 @@ Mark a step `INVALIDATED` after CRM/env breakage.
 await setup.invalidate('crm_members', 'Required entity map incomplete')
 ```
 
+### setup.reconcile()
+
+Refresh inferred setup step statuses for the current installation. This marks
+eligible steps `READY` when the app has created access records, an active studio,
+or configured CRM maps for all entities required by a CRM step.
+
+```ts
+const { completed } = await setup.reconcile()
+```
+
 ### setup.capabilities()
 
 ```ts

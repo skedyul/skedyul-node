@@ -27,7 +27,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 | Doc | What it covers |
 |-----|----------------|
 | [Authentication](./authentication.md) | Token types (`sk_app_*`, `sk_wkp_*`, `sk_prv_*`), `configure`, `runWithConfig` |
-| [Core API](./core-api.md) | `workplace`, `communicationChannel`, `instance`, `token`, `file`, `webhook`, `cron`, `event`, `ai`, `call`, `report` |
+| [Core API](./core-api.md) | `workplace`, `communicationChannel`, `instance`, `token`, `file`, `webhook`, `cron`, `event`, `ai`, `call`, `report`, `setup` |
 | [Errors](./errors.md) | `InstallError` hierarchy, `AppAuthInvalidError` |
 
 ### Agents & automation

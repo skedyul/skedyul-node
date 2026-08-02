@@ -104,6 +104,7 @@ export type {
   SetupStepKindApi,
   SetupStepView,
   SetupListResult,
+  SetupReconcileResult,
 } from './core/client'
 // Context-aware logger
 export { createContextLogger } from './server/logger'

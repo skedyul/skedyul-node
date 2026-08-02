@@ -2266,6 +2266,10 @@ export type SetupListResult = {
   capabilities: Record<string, boolean>
 }
 
+export type SetupReconcileResult = {
+  completed: number
+}
+
 /**
  * Install setup checklist API (requires sk_wkp_ token).
  */
@@ -2314,6 +2318,14 @@ export const setup = {
       ...(reason ? { reason } : {}),
       ...(metadata ? { metadata } : {}),
     })
+    return data
+  },
+
+  async reconcile(): Promise<SetupReconcileResult> {
+    const { data } = await callCore<SetupReconcileResult>(
+      'setup.reconcile',
+      {},
+    )
     return data
   },
 
