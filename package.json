@@ -73,7 +73,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && pnpm exec tsup-node",
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc --emitDeclarationOnly && pnpm exec tsup-node && node -e \"require('fs').mkdirSync('dist',{recursive:true}); require('fs').writeFileSync('dist/.build-stamp', String(Date.now()))\"",
     "db:generate": "echo 'No database generation needed for this package'",
     "dev": "npx nodemon --watch src --ext js,ts --exec \"pnpm run build\"",
     "test": "tsc --project tsconfig.tests.json && node --test dist-tests/tests/server.test.js dist-tests/tests/cli.test.js dist-tests/tests/agent-schema-v3.test.js dist-tests/tests/ratelimit.test.js dist-tests/tests/sequencer.test.js dist-tests/tests/config-loader.test.js dist-tests/tests/gsm7.test.js"
