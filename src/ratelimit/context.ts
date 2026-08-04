@@ -38,7 +38,7 @@ export function getActiveQueuedOperationStack(): ActiveQueuedOperation<unknown>[
   return activeOperationStackStorage.getStore() ?? []
 }
 
-/** Active mutex queue names holding a lease in an outer queuedFetch. */
+/** Active mutex queue names holding a lease in an outer queuedFetch or platform-held. */
 export function getActiveMutexQueueNames(): string[] {
   const names = new Set<string>()
 
@@ -49,6 +49,15 @@ export function getActiveMutexQueueNames(): string[] {
     const config = getQueueConfigWithRetry(operation.resolved.name)
     if (config?.mutex === true) {
       names.add(operation.resolved.name)
+    }
+  }
+
+  const held = getRateLimitExecutionContext()?.heldMutexQueueKeys
+  if (held?.length) {
+    for (const entry of held) {
+      if (entry.queueName) {
+        names.add(entry.queueName)
+      }
     }
   }
 

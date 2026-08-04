@@ -54,7 +54,7 @@ Optional `endpoint` overrides auto-detection from `invocation.toolHandle` or `in
 
 | Field | Description |
 |-------|-------------|
-| `maxConcurrent` | Max in-flight operations |
+| `maxConcurrent` | Max in-flight operations (Redis rate-limit queues) |
 | `minTime` | Minimum ms between operation starts |
 | `reservoir` | Token bucket capacity |
 | `reservoirRefreshAmount` | Tokens added each refresh |
@@ -62,6 +62,18 @@ Optional `endpoint` overrides auto-detection from `invocation.toolHandle` or `in
 | `maxRetries` | SDK-level retries via `requeue()` |
 | `retryDelayMs` | Delay before retry |
 | `timeout` | Acquire + execution timeout (ms) |
+| `mutex` | When `true`, this queue is a **correctness mutex** owned by a Temporal coordinator around the whole tool call (not a Redis lock acquired inside the Lambda) |
+| `mutexOnly` (on `queueTouchPoints`) | Touch point is mutex-only — excluded from Redis probe/lease; Temporal owns it |
+| `suppressesQueues` | While this mutex is held (including platform-held via `SKEDYUL_HELD_MUTEX_QUEUE_KEYS`), nested `queuedFetch` for listed queues skips acquire |
 | `shouldRetry` | `(error, attempt) => boolean` (config file only, not serialized) |
 
-Platform proxy coordinates slots via Redis; your code runs the Promise locally after acquiring a slot.
+### Ownership
+
+| Queue kind | Coordinator | App Lambda |
+|------------|-------------|------------|
+| `mutex: true` / `mutexOnly: true` | Temporal `queueMutexCoordinator` | Skips acquire when `SKEDYUL_HELD_MUTEX_QUEUE_KEYS` lists the key |
+| Throughput / rate-limit queues | Redis via Temporal worker activities | Skips acquire when `SKEDYUL_RATE_LIMIT_LEASES` lists the key |
+
+Platform holds mutexes and Redis leases for the **entire tool invocation**. Optional `queuedFetch` around a critical section remains valid for docs/clarity and is a no-op skip when the platform already holds the key.
+
+Redis rate-limit slots are acquired by workers (`SKEDYUL_REDIS_URL`); your code runs the Promise locally after the platform has admitted the call.

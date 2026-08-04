@@ -47,6 +47,35 @@ export function parsePreAcquiredLeases(
   }
 }
 
+export function parseHeldMutexQueueKeys(
+  raw: string | undefined,
+): Array<{ queueKey: string; queueName: string }> | undefined {
+  if (!raw) {
+    return undefined
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) {
+      return undefined
+    }
+    const keys = parsed
+      .filter(
+        (item): item is { queueKey: string; queueName: string } =>
+          item != null &&
+          typeof item === 'object' &&
+          typeof (item as { queueKey?: unknown }).queueKey === 'string' &&
+          typeof (item as { queueName?: unknown }).queueName === 'string',
+      )
+      .map((item) => ({
+        queueKey: item.queueKey,
+        queueName: item.queueName,
+      }))
+    return keys.length > 0 ? keys : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Builds tool metadata array from a tool registry
  */
@@ -247,6 +276,9 @@ export function createCallToolHandler<T extends ToolRegistry>(
         invocation,
         isProvisionContext: trigger === 'provision',
         preAcquiredLeases: parsePreAcquiredLeases(toolEnv.SKEDYUL_RATE_LIMIT_LEASES),
+        heldMutexQueueKeys: parseHeldMutexQueueKeys(
+          toolEnv.SKEDYUL_HELD_MUTEX_QUEUE_KEYS,
+        ),
       }
 
       // Call handler with two arguments: (input, context)

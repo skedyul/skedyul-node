@@ -13,7 +13,10 @@ import {
 import { registerQueueConfig, clearRegisteredQueueConfig } from '../src/ratelimit/config-loader.js'
 import { queuedFetch, requeue } from '../src/ratelimit/queued-fetch.js'
 import { RequeueOutsideContextError, RateLimitExceededError, QueuedFetchExhaustedError } from '../src/ratelimit/errors.js'
-import { parsePreAcquiredLeases } from '../src/server/tool-handler.js'
+import {
+  parseHeldMutexQueueKeys,
+  parsePreAcquiredLeases,
+} from '../src/server/tool-handler.js'
 
 const baseCtx: RateLimitExecutionContext = {
   app: { id: 'app_1', versionId: 'av_1' },
@@ -443,5 +446,98 @@ describe('parsePreAcquiredLeases', () => {
     assert.equal(parsePreAcquiredLeases(undefined), undefined)
     assert.equal(parsePreAcquiredLeases('not-json'), undefined)
     assert.equal(parsePreAcquiredLeases('{"queueKey":"x"}'), undefined)
+  })
+})
+
+describe('held mutex queue keys', () => {
+  it('parses SKEDYUL_HELD_MUTEX_QUEUE_KEYS JSON env payload', () => {
+    const keys = parseHeldMutexQueueKeys(
+      JSON.stringify([
+        { queueKey: 'rl:in:ai_1:q_mutex:abc', queueName: 'q_mutex' },
+      ]),
+    )
+
+    assert.deepEqual(keys, [
+      { queueKey: 'rl:in:ai_1:q_mutex:abc', queueName: 'q_mutex' },
+    ])
+  })
+
+  it('skips acquire when platform holds the mutex key', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Test',
+      queues: {
+        q_mutex: { scope: 'install', maxConcurrent: 1, mutex: true },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const queueKey = resolveQueueKey('q_mutex', cfg('install'), baseCtx)
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    const ctx: RateLimitExecutionContext = {
+      ...baseCtx,
+      heldMutexQueueKeys: [{ queueKey, queueName: 'q_mutex' }],
+    }
+
+    const result = await runWithRateLimitExecutionContext(ctx, () =>
+      queuedFetch('q_mutex', async () => 'held-mutex'),
+    )
+
+    assert.equal(result, 'held-mutex')
+    assert.deepEqual(acquireCalls, [])
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
+  })
+
+  it('honors suppressesQueues while platform-held mutex names are active', async () => {
+    resetRateLimitBackendForTests()
+    clearRegisteredQueueConfig()
+    registerQueueConfig({
+      name: 'Test',
+      queues: {
+        q_mutex: {
+          scope: 'install',
+          maxConcurrent: 1,
+          mutex: true,
+          suppressesQueues: ['q_api'],
+        },
+        q_api: { scope: 'install', maxConcurrent: 1 },
+      },
+    })
+
+    process.env.SKEDYUL_RATE_LIMIT_MEMORY = 'true'
+
+    const mutexKey = resolveQueueKey('q_mutex', cfg('install'), baseCtx)
+    const acquireCalls: string[] = []
+    const originalAcquire = memoryRateLimitBackend.acquire.bind(memoryRateLimitBackend)
+
+    memoryRateLimitBackend.acquire = async (...args) => {
+      acquireCalls.push(args[0] as string)
+      return originalAcquire(...args)
+    }
+
+    const ctx: RateLimitExecutionContext = {
+      ...baseCtx,
+      heldMutexQueueKeys: [{ queueKey: mutexKey, queueName: 'q_mutex' }],
+    }
+
+    await runWithRateLimitExecutionContext(ctx, () =>
+      queuedFetch('q_api', async () => 'suppressed'),
+    )
+
+    assert.deepEqual(acquireCalls, [])
+
+    memoryRateLimitBackend.acquire = originalAcquire
+    delete process.env.SKEDYUL_RATE_LIMIT_MEMORY
   })
 })

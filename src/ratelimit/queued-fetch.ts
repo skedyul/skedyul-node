@@ -94,6 +94,15 @@ function findPreAcquiredLease(
   return ctx?.preAcquiredLeases?.find((lease) => lease.queueKey === queueKey)
 }
 
+function isHeldMutexQueueKey(
+  queueKey: string,
+  ctx?: RateLimitExecutionContext,
+): boolean {
+  return Boolean(
+    ctx?.heldMutexQueueKeys?.some((entry) => entry.queueKey === queueKey),
+  )
+}
+
 function shouldRethrowRateLimitCause(
   maxRetries: number,
   error: unknown,
@@ -126,12 +135,17 @@ async function executeWithRetries<T>(
     operation.resolved.queueKey,
     rateLimitCtx,
   )
+  const heldByPlatform = isHeldMutexQueueKey(
+    operation.resolved.queueKey,
+    rateLimitCtx,
+  )
 
   if (shouldSkipNestedAcquire(operation.resolved.name)) {
     return operation.fn()
   }
 
-  if (preAcquired) {
+  // Platform already holds this mutex / Redis lease for the whole tool call.
+  if (preAcquired || heldByPlatform) {
     try {
       return await operation.fn()
     } catch (error) {

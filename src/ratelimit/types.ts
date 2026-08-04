@@ -2,6 +2,11 @@ import type { SerializableQueueConfig } from '../config/queue-config'
 import type { AppInfo } from '../types/shared'
 import type { InvocationContext } from '../types/invocation'
 
+export interface HeldMutexQueueKey {
+  queueKey: string
+  queueName: string
+}
+
 export interface RateLimitExecutionContext {
   app: AppInfo
   appInstallationId?: string
@@ -9,6 +14,12 @@ export interface RateLimitExecutionContext {
   isProvisionContext?: boolean
   /** Leases acquired by workflow orchestration — queuedFetch skips acquire/release for matching keys */
   preAcquiredLeases?: Array<{ queueKey: string; leaseId: string }>
+  /**
+   * Mutex queue keys held by platform Temporal orchestration for this tool call.
+   * queuedFetch skips acquire/release for matching keys; queue names count as active mutexes
+   * for suppressesQueues.
+   */
+  heldMutexQueueKeys?: HeldMutexQueueKey[]
 }
 
 export interface QueueSelector {
