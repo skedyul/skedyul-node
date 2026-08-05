@@ -365,6 +365,50 @@ import {
 } from 'skedyul/scheduling'
 ```
 
+### `calculateWaitTime` relative `from`
+
+Relative mode accepts an optional `from` (ISO datetime or `Date`) as the base for the delay instead of wall-clock `now`. Use this to chain cadence messages so each step is relative to the previous message’s `scheduledAt`:
+
+```ts
+const msg4 = calculateWaitTime(
+  {
+    mode: 'relative',
+    amount: 32,
+    unit: 'hours',
+    windows: [{ days: ['monday' /* … */], startTime: 12, endTime: 20, timezone: 'Australia/Melbourne' }],
+  },
+  workflowStart,
+)
+
+const msg5 = calculateWaitTime(
+  {
+    mode: 'relative',
+    amount: 28,
+    unit: 'hours',
+    from: msg4.scheduledAt, // gap after msg4, not after workflow start
+    windows: [{ days: ['monday' /* … */], startTime: 14, endTime: 20, timezone: 'Australia/Melbourne' }],
+  },
+  workflowStart,
+)
+```
+
+`waitTime` is always milliseconds from wall-clock `now` until `scheduledAt` (for Temporal sleeps). Without `from`, relative delays use `now` as the base (cumulative-from-start cadences).
+
+In workflow YAML, `skedyul/threads` `message.send` schedule input supports the same field:
+
+```yaml
+schedule:
+  mode: relative
+  unit: hours
+  amount: 28
+  from: "{{ steps.cadence-message-4.outputs.response.scheduledAt }}"
+  windows:
+    - days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+      startTime: 14
+      endTime: 20
+      timezone: Australia/Melbourne
+```
+
 Agent v3 `timeWindows` define named policies referenced in `behavior.scheduling`. Re-exported Zod schemas: `TimeWindowBehaviorSchema`, `TimeWindowPoliciesSchema`.
 
 ---

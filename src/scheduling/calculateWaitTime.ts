@@ -155,8 +155,10 @@ function getLocalDateKey(date: Date, timezone: string): string {
 
 /**
  * Calculate the wait time for a wait step
- * @param step The input parameters for the wait step
- * @param now The current date/time
+ * @param step The input parameters for the wait step. Relative mode may include
+ *   optional `from` (ISO datetime / Date) as the base for the delay instead of `now`.
+ * @param now Wall-clock current date/time. Used as the default relative base and
+ *   always used to compute `waitTime` (ms until `scheduledAt`).
  * @returns The time to wait in milliseconds and the scheduled date
  */
 export function calculateWaitTime(
@@ -180,11 +182,17 @@ export function calculateWaitTime(
     }
 
     case 'relative': {
-      // If no arguments provided, execute immediately
+      // Base for the relative offset: optional `from` (prior scheduledAt) or wall-clock now.
+      // `waitTime` is always measured from wall-clock `now` for Temporal sleeps.
+      const baseTime =
+        step.from != null ? new Date(step.from).getTime() : nowTime
+      const baseDate = new Date(baseTime)
+
+      // If no arguments provided, execute at the base time (usually immediately)
       if (!step.amount && (!step.windows || step.windows.length === 0)) {
         return {
-          waitTime: 0,
-          scheduledAt: now,
+          waitTime: Math.max(0, baseTime - nowTime),
+          scheduledAt: baseDate,
         }
       }
 
@@ -227,30 +235,31 @@ export function calculateWaitTime(
         }
       }
 
-      // If no windows specified, just return the relative delay
+      // If no windows specified, just return the relative delay from base
       if (!step.windows || step.windows.length === 0) {
+        const scheduledAt = new Date(baseTime + relativeDelay)
         return {
-          waitTime: relativeDelay,
-          scheduledAt: new Date(nowTime + relativeDelay),
+          waitTime: Math.max(0, scheduledAt.getTime() - nowTime),
+          scheduledAt,
         }
       }
 
-      // Check if the target time (now + relative delay) falls within ANY window
-      const targetDate = new Date(nowTime + relativeDelay)
+      // Check if the target time (base + relative delay) falls within ANY window
+      const targetDate = new Date(baseTime + relativeDelay)
 
       // Check if target time falls within any window
       for (const window of step.windows) {
         if (isTimeInWindowSlot(targetDate, window)) {
-          // Target is already in an allowed window, use relative delay
+          // Target is already in an allowed window
           return {
-            waitTime: relativeDelay,
-            scheduledAt: new Date(nowTime + relativeDelay),
+            waitTime: Math.max(0, targetDate.getTime() - nowTime),
+            scheduledAt: targetDate,
           }
         }
       }
 
       // Target time doesn't fall in any window, find the next available window.
-      // Same local day as `now`: preserve relativeDelay past window start (cadence spacing).
+      // Same local day as base: preserve relativeDelay past window start (cadence spacing).
       // Future day: snap target into the next window only — do not add relativeDelay again.
       let earliestScheduledTime: Date | null = null
       let earliestWaitFromNow = Infinity
@@ -288,7 +297,7 @@ export function calculateWaitTime(
 
         let msUntilWindowStart: number
 
-        // Check if we can schedule for today
+        // Check if we can schedule for today (relative to target's local day)
         if (
           allowedDays.includes(currentDay) &&
           currentTotalMinutes < windowStartMinutes
@@ -324,9 +333,9 @@ export function calculateWaitTime(
         }
 
         const windowStartTimeMs = targetDate.getTime() + msUntilWindowStart
-        const sameLocalDayAsNow =
-          getLocalDateKey(now, tz) === getLocalDateKey(targetDate, tz)
-        const windowScheduledTime = sameLocalDayAsNow
+        const sameLocalDayAsBase =
+          getLocalDateKey(baseDate, tz) === getLocalDateKey(targetDate, tz)
+        const windowScheduledTime = sameLocalDayAsBase
           ? new Date(windowStartTimeMs + relativeDelay)
           : new Date(windowStartTimeMs)
         const waitFromNow = windowScheduledTime.getTime() - nowTime

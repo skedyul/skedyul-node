@@ -71,6 +71,13 @@ export interface WaitInputRelative {
   amount: number
   unit: WaitUnit
   windows?: TimeWindowSlot[]
+  /**
+   * Optional ISO datetime (or Date) to use as the base for the relative delay
+   * instead of wall-clock `now`. Used for cadence chaining: schedule message N
+   * relative to message N-1's `scheduledAt`.
+   * `waitTime` in the result is still measured from wall-clock `now`.
+   */
+  from?: string | Date
 }
 
 export interface WaitInputAbsolute {

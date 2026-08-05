@@ -84,6 +84,17 @@ export const WaitInputRelativeSchema = z.object({
   amount: z.number(),
   unit: WaitUnitSchema,
   windows: z.array(TimeWindowSlotSchema).optional(),
+  /**
+   * Optional ISO datetime to use as the base for the relative delay instead of
+   * wall-clock `now`. Used for cadence chaining (schedule relative to a prior
+   * message's scheduledAt). `waitTime` is still measured from wall-clock `now`.
+   */
+  from: z
+    .union([z.string(), z.date()])
+    .optional()
+    .describe(
+      'ISO datetime base for the relative delay (e.g. previous message scheduledAt)',
+    ),
 })
 
 export const WaitInputAbsoluteSchema = z.object({
