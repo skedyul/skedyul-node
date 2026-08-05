@@ -746,6 +746,152 @@ export async function handleMcpBatchRoute(
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Batch Operation Route Handler
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface BatchOperationSetupRequest {
+  method: 'setup'
+  handle: string
+  workplaceId: string
+  appInstallationId: string
+  appId: string
+  input?: Record<string, unknown>
+}
+
+interface BatchOperationIterateRequest {
+  method: 'iterate'
+  handle: string
+  workplaceId: string
+  appInstallationId: string
+  appId: string
+  input?: Record<string, unknown>
+  state?: Record<string, unknown>
+  page?: number
+  cursor?: string | number
+  limit: number
+}
+
+type BatchOperationRequest = BatchOperationSetupRequest | BatchOperationIterateRequest
+
+/**
+ * Handle /batch-operation route for invoking batch operation setup/iterate.
+ */
+export async function handleBatchOperationRoute(
+  req: UnifiedRequest,
+  ctx: RouteContext,
+): Promise<UnifiedResponse> {
+  const bodyResult = parseJsonBody<BatchOperationRequest>(req)
+  if (!bodyResult.success) {
+    return bodyResult.error
+  }
+
+  const body = bodyResult.data
+  const registry = ctx.batchOperationRegistry
+
+  if (!registry) {
+    return {
+      status: 404,
+      body: {
+        success: false,
+        error: 'No batch operations registered',
+      },
+    }
+  }
+
+  const operation = registry[body.handle]
+  if (!operation) {
+    return {
+      status: 404,
+      body: {
+        success: false,
+        error: `Batch operation not found: ${body.handle}`,
+      },
+    }
+  }
+
+  const log = {
+    info: (message: string, meta?: Record<string, unknown>) => {
+      console.log(`[batch:${body.handle}] ${message}`, meta ?? '')
+    },
+    warn: (message: string, meta?: Record<string, unknown>) => {
+      console.warn(`[batch:${body.handle}] ${message}`, meta ?? '')
+    },
+    error: (message: string, meta?: Record<string, unknown>) => {
+      console.error(`[batch:${body.handle}] ${message}`, meta ?? '')
+    },
+  }
+
+  try {
+    if (body.method === 'setup') {
+      if (!operation.setup) {
+        return {
+          status: 200,
+          body: {
+            success: true,
+            result: { state: {}, total: undefined },
+          },
+        }
+      }
+
+      const result = await operation.setup({
+        workplaceId: body.workplaceId,
+        appInstallationId: body.appInstallationId,
+        appId: body.appId,
+        input: body.input,
+        log,
+      })
+
+      return {
+        status: 200,
+        body: {
+          success: true,
+          result,
+        },
+      }
+    }
+
+    if (body.method === 'iterate') {
+      const result = await operation.iterate({
+        workplaceId: body.workplaceId,
+        appInstallationId: body.appInstallationId,
+        appId: body.appId,
+        input: body.input,
+        state: body.state,
+        page: body.page,
+        cursor: body.cursor,
+        limit: body.limit,
+        log,
+      })
+
+      return {
+        status: 200,
+        body: {
+          success: true,
+          result,
+        },
+      }
+    }
+
+    return {
+      status: 400,
+      body: {
+        success: false,
+        error: `Unknown method: ${(body as Record<string, unknown>).method}`,
+      },
+    }
+  } catch (err) {
+    log.error('Batch operation failed', { error: err })
+    return {
+      status: 500,
+      body: {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    }
+  }
+}
+
 /**
  * Create a 404 Not Found response in JSON-RPC format.
  */

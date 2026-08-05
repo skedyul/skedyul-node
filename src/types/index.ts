@@ -193,3 +193,11 @@ export type {
   DateTimeBlock,
 } from './data-blocks'
 
+// Batch operation types
+export type {
+  BatchOperationContext,
+  BatchOperationRegistryEntry,
+  BatchOperationRegistry,
+  BatchOperationMetadata,
+} from './batch-operation'
+

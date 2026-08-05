@@ -51,3 +51,6 @@ export * from './form'
 
 // Pages
 export * from './page'
+
+// Batch operations
+export * from './batch-operation'

@@ -30,6 +30,7 @@ export function createServerlessInstance(
   const defaultHeaders = getDefaultHeaders(config.cors)
   const registry = config.tools
   const webhookRegistry = config.webhooks
+  const batchOperationRegistry = config.batchOperations
 
   let hasLoggedStartup = false
 
@@ -38,6 +39,7 @@ export function createServerlessInstance(
     tools,
     registry,
     webhookRegistry,
+    batchOperationRegistry,
     callTool,
     state,
     mcpServer,

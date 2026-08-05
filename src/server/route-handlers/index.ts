@@ -41,6 +41,7 @@ export {
   handleOAuthCallbackRoute,
   handleWebhookRoute,
   handleMcpRoute,
+  handleBatchOperationRoute,
   createNotFoundResponse,
   createOptionsResponse,
   createErrorResponse,

@@ -7,6 +7,7 @@ import type {
   SkedyulServerInstance,
   ToolRegistry,
   WebhookRegistry,
+  BatchOperationRegistry,
 } from '../types'
 import type { SkedyulConfig } from '../config/app-config'
 import { coreApiService } from '../core/service'
@@ -64,9 +65,10 @@ export type { UnifiedRequest, UnifiedResponse, RouteContext } from './route-hand
  * Runtime config type - SkedyulConfig with resolved registries (not promises).
  * This is what server.create() expects at runtime.
  */
-export type RuntimeSkedyulConfig = Omit<SkedyulConfig, 'tools' | 'webhooks'> & {
+export type RuntimeSkedyulConfig = Omit<SkedyulConfig, 'tools' | 'webhooks' | 'batchOperations'> & {
   tools: ToolRegistry
   webhooks?: WebhookRegistry
+  batchOperations?: BatchOperationRegistry
 }
 
 // Overload signatures for proper type inference based on computeLayer

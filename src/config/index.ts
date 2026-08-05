@@ -41,6 +41,7 @@ export {
   defineEnv,
   defineNavigation,
   defineSetupStep,
+  defineBatchOperation,
 } from './define'
 
 // Re-export schema loader utilities (for CRM migrations)

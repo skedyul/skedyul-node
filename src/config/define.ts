@@ -25,6 +25,7 @@ import type { AgentDefinition } from './types/agent'
 import type { EnvSchema } from './types/env'
 import type { NavigationConfig } from './types/navigation'
 import type { SetupStepDefinition } from './types/setup'
+import type { BatchOperationDefinition } from './types/batch-operation'
 
 /**
  * Define a model with full type safety.
@@ -193,4 +194,42 @@ export function defineNavigation(navigation: NavigationConfig): NavigationConfig
  */
 export function defineSetupStep(step: SetupStepDefinition): SetupStepDefinition {
   return step
+}
+
+/**
+ * Define a batch operation with full type safety.
+ *
+ * Batch operations are long-running, paginated tasks like imports and syncs.
+ * The platform handles orchestration, progress tracking, CRM mapping, and upsert.
+ *
+ * @example
+ * export default defineBatchOperation({
+ *   handle: 'import_members',
+ *   label: 'Import Members',
+ *   entity: 'member',
+ *   setup: async (ctx) => {
+ *     const count = await glofox.getMemberCount()
+ *     return { total: count }
+ *   },
+ *   iterate: async (ctx) => {
+ *     const { data, pagination } = await glofox.getMembers({
+ *       limit: ctx.limit,
+ *       offset: ctx.cursor ?? 0,
+ *     })
+ *     return {
+ *       items: data,
+ *       pagination: {
+ *         hasMore: pagination.hasMore,
+ *         nextCursor: pagination.offset + pagination.limit,
+ *       }
+ *     }
+ *   },
+ *   maxConcurrent: 1,
+ *   pageSize: 50,
+ * })
+ */
+export function defineBatchOperation(
+  operation: BatchOperationDefinition,
+): BatchOperationDefinition {
+  return operation
 }
