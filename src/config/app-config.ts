@@ -4,7 +4,7 @@
  * This module defines the main configuration interfaces for Skedyul apps.
  */
 
-import type { ToolRegistry, WebhookRegistry, ToolMetadata, WebhookMetadata } from '../types'
+import type { ToolRegistry, WebhookRegistry, ToolMetadata, WebhookMetadata, BatchOperationRegistry } from '../types'
 import type { ServerHooks } from '../types/handlers'
 import type { CoreApiConfig } from '../core/types'
 import type {
@@ -138,6 +138,8 @@ export interface SkedyulConfig {
   tools?: ToolRegistry | Promise<{ toolRegistry: ToolRegistry }>
   /** Webhook registry - direct object or dynamic import */
   webhooks?: WebhookRegistry | Promise<{ webhookRegistry: WebhookRegistry }>
+  /** Batch operation registry - direct object or dynamic import */
+  batchOperations?: BatchOperationRegistry | Promise<{ batchOperationRegistry: BatchOperationRegistry }>
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Lifecycle Hooks

@@ -125,6 +125,7 @@ export {
   defineEnv,
   defineNavigation,
   defineSetupStep,
+  defineBatchOperation,
   getAllEnvKeys,
   getRequiredInstallEnvKeys,
 } from './config'

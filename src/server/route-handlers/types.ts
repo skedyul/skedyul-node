@@ -12,6 +12,7 @@ import type {
   ToolMetadata,
   ToolRegistry,
   WebhookRegistry,
+  BatchOperationRegistry,
   InvocationContext,
 } from '../../types'
 import type { RuntimeSkedyulConfig } from '../index'
@@ -54,6 +55,7 @@ export interface RouteContext {
   tools: ToolMetadata[]
   registry: ToolRegistry
   webhookRegistry?: WebhookRegistry
+  batchOperationRegistry?: BatchOperationRegistry
   callTool: CallToolFn
   state: RequestState
   mcpServer: McpServer

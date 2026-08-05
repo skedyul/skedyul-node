@@ -991,6 +991,35 @@ export const SetupStepDefinitionSchema = z.object({
   capabilities: z.array(z.string()).optional(),
 })
 
+export const BatchPaginationSchema = z.object({
+  hasMore: z.boolean(),
+  page: z.number().int().optional(),
+  total: z.number().int().optional(),
+  nextCursor: z.union([z.string(), z.number()]).optional(),
+  limit: z.number().int().positive().optional(),
+})
+
+export const BatchOperationSetupResultSchema = z.object({
+  state: z.record(z.string(), z.unknown()).optional(),
+  total: z.number().int().nonnegative().optional(),
+})
+
+export const BatchOperationIterateResultSchema = z.object({
+  items: z.array(z.record(z.string(), z.unknown())),
+  pagination: BatchPaginationSchema,
+  state: z.record(z.string(), z.unknown()).optional(),
+})
+
+export const BatchOperationDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  entity: z.string(),
+  maxConcurrent: z.number().int().positive().optional(),
+  pageSize: z.number().int().positive().optional(),
+  icon: z.string().optional(),
+})
+
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
   /** INTERNAL model definitions (app-owned, not visible to users) */
@@ -1006,6 +1035,8 @@ export const ProvisionConfigSchema = z.object({
   pages: z.array(PageDefinitionSchema).optional(),
   /** Install setup checklist steps (opt-in) */
   setup: z.array(SetupStepDefinitionSchema).optional(),
+  /** Batch operations for imports, syncs, and long-running tasks */
+  batchOperations: z.array(BatchOperationDefinitionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1086,6 +1117,16 @@ export type InstallConfig = z.infer<typeof InstallConfigSchema>
 export type ProvisionConfig = z.infer<typeof ProvisionConfigSchema>
 export type SetupStepKind = z.infer<typeof SetupStepKindSchema>
 export type SetupStepDefinition = z.infer<typeof SetupStepDefinitionSchema>
+export type BatchPagination = z.infer<typeof BatchPaginationSchema>
+export type BatchOperationSetupResult = z.infer<
+  typeof BatchOperationSetupResultSchema
+>
+export type BatchOperationIterateResult = z.infer<
+  typeof BatchOperationIterateResultSchema
+>
+export type BatchOperationDefinition = z.infer<
+  typeof BatchOperationDefinitionSchema
+>
 
 // FormV2 types
 export type FormV2StyleProps = z.infer<typeof FormV2StylePropsSchema>

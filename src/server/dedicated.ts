@@ -86,12 +86,14 @@ export function createDedicatedServerInstance(
   const defaultHeaders = getDefaultHeaders(config.cors)
   const registry = config.tools
   const webhookRegistry = config.webhooks
+  const batchOperationRegistry = config.batchOperations
 
   const ctx: RouteContext = {
     config,
     tools,
     registry,
     webhookRegistry,
+    batchOperationRegistry,
     callTool,
     state,
     mcpServer,
