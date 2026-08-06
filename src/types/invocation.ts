@@ -5,7 +5,12 @@
 /**
  * Type of invocation that triggered the executable
  */
-export type InvocationType = 'tool_call' | 'server_hook' | 'workflow_step' | 'webhook'
+export type InvocationType =
+  | 'tool_call'
+  | 'server_hook'
+  | 'workflow_step'
+  | 'webhook'
+  | 'batch_operation'
 
 /**
  * Server hook handles for lifecycle events
@@ -32,6 +37,12 @@ export interface InvocationContext {
   toolCallId?: string
   /** The tool's handle for searching (e.g., "get_customers") */
   toolHandle?: string
+
+  // Batch operation context
+  /** Batch operation handle (for batch_operation invocations) */
+  batchOperationHandle?: string
+  /** setup | iterate */
+  batchOperationMethod?: 'setup' | 'iterate'
 
   // Server hook context
   /** Hook type: "provision", "install", "uninstall", "oauth_callback", "setup.revalidate" */
@@ -127,5 +138,27 @@ export function createWorkflowStepContext(params: {
     workflowVersionId: params.workflowVersionId,
     workflowRunId: params.workflowRunId,
     workflowStepId: params.workflowStepId,
+  }
+}
+
+/**
+ * Create an invocation context for a batch operation setup/iterate call
+ */
+export function createBatchOperationContext(params: {
+  invocationId: string
+  batchOperationHandle: string
+  batchOperationMethod: 'setup' | 'iterate'
+  appInstallationId?: string
+  workflowId?: string
+  workflowRunId?: string
+}): InvocationContext {
+  return {
+    invocationId: params.invocationId,
+    invocationType: 'batch_operation',
+    batchOperationHandle: params.batchOperationHandle,
+    batchOperationMethod: params.batchOperationMethod,
+    appInstallationId: params.appInstallationId,
+    workflowId: params.workflowId,
+    workflowRunId: params.workflowRunId,
   }
 }

@@ -6,6 +6,13 @@
  * orchestration, progress tracking, CRM mapping, and upsert.
  */
 
+import type { InvocationContext } from '../../types/invocation'
+import type { ToolBilling, ToolError, ToolRetry } from '../../types/tool'
+import type { AppInfo, WorkplaceInfo } from '../../types/shared'
+
+// Re-export tool types used on batch envelopes for convenience
+export type { ToolBilling, ToolError, ToolRetry }
+
 /**
  * Pagination response from an iterate function.
  * Supports both cursor-based and page-based pagination.
@@ -24,6 +31,16 @@ export interface BatchPagination {
 }
 
 /**
+ * Soft-failure return from setup/iterate (tool-call shaped).
+ */
+export interface BatchOperationFailure {
+  success: false
+  error: ToolError
+  retry?: ToolRetry
+  billing?: ToolBilling
+}
+
+/**
  * Result from a batch operation setup function.
  */
 export interface BatchOperationSetupResult {
@@ -31,6 +48,10 @@ export interface BatchOperationSetupResult {
   state?: Record<string, unknown>
   /** Optional total count for progress display */
   total?: number
+  /** Optional billing (normalized by the route if omitted) */
+  billing?: ToolBilling
+  /** Optional success discriminator (default true when domain fields present) */
+  success?: true
 }
 
 /**
@@ -43,7 +64,19 @@ export interface BatchOperationIterateResult {
   pagination: BatchPagination
   /** Optional state to persist for the next iterate call */
   state?: Record<string, unknown>
+  /** Optional billing (normalized by the route if omitted) */
+  billing?: ToolBilling
+  /** Optional success discriminator (default true when domain fields present) */
+  success?: true
 }
+
+export type BatchOperationSetupReturn =
+  | BatchOperationSetupResult
+  | BatchOperationFailure
+
+export type BatchOperationIterateReturn =
+  | BatchOperationIterateResult
+  | BatchOperationFailure
 
 /**
  * Context passed to batch operation setup and iterate functions.
@@ -55,15 +88,21 @@ export interface BatchOperationContext {
   appInstallationId: string
   /** App ID */
   appId: string
+  /** App info with version (for rate-limit / SDK context) */
+  app?: AppInfo
+  /** Workplace info when available */
+  workplace?: WorkplaceInfo
   /** User-provided input (if any) */
   input?: Record<string, unknown>
   /** State from previous setup or iterate call */
   state?: Record<string, unknown>
   /**
-   * Runtime environment variables from the platform invoke
-   * (APP_INSTALL overrides + SKEDYUL_API_TOKEN / SKEDYUL_API_URL).
+   * Merged environment (process.env + baked MCP_ENV + request env),
+   * same layering as tool handlers via buildToolExecutionEnv.
    */
   env: Record<string, string>
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
   /** Logger instance */
   log: {
     info: (message: string, meta?: Record<string, unknown>) => void
@@ -77,7 +116,7 @@ export interface BatchOperationContext {
  */
 export type BatchOperationSetupFn = (
   ctx: BatchOperationContext,
-) => Promise<BatchOperationSetupResult>
+) => Promise<BatchOperationSetupReturn>
 
 /**
  * Type for batch operation iterate function.
@@ -91,7 +130,7 @@ export type BatchOperationIterateFn = (
     /** Items per page */
     limit: number
   },
-) => Promise<BatchOperationIterateResult>
+) => Promise<BatchOperationIterateReturn>
 
 /**
  * Batch operation definition.

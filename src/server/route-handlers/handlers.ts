@@ -21,9 +21,21 @@ import type {
 import { parseJsonBody, parseJsonRpcBody, getHeader, parseBodyByContentType } from './adapters'
 import { coreApiService } from '../../core/service'
 import { runWithConfig } from '../../core/client'
+import { runWithRateLimitExecutionContext } from '../../ratelimit/context'
+import { RateLimitExceededError } from '../../ratelimit/errors'
 import { handleCoreMethod } from '../core-api-handler'
 import { serializeConfig } from '../config-serializer'
-import { getZodSchema } from '../utils/schema'
+import { getZodSchema, normalizeBilling } from '../utils/schema'
+import { buildToolExecutionEnv } from '../utils/env'
+import { runWithLogContext } from '../context-logger'
+import { createContextLogger } from '../logger'
+import { parsePreAcquiredLeases, parseHeldMutexQueueKeys } from '../tool-handler'
+import type {
+  BatchOperationFailure,
+  BatchOperationIterateResult,
+  BatchOperationSetupResult,
+} from '../../config/types/batch-operation'
+import type { ToolBilling, ToolError, ToolRetry } from '../../types/tool'
 import {
   serializeMcpContentText,
   isToolCallFailure,
@@ -755,6 +767,8 @@ interface BatchOperationContextBody {
   workplaceId: string
   appInstallationId: string
   appId: string
+  app?: { id: string; versionId: string }
+  workplace?: { id: string; subdomain: string }
 }
 
 interface BatchOperationSetupRequest {
@@ -763,6 +777,7 @@ interface BatchOperationSetupRequest {
   env?: Record<string, string>
   context: BatchOperationContextBody
   input?: Record<string, unknown>
+  invocation?: InvocationContext
 }
 
 interface BatchOperationIterateRequest {
@@ -775,15 +790,69 @@ interface BatchOperationIterateRequest {
   page?: number
   cursor?: string | number
   limit: number
+  invocation?: InvocationContext
 }
 
 type BatchOperationRequest = BatchOperationSetupRequest | BatchOperationIterateRequest
 
+function isBatchOperationFailure(
+  result: unknown,
+): result is BatchOperationFailure {
+  return (
+    result != null &&
+    typeof result === 'object' &&
+    (result as { success?: unknown }).success === false &&
+    typeof (result as { error?: unknown }).error === 'object' &&
+    (result as { error?: unknown }).error != null
+  )
+}
+
+function toStringEnv(
+  env: Record<string, string | undefined>,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined) {
+      out[key] = value
+    }
+  }
+  return out
+}
+
+function stripBillingFields<T extends Record<string, unknown>>(
+  result: T,
+): Omit<T, 'billing' | 'success' | 'error' | 'retry'> {
+  const {
+    billing: _billing,
+    success: _success,
+    error: _error,
+    retry: _retry,
+    ...domain
+  } = result
+  return domain
+}
+
+function softFailureResponse(
+  error: ToolError,
+  retry?: ToolRetry,
+  billing?: ToolBilling,
+): UnifiedResponse {
+  return {
+    status: 200,
+    body: {
+      success: false,
+      error,
+      ...(retry ? { retry } : {}),
+      billing: normalizeBilling(billing),
+    },
+  }
+}
+
 /**
  * Handle /batch-operation route for invoking batch operation setup/iterate.
  *
- * Mirrors tool/install handlers: platform passes env + context in the body;
- * we wrap handlers in runWithConfig so SDK clients (instance.*, etc.) work.
+ * Mirrors tool handlers: buildToolExecutionEnv, process.env assign/restore,
+ * runWithConfig + rate-limit + log ALS wrappers, tool-shaped billing/error envelope.
  */
 export async function handleBatchOperationRoute(
   req: UnifiedRequest,
@@ -798,24 +867,20 @@ export async function handleBatchOperationRoute(
   const registry = ctx.batchOperationRegistry
 
   if (!registry) {
-    return {
-      status: 404,
-      body: {
-        success: false,
-        error: 'No batch operations registered',
-      },
-    }
+    return softFailureResponse({
+      code: 'NOT_FOUND',
+      message: 'No batch operations registered',
+      category: 'validation',
+    })
   }
 
   const operation = registry[body.handle]
   if (!operation) {
-    return {
-      status: 404,
-      body: {
-        success: false,
-        error: `Batch operation not found: ${body.handle}`,
-      },
-    }
+    return softFailureResponse({
+      code: 'NOT_FOUND',
+      message: `Batch operation not found: ${body.handle}`,
+      category: 'validation',
+    })
   }
 
   const context = body.context
@@ -824,32 +889,72 @@ export async function handleBatchOperationRoute(
     !context?.appInstallationId ||
     !context?.appId
   ) {
-    return {
-      status: 400,
-      body: {
-        success: false,
-        error:
-          'Missing context (workplaceId, appInstallationId, and appId required)',
-      },
-    }
+    return softFailureResponse({
+      code: 'VALIDATION_ERROR',
+      message:
+        'Missing context (workplaceId, appInstallationId, and appId required)',
+      category: 'validation',
+    })
   }
 
-  const env = body.env ?? {}
-  const log = {
-    info: (message: string, meta?: Record<string, unknown>) => {
-      console.log(`[batch:${body.handle}] ${message}`, meta ?? '')
-    },
-    warn: (message: string, meta?: Record<string, unknown>) => {
-      console.warn(`[batch:${body.handle}] ${message}`, meta ?? '')
-    },
-    error: (message: string, meta?: Record<string, unknown>) => {
-      console.error(`[batch:${body.handle}] ${message}`, meta ?? '')
-    },
+  if (body.method !== 'setup' && body.method !== 'iterate') {
+    return softFailureResponse({
+      code: 'VALIDATION_ERROR',
+      message: `Unknown method: ${(body as Record<string, unknown>).method}`,
+      category: 'validation',
+    })
+  }
+
+  const requestEnv = (body.env ?? {}) as Record<string, string | undefined>
+  const mergedEnv = toStringEnv(buildToolExecutionEnv(requestEnv))
+  const originalEnv = { ...process.env }
+  Object.assign(process.env, mergedEnv)
+
+  const log = createContextLogger()
+  const app = context.app ?? {
+    id: context.appId,
+    versionId: context.appId,
+  }
+  const workplace = context.workplace ?? {
+    id: context.workplaceId,
+    subdomain: '',
+  }
+
+  const invocation: InvocationContext = body.invocation ?? {
+    invocationId: `${body.handle}-${body.method}-${Date.now()}`,
+    invocationType: 'batch_operation',
+    batchOperationHandle: body.handle,
+    batchOperationMethod: body.method,
+    appInstallationId: context.appInstallationId,
   }
 
   const requestConfig = {
-    baseUrl: env.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
-    apiToken: env.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+    baseUrl: mergedEnv.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+    apiToken: mergedEnv.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
+  }
+
+  const rateLimitContext = {
+    app,
+    appInstallationId: context.appInstallationId,
+    invocation,
+    preAcquiredLeases: parsePreAcquiredLeases(
+      mergedEnv.SKEDYUL_RATE_LIMIT_LEASES,
+    ),
+    heldMutexQueueKeys: parseHeldMutexQueueKeys(
+      mergedEnv.SKEDYUL_HELD_MUTEX_QUEUE_KEYS,
+    ),
+  }
+
+  const opContextBase = {
+    workplaceId: context.workplaceId,
+    appInstallationId: context.appInstallationId,
+    appId: context.appId,
+    app,
+    workplace,
+    input: body.input,
+    env: mergedEnv,
+    invocation,
+    log,
   }
 
   try {
@@ -860,71 +965,95 @@ export async function handleBatchOperationRoute(
           body: {
             success: true,
             result: { state: {}, total: undefined },
+            billing: normalizeBilling(undefined),
           },
         }
       }
 
-      const result = await runWithConfig(requestConfig, async () => {
-        return operation.setup!({
-          workplaceId: context.workplaceId,
-          appInstallationId: context.appInstallationId,
-          appId: context.appId,
-          input: body.input,
-          env,
-          log,
+      const raw = await runWithConfig(requestConfig, async () => {
+        return runWithRateLimitExecutionContext(rateLimitContext, async () => {
+          return runWithLogContext({ invocation }, async () => {
+            return operation.setup!(opContextBase)
+          })
         })
       })
 
+      if (isBatchOperationFailure(raw)) {
+        return softFailureResponse(raw.error, raw.retry, raw.billing)
+      }
+
+      const setupResult = raw as BatchOperationSetupResult
+      const domain = stripBillingFields(
+        setupResult as BatchOperationSetupResult & Record<string, unknown>,
+      )
       return {
         status: 200,
         body: {
           success: true,
-          result,
+          result: domain,
+          billing: normalizeBilling(setupResult.billing),
         },
       }
     }
 
-    if (body.method === 'iterate') {
-      const result = await runWithConfig(requestConfig, async () => {
-        return operation.iterate({
-          workplaceId: context.workplaceId,
-          appInstallationId: context.appInstallationId,
-          appId: context.appId,
-          input: body.input,
-          state: body.state,
-          page: body.page,
-          cursor: body.cursor,
-          limit: body.limit,
-          env,
-          log,
+    // iterate
+    const raw = await runWithConfig(requestConfig, async () => {
+      return runWithRateLimitExecutionContext(rateLimitContext, async () => {
+        return runWithLogContext({ invocation }, async () => {
+          return operation.iterate({
+            ...opContextBase,
+            state: body.state,
+            page: body.page,
+            cursor: body.cursor,
+            limit: body.limit,
+          })
         })
       })
+    })
 
-      return {
-        status: 200,
-        body: {
-          success: true,
-          result,
-        },
-      }
+    if (isBatchOperationFailure(raw)) {
+      return softFailureResponse(raw.error, raw.retry, raw.billing)
     }
 
+    const iterateResult = raw as BatchOperationIterateResult
+    const domain = stripBillingFields(
+      iterateResult as BatchOperationIterateResult & Record<string, unknown>,
+    )
     return {
-      status: 400,
+      status: 200,
       body: {
-        success: false,
-        error: `Unknown method: ${(body as Record<string, unknown>).method}`,
+        success: true,
+        result: domain,
+        billing: normalizeBilling(iterateResult.billing),
       },
     }
   } catch (err) {
-    log.error('Batch operation failed', { error: err })
+    if (err instanceof RateLimitExceededError) {
+      return softFailureResponse(
+        {
+          code: 'RATE_LIMITED',
+          message: err.message,
+          category: 'external',
+        },
+        { allowed: true, afterMs: err.retryAfterMs },
+      )
+    }
+
+    log.error('Batch operation failed', err)
     return {
       status: 500,
       body: {
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: err instanceof Error ? err.message : String(err),
+          category: 'internal',
+        } satisfies ToolError,
+        billing: normalizeBilling(undefined),
       },
     }
+  } finally {
+    process.env = originalEnv
   }
 }
 

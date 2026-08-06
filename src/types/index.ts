@@ -19,6 +19,7 @@ export {
   createServerHookContext,
   createWebhookContext,
   createWorkflowStepContext,
+  createBatchOperationContext,
 } from './invocation'
 
 // Tool context types

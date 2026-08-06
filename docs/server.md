@@ -114,19 +114,55 @@ Dedicated mode uses the MCP SDK `StreamableHTTPServerTransport` for streaming `t
   "handle": "import_members",
   "env": {
     "SKEDYUL_API_TOKEN": "sk_wkp_...",
-    "SKEDYUL_API_URL": "https://...",
-    "GLOFOX_API_KEY": "..."
+    "SKEDYUL_API_URL": "https://..."
   },
   "context": {
     "workplaceId": "wp_...",
     "appInstallationId": "inst_...",
-    "appId": "app_..."
+    "appId": "app_...",
+    "app": { "id": "app_...", "versionId": "ver_..." },
+    "workplace": { "id": "wp_...", "subdomain": "acme" }
+  },
+  "invocation": {
+    "invocationId": "...",
+    "invocationType": "batch_operation",
+    "batchOperationHandle": "import_members",
+    "batchOperationMethod": "setup"
   },
   "input": {}
 }
 ```
 
-For `method: "iterate"`, also pass `state`, `page` / `cursor`, and `limit`. Handlers run inside `runWithConfig` so `instance.*` and other SDK clients use the workplace token from `env`. The operation context includes `env` for app-specific secrets (for example Glofox keys).
+For `method: "iterate"`, also pass `state`, `page` / `cursor`, and `limit`.
+
+Runtime matches tool handlers:
+
+- Env is merged with `buildToolExecutionEnv` (process.env + baked `MCP_ENV` + request env)
+- Handlers run inside `runWithConfig` → `runWithRateLimitExecutionContext` → `runWithLogContext`
+- `ctx.env` includes provision secrets from the baked executable env (for example Glofox keys)
+
+**Success response:**
+
+```json
+{
+  "success": true,
+  "result": { "state": {}, "total": 100 },
+  "billing": { "credits": 0 }
+}
+```
+
+**Soft failure (HTTP 200, tool-shaped — e.g. rate limits):**
+
+```json
+{
+  "success": false,
+  "error": { "code": "RATE_LIMITED", "message": "...", "category": "external" },
+  "retry": { "allowed": true, "afterMs": 5000 },
+  "billing": { "credits": 0 }
+}
+```
+
+Setup/iterate may return domain-only fields (billing defaults to `{ credits: 0 }`) or an explicit `{ success: false, error, retry?, billing? }` failure.
 
 ### MCP protocol
 
