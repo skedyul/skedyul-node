@@ -212,7 +212,9 @@ export function defineSetupStep(step: SetupStepDefinition): SetupStepDefinition 
  *     return { total: count }
  *   },
  *   iterate: async (ctx) => {
+ *     const apiKey = ctx.env.GLOFOX_API_KEY
  *     const { data, pagination } = await glofox.getMembers({
+ *       apiKey,
  *       limit: ctx.limit,
  *       offset: ctx.cursor ?? 0,
  *     })
