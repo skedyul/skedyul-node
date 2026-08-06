@@ -1004,8 +1004,18 @@ export const BatchOperationSetupResultSchema = z.object({
   total: z.number().int().nonnegative().optional(),
 })
 
+export const BatchCascadePhaseSchema = z.object({
+  entity: z.string(),
+  order: z.number().int(),
+  wave: z.enum(['setup', 'page']),
+  requires: z.array(z.string()).optional(),
+})
+
 export const BatchOperationIterateResultSchema = z.object({
   items: z.array(z.record(z.string(), z.unknown())),
+  itemsByEntity: z
+    .record(z.string(), z.array(z.record(z.string(), z.unknown())))
+    .optional(),
   pagination: BatchPaginationSchema,
   state: z.record(z.string(), z.unknown()).optional(),
 })
@@ -1015,6 +1025,7 @@ export const BatchOperationDefinitionSchema = z.object({
   label: z.string(),
   description: z.string().optional(),
   entity: z.string(),
+  cascade: z.array(BatchCascadePhaseSchema).optional(),
   maxConcurrent: z.number().int().positive().optional(),
   pageSize: z.number().int().positive().optional(),
   icon: z.string().optional(),

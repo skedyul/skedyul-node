@@ -48,6 +48,11 @@ export interface BatchOperationSetupResult {
   state?: Record<string, unknown>
   /** Optional total count for progress display */
   total?: number
+  /**
+   * Cascade phases (usually injected from the operation definition by the
+   * route handler so the platform workflow can resolve map-gated targets).
+   */
+  cascade?: BatchCascadePhase[]
   /** Optional billing (normalized by the route if omitted) */
   billing?: ToolBilling
   /** Optional success discriminator (default true when domain fields present) */
@@ -55,11 +60,38 @@ export interface BatchOperationSetupResult {
 }
 
 /**
+ * Cascade phase for multi-entity batch imports.
+ * Platform upserts configured entities in `order` within each wave.
+ */
+export interface BatchCascadePhase {
+  /** App entity handle to upsert */
+  entity: string
+  /** Lower runs first within the same wave */
+  order: number
+  /** setup = once (typically first iterate); page = every iterate page */
+  wave: 'setup' | 'page'
+  /**
+   * Other cascade entities that must also be CRM-configured for this phase
+   * to run (e.g. plan requires package).
+   */
+  requires?: string[]
+}
+
+/**
  * Result from a batch operation iterate function.
  */
 export interface BatchOperationIterateResult {
-  /** Array of raw items from the external source */
+  /**
+   * Array of raw items for the primary `entity`.
+   * Prefer `itemsByEntity` for cascade imports; when both are set, platform
+   * uses `itemsByEntity` and falls back to `items` for the primary entity.
+   */
   items: Record<string, unknown>[]
+  /**
+   * Multi-entity items keyed by entity handle (cascade imports).
+   * Platform upserts each configured entity in cascade order.
+   */
+  itemsByEntity?: Record<string, Record<string, unknown>[]>
   /** Pagination info for fetching more pages */
   pagination: BatchPagination
   /** Optional state to persist for the next iterate call */
@@ -103,6 +135,12 @@ export interface BatchOperationContext {
   env: Record<string, string>
   /** Invocation context for log traceability */
   invocation?: InvocationContext
+  /**
+   * Entity handles whose CRM maps are configured for this job's cascade.
+   * Platform injects this on iterate so apps can skip expensive fetches
+   * (e.g. per-member credits) when that entity is not mapped.
+   */
+  cascadeEntities?: string[]
   /** Logger instance */
   log: {
     info: (message: string, meta?: Record<string, unknown>) => void
@@ -171,10 +209,15 @@ export interface BatchOperationDefinition {
   /** Description of what this operation does */
   description?: string
   /**
-   * Entity handle that items will be upserted to.
+   * Primary entity handle (progress + start gate).
    * The platform applies CRM mappings and calls upsertMany.
    */
   entity: string
+  /**
+   * Optional multi-entity cascade. When set, iterate may return
+   * `itemsByEntity` and the platform upserts map-configured phases in order.
+   */
+  cascade?: BatchCascadePhase[]
   /**
    * Setup function called once at the start of the operation.
    * Use to initialize state, fetch total count, etc.

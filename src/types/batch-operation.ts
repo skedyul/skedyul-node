@@ -5,12 +5,16 @@
  */
 
 import type {
+  BatchCascadePhase,
   BatchOperationContext,
   BatchOperationSetupFn,
   BatchOperationIterateFn,
 } from '../config/types/batch-operation'
 
-export type { BatchOperationContext } from '../config/types/batch-operation'
+export type {
+  BatchCascadePhase,
+  BatchOperationContext,
+} from '../config/types/batch-operation'
 
 /**
  * Entry in the batch operation registry.
@@ -23,8 +27,10 @@ export interface BatchOperationRegistryEntry {
   label: string
   /** Description of what this operation does */
   description?: string
-  /** Entity handle that items will be upserted to */
+  /** Primary entity handle that items will be upserted to */
   entity: string
+  /** Optional multi-entity cascade phases */
+  cascade?: BatchCascadePhase[]
   /** Setup function called once at the start */
   setup?: BatchOperationSetupFn
   /** Iterate function called for each page */
@@ -50,6 +56,7 @@ export interface BatchOperationMetadata {
   label: string
   description?: string
   entity: string
+  cascade?: BatchCascadePhase[]
   maxConcurrent?: number
   pageSize?: number
   icon?: string

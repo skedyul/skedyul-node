@@ -566,6 +566,12 @@ export type {
   BlockDefinition,
   SetupStepDefinition,
   SetupStepKind,
+  // Batch operation types
+  BatchCascadePhase,
+  BatchOperationDefinition,
+  BatchOperationContext,
+  BatchOperationIterateResult,
+  BatchOperationSetupResult,
   // Page types
   PageType,
   PageDefinition,

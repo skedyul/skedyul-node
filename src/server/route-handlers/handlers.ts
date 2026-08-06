@@ -790,6 +790,8 @@ interface BatchOperationIterateRequest {
   page?: number
   cursor?: string | number
   limit: number
+  /** CRM-configured cascade entity handles for this job */
+  cascadeEntities?: string[]
   invocation?: InvocationContext
 }
 
@@ -964,7 +966,11 @@ export async function handleBatchOperationRoute(
           status: 200,
           body: {
             success: true,
-            result: { state: {}, total: undefined },
+            result: {
+              state: {},
+              total: undefined,
+              cascade: operation.cascade,
+            },
             billing: normalizeBilling(undefined),
           },
         }
@@ -990,22 +996,28 @@ export async function handleBatchOperationRoute(
         status: 200,
         body: {
           success: true,
-          result: domain,
+          result: {
+            ...domain,
+            // Expose definition cascade to the platform workflow
+            cascade: operation.cascade ?? domain.cascade,
+          },
           billing: normalizeBilling(setupResult.billing),
         },
       }
     }
 
     // iterate
+    const iterateBody = body as BatchOperationIterateRequest
     const raw = await runWithConfig(requestConfig, async () => {
       return runWithRateLimitExecutionContext(rateLimitContext, async () => {
         return runWithLogContext({ invocation }, async () => {
           return operation.iterate({
             ...opContextBase,
-            state: body.state,
-            page: body.page,
-            cursor: body.cursor,
-            limit: body.limit,
+            state: iterateBody.state,
+            page: iterateBody.page,
+            cursor: iterateBody.cursor,
+            limit: iterateBody.limit,
+            cascadeEntities: iterateBody.cascadeEntities,
           })
         })
       })
