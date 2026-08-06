@@ -100,8 +100,33 @@ Dedicated mode uses the MCP SDK `StreamableHTTPServerTransport` for streaming `t
 | `POST` | `/provision` | Provision lifecycle hook |
 | `POST` | `/setup/revalidate` | Setup revalidate lifecycle hook |
 | `POST` | `/oauth_callback` | OAuth callback hook |
+| `POST` | `/batch-operation` | Batch operation setup/iterate (platform-invoked) |
 | `POST` | `/webhooks/{handle}` | Dynamic webhook handler |
 | `OPTIONS` | `*` | CORS preflight |
+
+### Batch operation invoke
+
+`POST /batch-operation` is called by the platform (via the compute worker, SigV4-signed for Lambda Function URLs) with the same env/context envelope pattern as tools and lifecycle hooks:
+
+```json
+{
+  "method": "setup",
+  "handle": "import_members",
+  "env": {
+    "SKEDYUL_API_TOKEN": "sk_wkp_...",
+    "SKEDYUL_API_URL": "https://...",
+    "GLOFOX_API_KEY": "..."
+  },
+  "context": {
+    "workplaceId": "wp_...",
+    "appInstallationId": "inst_...",
+    "appId": "app_..."
+  },
+  "input": {}
+}
+```
+
+For `method: "iterate"`, also pass `state`, `page` / `cursor`, and `limit`. Handlers run inside `runWithConfig` so `instance.*` and other SDK clients use the workplace token from `env`. The operation context includes `env` for app-specific secrets (for example Glofox keys).
 
 ### MCP protocol
 

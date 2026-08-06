@@ -59,6 +59,11 @@ export interface BatchOperationContext {
   input?: Record<string, unknown>
   /** State from previous setup or iterate call */
   state?: Record<string, unknown>
+  /**
+   * Runtime environment variables from the platform invoke
+   * (APP_INSTALL overrides + SKEDYUL_API_TOKEN / SKEDYUL_API_URL).
+   */
+  env: Record<string, string>
   /** Logger instance */
   log: {
     info: (message: string, meta?: Record<string, unknown>) => void
@@ -101,7 +106,9 @@ export type BatchOperationIterateFn = (
  *     return { total: count }
  *   },
  *   iterate: async (ctx) => {
+ *     const apiKey = ctx.env.GLOFOX_API_KEY
  *     const { data, pagination } = await glofox.getMembers({
+ *       apiKey,
  *       limit: ctx.limit,
  *       offset: ctx.cursor ?? 0,
  *     })

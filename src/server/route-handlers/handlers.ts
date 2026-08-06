@@ -20,6 +20,7 @@ import type {
 } from './types'
 import { parseJsonBody, parseJsonRpcBody, getHeader, parseBodyByContentType } from './adapters'
 import { coreApiService } from '../../core/service'
+import { runWithConfig } from '../../core/client'
 import { handleCoreMethod } from '../core-api-handler'
 import { serializeConfig } from '../config-serializer'
 import { getZodSchema } from '../utils/schema'
@@ -750,21 +751,25 @@ export async function handleMcpBatchRoute(
 // Batch Operation Route Handler
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface BatchOperationSetupRequest {
-  method: 'setup'
-  handle: string
+interface BatchOperationContextBody {
   workplaceId: string
   appInstallationId: string
   appId: string
+}
+
+interface BatchOperationSetupRequest {
+  method: 'setup'
+  handle: string
+  env?: Record<string, string>
+  context: BatchOperationContextBody
   input?: Record<string, unknown>
 }
 
 interface BatchOperationIterateRequest {
   method: 'iterate'
   handle: string
-  workplaceId: string
-  appInstallationId: string
-  appId: string
+  env?: Record<string, string>
+  context: BatchOperationContextBody
   input?: Record<string, unknown>
   state?: Record<string, unknown>
   page?: number
@@ -776,6 +781,9 @@ type BatchOperationRequest = BatchOperationSetupRequest | BatchOperationIterateR
 
 /**
  * Handle /batch-operation route for invoking batch operation setup/iterate.
+ *
+ * Mirrors tool/install handlers: platform passes env + context in the body;
+ * we wrap handlers in runWithConfig so SDK clients (instance.*, etc.) work.
  */
 export async function handleBatchOperationRoute(
   req: UnifiedRequest,
@@ -810,6 +818,23 @@ export async function handleBatchOperationRoute(
     }
   }
 
+  const context = body.context
+  if (
+    !context?.workplaceId ||
+    !context?.appInstallationId ||
+    !context?.appId
+  ) {
+    return {
+      status: 400,
+      body: {
+        success: false,
+        error:
+          'Missing context (workplaceId, appInstallationId, and appId required)',
+      },
+    }
+  }
+
+  const env = body.env ?? {}
   const log = {
     info: (message: string, meta?: Record<string, unknown>) => {
       console.log(`[batch:${body.handle}] ${message}`, meta ?? '')
@@ -820,6 +845,11 @@ export async function handleBatchOperationRoute(
     error: (message: string, meta?: Record<string, unknown>) => {
       console.error(`[batch:${body.handle}] ${message}`, meta ?? '')
     },
+  }
+
+  const requestConfig = {
+    baseUrl: env.SKEDYUL_API_URL ?? process.env.SKEDYUL_API_URL ?? '',
+    apiToken: env.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
   }
 
   try {
@@ -834,12 +864,15 @@ export async function handleBatchOperationRoute(
         }
       }
 
-      const result = await operation.setup({
-        workplaceId: body.workplaceId,
-        appInstallationId: body.appInstallationId,
-        appId: body.appId,
-        input: body.input,
-        log,
+      const result = await runWithConfig(requestConfig, async () => {
+        return operation.setup!({
+          workplaceId: context.workplaceId,
+          appInstallationId: context.appInstallationId,
+          appId: context.appId,
+          input: body.input,
+          env,
+          log,
+        })
       })
 
       return {
@@ -852,16 +885,19 @@ export async function handleBatchOperationRoute(
     }
 
     if (body.method === 'iterate') {
-      const result = await operation.iterate({
-        workplaceId: body.workplaceId,
-        appInstallationId: body.appInstallationId,
-        appId: body.appId,
-        input: body.input,
-        state: body.state,
-        page: body.page,
-        cursor: body.cursor,
-        limit: body.limit,
-        log,
+      const result = await runWithConfig(requestConfig, async () => {
+        return operation.iterate({
+          workplaceId: context.workplaceId,
+          appInstallationId: context.appInstallationId,
+          appId: context.appId,
+          input: body.input,
+          state: body.state,
+          page: body.page,
+          cursor: body.cursor,
+          limit: body.limit,
+          env,
+          log,
+        })
       })
 
       return {
