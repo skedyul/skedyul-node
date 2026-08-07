@@ -208,6 +208,7 @@ export interface InstallEnvField {
   placeholder?: string
   description?: string
   scope?: 'provision' | 'install'
+  installPhase?: 'pre_install' | 'post_install'
 }
 
 export interface InstallConfigData {
@@ -379,6 +380,13 @@ function parseEnvFieldsFromBlock(envBlock: string): Record<string, InstallEnvFie
     const scopeMatch = varContent.match(/scope\s*:\s*['"`](provision|install)['"`]/)
     if (scopeMatch) field.scope = scopeMatch[1] as 'provision' | 'install'
 
+    const installPhaseMatch = varContent.match(
+      /installPhase\s*:\s*['"`](pre_install|post_install)['"`]/,
+    )
+    if (installPhaseMatch) {
+      field.installPhase = installPhaseMatch[1] as 'pre_install' | 'post_install'
+    }
+
     envVars[varName] = field
   }
 
@@ -525,10 +533,10 @@ export function filterInstallScopedEnv(
 function buildInstallEnvForSync(
   legacyInstall: InstallConfigData | null,
   provisionConfig: ProvisionConfig | null,
-): Record<string, InstallEnvField> | undefined {
+): { pre: Record<string, InstallEnvField>; post: Record<string, InstallEnvField> } | undefined {
   const installEnv: Record<string, InstallEnvField> = {}
 
-  // Legacy install.config.ts — all vars are install-scoped
+  // Legacy install.config.ts — all vars are install-scoped (pre_install)
   if (legacyInstall?.env) {
     Object.assign(installEnv, legacyInstall.env)
   }
@@ -542,17 +550,35 @@ function buildInstallEnvForSync(
     }
   }
 
-  return Object.keys(installEnv).length > 0 ? installEnv : undefined
+  if (Object.keys(installEnv).length === 0) {
+    return undefined
+  }
+
+  const pre: Record<string, InstallEnvField> = {}
+  const post: Record<string, InstallEnvField> = {}
+
+  for (const [key, def] of Object.entries(installEnv)) {
+    if (def.installPhase === 'post_install') {
+      post[key] = def
+    } else {
+      pre[key] = def
+    }
+  }
+
+  return { pre, post }
 }
 
-/** Env vars passed to the install workflow (install-scoped only). */
+/** Env vars passed to the install workflow (pre_install install-scoped only). */
 export function filterEnvForInstallWorkflow(
   env: Record<string, string>,
   installConfig: InstallConfigData | null,
 ): Record<string, string> {
   const installKeys = new Set(
     Object.entries(installConfig?.env ?? {})
-      .filter(([, def]) => def.scope === 'install')
+      .filter(
+        ([, def]) =>
+          def.scope === 'install' && def.installPhase !== 'post_install',
+      )
       .map(([key]) => key),
   )
 
@@ -643,7 +669,7 @@ export async function buildExecutableSyncConfig(
     }
   }
 
-  const installEnv = buildInstallEnvForSync(legacyInstallConfig, provisionConfig ?? null)
+  const installEnvSplit = buildInstallEnvForSync(legacyInstallConfig, provisionConfig ?? null)
 
   return {
     name: appConfig?.name,
@@ -652,7 +678,12 @@ export async function buildExecutableSyncConfig(
     tools,
     ...(webhooks.length > 0 ? { webhooks } : {}),
     ...(provision ? { provision } : {}),
-    ...(installEnv ? { install: { env: installEnv } } : {}),
+    ...(installEnvSplit && Object.keys(installEnvSplit.pre).length > 0
+      ? { install: { env: installEnvSplit.pre } }
+      : {}),
+    ...(installEnvSplit && Object.keys(installEnvSplit.post).length > 0
+      ? { installPost: { env: installEnvSplit.post } }
+      : {}),
     syncedAt: new Date().toISOString(),
   }
 }

@@ -1,4 +1,5 @@
 import type { SkedyulConfig, ProvisionConfig } from './app-config'
+import { isPreInstallEnvVar } from './env-phase'
 
 /**
  * Get all environment variable keys from the config.
@@ -32,8 +33,8 @@ export function getRequiredInstallEnvKeys(config: SkedyulConfig): string[] {
     : undefined
   
   if (!provision?.env) return []
-  
+
   return Object.entries(provision.env)
-    .filter(([, def]) => def.required)
+    .filter(([, def]) => def.scope === 'install' && isPreInstallEnvVar(def) && def.required)
     .map(([key]) => key)
 }

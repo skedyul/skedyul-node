@@ -6,8 +6,12 @@ import { z } from 'zod/v4'
 
 export const EnvVisibilitySchema = z.enum(['visible', 'encrypted'])
 
+export const InstallPhaseSchema = z.enum(['pre_install', 'post_install'])
+
 export const EnvVariableDefinitionSchema = z.object({
   label: z.string(),
+  scope: z.enum(['provision', 'install']).optional(),
+  installPhase: InstallPhaseSchema.optional(),
   required: z.boolean().optional(),
   visibility: EnvVisibilitySchema.optional(),
   default: z.string().optional(),

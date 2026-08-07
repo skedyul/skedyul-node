@@ -67,3 +67,12 @@ export { loadAndResolveConfig, serializeResolvedConfig, type ResolvedConfig } fr
 
 // Re-export helper utilities
 export { getAllEnvKeys, getRequiredInstallEnvKeys } from './utils'
+export {
+  DEFAULT_INSTALL_PHASE,
+  resolveInstallPhase,
+  isPreInstallEnvVar,
+  isPostInstallEnvVar,
+  filterEnvSchemaByInstallPhase,
+  splitProvisionEnvSchema,
+  type InstallPhase,
+} from './env-phase'
