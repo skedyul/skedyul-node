@@ -8,6 +8,7 @@ export const ThreadEventTypeSchema = z.enum([
   // Message events
   'thread.message.received',
   'thread.message.sent',
+  'thread.attachment.received',
 
   // Participant events
   'thread.participant.joined',

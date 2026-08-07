@@ -303,7 +303,7 @@ import {
 } from 'skedyul'
 ```
 
-Event types include `thread.message.*`, `thread.participant.*`, `thread.context.changed`, `thread.workflow.*`, and `custom.*`.
+Event types include `thread.message.*`, `thread.attachment.received`, `thread.participant.*`, `thread.context.changed`, `thread.workflow.*`, and `custom.*`.
 
 ### Triggers (workflow bindings)
 
