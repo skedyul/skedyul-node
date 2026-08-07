@@ -399,6 +399,49 @@ export const communicationChannel = {
   },
 
   /**
+   * Attach uploaded files to a message created via {@link receiveMessage}.
+   *
+   * Safe to call before or after the inbox processor creates the ThreadMessage:
+   * - Before: attachments are stashed on MessageInbox and linked when the message is created
+   * - After: rows are created immediately and `thread.attachment.received` is emitted
+   *
+   * Typical flow for email/MMS: `receiveMessage` → `file.upload` → `attachFilesToMessage`.
+   *
+   * @example
+   * ```ts
+   * const { messageId } = await communicationChannel.receiveMessage({ ... })
+   * const uploaded = await file.upload({ content, name, mimeType })
+   * await communicationChannel.attachFilesToMessage({
+   *   messageId,
+   *   attachments: [{
+   *     fileId: uploaded.id,
+   *     name: uploaded.name,
+   *     mimeType: 'audio/mpeg',
+   *     size: content.length,
+   *   }],
+   * })
+   * ```
+   */
+  async attachFilesToMessage(input: {
+    messageId: string
+    attachments: Array<{
+      fileId: string
+      name?: string
+      mimeType?: string
+      size?: number
+    }>
+  }): Promise<{ success: boolean; attachmentCount: number }> {
+    const { data } = await callCore<{ success: boolean; attachmentCount: number }>(
+      'communicationChannel.attachFilesToMessage',
+      {
+        messageId: input.messageId,
+        attachments: input.attachments,
+      },
+    )
+    return data
+  },
+
+  /**
    * Update a communication channel's properties.
    *
    * @param channelId - The ID of the channel to update

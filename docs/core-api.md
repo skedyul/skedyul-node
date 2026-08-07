@@ -231,11 +231,46 @@ console.log(`Message ID: ${result.messageId}`)
 | `message.message` | `string` | Message content |
 | `message.title` | `string` | Optional title |
 | `message.contentRaw` | `string` | Optional raw content |
-| `message.attachments` | `array` | Optional file attachments |
+| `message.attachments` | `array` | Optional file attachments (stashed until inbox creates the message) |
 | `contact` | `object` | Optional contact association |
 | `remoteId` | `string` | Optional external message ID |
 
 **Returns:** `Promise<{ messageId: string }>`
+
+### communicationChannel.attachFilesToMessage()
+
+Link previously uploaded files to a message from `receiveMessage`. Safe before or after the inbox processor creates the ThreadMessage.
+
+```ts
+const { messageId } = await communicationChannel.receiveMessage({ ... })
+
+const uploaded = await file.upload({
+  content: buffer,
+  name: 'voice-memo.mp3',
+  mimeType: 'audio/mpeg',
+  path: `phone/messages/${messageId}/attachments`,
+})
+
+await communicationChannel.attachFilesToMessage({
+  messageId,
+  attachments: [{
+    fileId: uploaded.id,
+    name: 'voice-memo.mp3',
+    mimeType: 'audio/mpeg',
+    size: buffer.length,
+  }],
+})
+```
+
+**Parameters:**
+| Name | Type | Description |
+|------|------|-------------|
+| `messageId` | `string` | Pre-generated id from `receiveMessage` |
+| `attachments` | `array` | `{ fileId, name?, mimeType?, size? }` |
+
+**Returns:** `Promise<{ success: boolean; attachmentCount: number }>`
+
+Emits `thread.attachment.received` per new attachment once the ThreadMessage exists (or when the inbox processor links pending files).
 
 ---
 
