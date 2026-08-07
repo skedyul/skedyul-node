@@ -128,6 +128,12 @@ export {
   defineBatchOperation,
   getAllEnvKeys,
   getRequiredInstallEnvKeys,
+  DEFAULT_INSTALL_PHASE,
+  resolveInstallPhase,
+  isPreInstallEnvVar,
+  isPostInstallEnvVar,
+  filterEnvSchemaByInstallPhase,
+  splitProvisionEnvSchema,
 } from './config'
 
 // Rate-limited async queue (queuedFetch)
@@ -494,6 +500,7 @@ export type {
   // Env types
   EnvVariable,
   EnvSchema,
+  InstallPhase,
   // Model types
   FieldType,
   Cardinality,
