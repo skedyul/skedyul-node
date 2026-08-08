@@ -119,6 +119,23 @@ CRM schema supports a broader type set than provision models:
 | `image` | Image attachment |
 | `object` | Nested JSON object |
 
+### Field sections (visualization)
+
+Optional `section` on a field is a workplace-scoped handle used only to organize fields in CRM UI lists (model node, list-page column chips, Add Field menu). It does not affect forms, validation, or queries.
+
+```ts
+{
+  handle: 'first_name',
+  label: 'First Name',
+  type: 'string',
+  section: 'profile', // find-or-create; display name defaults to "Profile"
+}
+```
+
+- Pass the handle only; on first use the section is created with a title-cased name.
+- Rename the display name later in the field editor (**Edit Field Section**); the rename applies to every field using that section.
+- Omitting `section` leaves the field unsectioned (shown above collapsed sections in the UI).
+
 ---
 
 ## Validation

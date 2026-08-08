@@ -160,6 +160,11 @@ export interface FieldDefinition {
   owner?: FieldOwner
   /** AI-specific metadata for agent interactions */
   aiMeta?: FieldAIMeta
+  /**
+   * Workplace-scoped field section handle (visualization helper).
+   * Find-or-create on provision/schema apply.
+   */
+  section?: string
 }
 
 /**

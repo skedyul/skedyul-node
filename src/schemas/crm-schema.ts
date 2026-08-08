@@ -105,6 +105,11 @@ export const CRMFieldSchemaZ = z.object({
   list: z.boolean().optional(),
   default: z.unknown().optional(),
   definition: CRMFieldDefinitionSchema.optional(),
+  /**
+   * Workplace-scoped field section handle (visualization helper).
+   * Find-or-create on apply; display name is derived from the handle on create.
+   */
+  section: z.string().regex(/^[a-z][a-z0-9_-]*$/, 'Section handle must be lowercase alphanumeric with underscores/hyphens, starting with a letter').optional(),
 })
 
 export type CRMFieldSchema = z.infer<typeof CRMFieldSchemaZ>
