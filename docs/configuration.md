@@ -470,6 +470,7 @@ export default defineModel({
       type: 'string',
       required: false,
       owner: 'app',
+      section: 'documents', // optional UI field section (find-or-create)
     },
     {
       handle: 'reviewed_at',
@@ -481,6 +482,8 @@ export default defineModel({
   ],
 })
 ```
+
+Optional field `section` is a workplace-scoped handle that groups fields in CRM visualization UIs (model node, list chips, Add Field). See [CRM schema — Field sections](./crm-schema.md#field-sections-visualization).
 
 ### Model Scopes
 
