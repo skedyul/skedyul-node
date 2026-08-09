@@ -1,12 +1,34 @@
 /**
  * App entity definition types.
  *
- * Entities describe external/logical payload shapes (e.g. Glofox member) that
- * workplaces map to CRM via install-time CRM maps. They are NOT shared models —
- * the app does not own CRM writes; workflows/agents apply maps.
+ * Entities describe external/logical payload shapes that workplaces map to CRM
+ * via install-time CRM maps. They are NOT shared models — the app does not own
+ * CRM writes; workflows/agents apply maps.
  */
 
 import type { BaseDefinition, FieldOption } from './base'
+
+/**
+ * Suggested CRM map defaults for an entity when a workplace has matching models.
+ * Declared by the app (industry-specific); consumed generically by core install UI.
+ */
+export interface EntityCrmMapDefaults {
+  /** Workplace model handle to prefer */
+  modelHandle: string
+  /** Prefer this field as match when present on the model */
+  matchFieldHandle?: string
+  /** Ordered entity paths for match fallbacks (maps to same-named CRM fields) */
+  matchRuleEntityPaths?: string[]
+  /** entityPath → workplace field handle */
+  fieldHandles: Record<string, string>
+  /** entity relationship handle → workplace field handle */
+  relationshipHandles?: Record<string, string>
+  /**
+   * Optional enum remaps per entity path when suggesting valueMaps
+   * (e.g. membership_status: { trial_member: 'visiting_member' }).
+   */
+  valueAliases?: Record<string, Record<string, string>>
+}
 
 /**
  * Field on an app entity contract (maps to a path on tool/event payloads).
@@ -75,4 +97,9 @@ export interface EntityDefinition extends BaseDefinition {
   contextFields?: EntityFieldDefinition[]
   /** Relationship handles that can be mapped to CRM relationship fields */
   relationships?: EntityRelationshipDefinition[]
+  /**
+   * Optional suggested CRM map when the workplace has a matching model schema.
+   * Used by install suggest/analyze — not applied automatically.
+   */
+  crmMapDefaults?: EntityCrmMapDefaults
 }

@@ -139,7 +139,7 @@ Runtime matches tool handlers:
 
 - Env is merged with `buildToolExecutionEnv` (process.env + baked `MCP_ENV` + request env)
 - Handlers run inside `runWithConfig` → `runWithRateLimitExecutionContext` → `runWithLogContext`
-- `ctx.env` includes provision secrets from the baked executable env (for example Glofox keys)
+- `ctx.env` includes provision secrets from the baked executable env (for example upstream API keys)
 
 **Success response:**
 

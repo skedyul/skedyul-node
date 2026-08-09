@@ -457,7 +457,7 @@ function parseInstallConfigFromSource(content: string): InstallConfigData | null
 // ─────────────────────────────────────────────────────────────────────────────
 
 const INSTALL_HANDLER_PATHS = [
-  // Standard integration layout (used by bft, petbooqz, phone, etc.)
+  // Standard integration layout (used by public/private integration apps)
   'src/server/hooks/install.ts',
   'src/server/hooks/install.js',
   'dist/server/hooks/install.js',

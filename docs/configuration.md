@@ -171,11 +171,11 @@ Entities are **not** shared models — the app does not write CRM through them.
 Workflows apply maps with an app-handle Liquid filter:
 
 ```liquid
-{{ inputs.data | bft: "format", "member" }}
-{{ "model_handle" | bft: "config", "member" }}
-{{ "model_handle" | bft: "present", "member" }}
-{{ "model_handle_plural" | bft: "config", "member" }}
-{{ "model_label" | bft: "config", "member" }}
+{{ inputs.data | acme: "format", "member" }}
+{{ "model_handle" | acme: "config", "member" }}
+{{ "model_handle" | acme: "present", "member" }}
+{{ "model_handle_plural" | acme: "config", "member" }}
+{{ "model_label" | acme: "config", "member" }}
 ```
 
 | Op | Left-hand side | Returns |
@@ -199,19 +199,19 @@ Use `present` (or assign `config` then compare) in step `if` conditions. liquidj
 
 ```yaml
 # Valid — config-only gate
-if: "{{ 'model_handle' | bft: 'present', 'member' }}"
+if: "{{ 'model_handle' | acme: 'present', 'member' }}"
 
 # Valid — config + other inputs
-if: "{% assign member_match_id = 'match_id' | bft: 'config', 'member' %}{{ member_match_id != blank and inputs.data.member.glofox_id != blank }}"
+if: "{% assign member_match_id = 'match_id' | acme: 'config', 'member' %}{{ member_match_id != blank and inputs.data.member.external_id != blank }}"
 
 # Invalid liquidjs — do not write this
-if: "{{ 'match_id' | bft: 'config', 'member' != blank }}"
+if: "{{ 'match_id' | acme: 'config', 'member' != blank }}"
 ```
 
 You can also chain the built-in `is_present` filter on any value:
 
 ```liquid
-{{ "match_id" | bft: "config", "member" | is_present }}
+{{ "match_id" | acme: "config", "member" | is_present }}
 ```
 
 ```ts
@@ -220,9 +220,9 @@ import { defineEntity } from 'skedyul'
 
 export default defineEntity({
   handle: 'member',
-  label: 'Glofox Member',
+  label: 'Member',
   fields: [
-    { handle: 'glofox_id', label: 'Glofox ID', matchCandidate: true, required: true },
+    { handle: 'external_id', label: 'External ID', matchCandidate: true, required: true },
     { handle: 'first_name', label: 'First Name' },
     { handle: 'email', label: 'Email' },
   ],
@@ -312,7 +312,7 @@ signals: [
 Workflows that call `contact.signal.create` may include `metadata.dataBlocks` for rich UI
 (profile / dateTime cards). To deep-link into CRM instances **only while** that entity’s
 App CRM map targets a model, emit `link.entityHandle` + `link.recordId` (and optionally
-`modelHandle` / `modelHandlePlural` / `modelLabel` from `| bft: "config"`):
+`modelHandle` / `modelHandlePlural` / `modelLabel` from `| acme: "config"`):
 
 ```yaml
 metadata:
@@ -326,8 +326,8 @@ metadata:
           link:
             entityHandle: class
             recordId: "{{ steps.upsert-class.outputs.response.results[0].instanceId }}"
-            modelHandle: "{{ 'model_handle' | bft: 'config', 'class' }}"
-            modelHandlePlural: "{{ 'model_handle_plural' | bft: 'config', 'class' }}"
+            modelHandle: "{{ 'model_handle' | acme: 'config', 'class' }}"
+            modelHandlePlural: "{{ 'model_handle_plural' | acme: 'config', 'class' }}"
 ```
 
 UI behavior:
@@ -437,7 +437,7 @@ Optional timestamp-aware ordering and short-lived locks — see [Sequencer](./se
 export default defineConfig({
   // ...
   sequencers: {
-    glofoxMember: {
+    memberSync: {
       scope: 'install',
       enabled: true,
       lockTtlMs: 60_000,

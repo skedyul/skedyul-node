@@ -6,7 +6,7 @@ Configure optional sequencers in `skedyul.config` for stale-event dropping and s
 export default defineConfig({
   name: 'My App',
   sequencers: {
-    glofoxMember: {
+    memberSync: {
       scope: 'install',
       enabled: true,
       lockTtlMs: 60_000,
@@ -21,8 +21,8 @@ Use in tools, hooks, or webhooks:
 ```ts
 import { sequencer } from 'skedyul'
 
-const result = await sequencer.allow('glofoxMember', {
-  key: member.glofox_id,
+const result = await sequencer.allow('memberSync', {
+  key: member.external_id,
   timestamp: eventTimestampMs,
   leaseId: event.traceId,
 })
@@ -32,16 +32,16 @@ if (!result.allowed) {
   return
 }
 
-await sequencer.acquire('glofoxMember', {
-  key: member.glofox_id,
+await sequencer.acquire('memberSync', {
+  key: member.external_id,
   leaseId: traceId,
   timestamp: eventTimestampMs,
 })
 try {
   await pushToExternalApi(...)
 } finally {
-  await sequencer.release('glofoxMember', {
-    key: member.glofox_id,
+  await sequencer.release('memberSync', {
+    key: member.external_id,
     leaseId: traceId,
   })
 }
@@ -92,7 +92,7 @@ If a sequencer name is missing from config or `enabled: false`:
 ## Webhook burst example
 
 ```
-allow('glofoxMember', { key, ts:100 }) → ok, watermark=100
-allow('glofoxMember', { key, ts:102 }) → ok, watermark=102
-allow('glofoxMember', { key, ts:101 }) → stale → skip downstream work
+allow('memberSync', { key, ts:100 }) → ok, watermark=100
+allow('memberSync', { key, ts:102 }) → ok, watermark=102
+allow('memberSync', { key, ts:101 }) → stale → skip downstream work
 ```

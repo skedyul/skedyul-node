@@ -179,12 +179,12 @@ export type BatchOperationIterateFn = (
  *   label: 'Import Members',
  *   entity: 'member',
  *   setup: async (ctx) => {
- *     const count = await glofox.getMemberCount()
+ *     const count = await acmeApi.getMemberCount()
  *     return { total: count }
  *   },
  *   iterate: async (ctx) => {
- *     const apiKey = ctx.env.GLOFOX_API_KEY
- *     const { data, pagination } = await glofox.getMembers({
+ *     const apiKey = ctx.env.ACME_API_KEY
+ *     const { data, pagination } = await acmeApi.getMembers({
  *       apiKey,
  *       limit: ctx.limit,
  *       offset: ctx.cursor ?? 0,

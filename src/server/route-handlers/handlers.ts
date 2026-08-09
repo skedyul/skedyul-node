@@ -68,8 +68,8 @@ function getConfigFilePath(): string {
 /**
  * Find a tool in the registry by name, supporting partial matching.
  * Handles both directions:
- * 1. Short name provided -> match against full prefixed names (e.g., "sync_leads" -> "app:bft:sync_leads")
- * 2. Full prefixed name provided -> match against short names in registry (e.g., "app:bft:sync_leads" -> "sync_leads")
+ * 1. Short name provided -> match against full prefixed names (e.g., "sync_leads" -> "app:acme:sync_leads")
+ * 2. Full prefixed name provided -> match against short names in registry (e.g., "app:acme:sync_leads" -> "sync_leads")
  */
 function findToolInRegistry(
   registry: Record<string, ToolRegistryEntry>,
@@ -82,12 +82,12 @@ function findToolInRegistry(
     }
   }
 
-  // Extract the short name from the input (if it's a prefixed name like app:bft:sync_leads)
+  // Extract the short name from the input (if it's a prefixed name like app:acme:sync_leads)
   const inputParts = toolName.split(':')
   const inputShortName = inputParts[inputParts.length - 1]
 
   // Try matching: if input is prefixed (app:xxx:tool), match by short name in registry
-  // This handles when workflow passes "app:bft:sync_leads" but registry has "sync_leads"
+  // This handles when workflow passes "app:acme:sync_leads" but registry has "sync_leads"
   if (inputParts.length > 1) {
     for (const [key, t] of Object.entries(registry)) {
       // Check if registry tool's name matches the short name from input
@@ -98,7 +98,7 @@ function findToolInRegistry(
   }
 
   // Try matching: if input is short name, match against prefixed names in registry
-  // This handles when user passes "sync_leads" but registry has "app:bft:sync_leads"
+  // This handles when user passes "sync_leads" but registry has "app:acme:sync_leads"
   const matches: Array<{ toolKey: string; tool: ToolRegistryEntry }> = []
   for (const [key, t] of Object.entries(registry)) {
     const registryParts = t.name.split(':')

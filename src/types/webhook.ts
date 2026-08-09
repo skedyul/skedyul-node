@@ -105,7 +105,7 @@ export interface CommunicationChannelLifecycleContext extends WebhookLifecycleCo
 }
 
 export interface WebhookLifecycleResult {
-  /** External ID from the provider (e.g., Twilio phone number SID) */
+  /** External ID from the provider (e.g., phone number SID) */
   externalId: string
   /** Optional message describing what was configured */
   message?: string
@@ -128,7 +128,7 @@ export type WebhookLifecycleHook<TContext = WebhookLifecycleContext> = (
 /**
  * Webhook invocation mode - determines how responses are handled.
  * - WEBHOOK: Fire-and-forget. Returns 200 immediately, processes asynchronously.
- * - CALLBACK: Waits for handler response and returns it to the caller (e.g., Twilio TwiML).
+ * - CALLBACK: Waits for handler response and returns it to the caller (e.g., voice XML).
  */
 export type WebhookInvocationMode = 'WEBHOOK' | 'CALLBACK'
 
@@ -144,7 +144,7 @@ export interface WebhookDefinition {
   methods?: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH')[]
   /**
    * Invocation mode. Defaults to 'WEBHOOK' (fire-and-forget).
-   * Use 'CALLBACK' when the caller expects the handler's response (e.g., Twilio TwiML).
+   * Use 'CALLBACK' when the caller expects the handler's response (e.g., voice XML).
    */
   type?: WebhookInvocationMode
   handler: WebhookHandler

@@ -36,4 +36,16 @@ export interface SetupStepDefinition {
   listenToEnv?: boolean
   /** Capability keys unlocked when this step is READY */
   capabilities?: string[]
+  /**
+   * Optional tool handle for an APP-step CTA (invoked as page_action with no form).
+   * Declared by the app — platform UI must not hardcode app/tool names.
+   */
+  actionTool?: string
+  /** Optional label for the APP-step CTA button */
+  actionLabel?: string
+  /**
+   * Optional install-relative path for post-setup navigation
+   * (e.g. `/leads`). Prefer entity pages over industry-specific defaults.
+   */
+  href?: string
 }

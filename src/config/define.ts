@@ -50,14 +50,14 @@ export function defineModel(model: ModelDefinition): ModelDefinition {
  *
  * Entities describe external payload shapes that workplaces map to CRM at
  * install time. They are not shared models — workflows apply maps via Liquid
- * filters named after the app handle (e.g. `| bft: "format", "member"`).
+ * filters named after the app handle (e.g. `| acme: "format", "member"`).
  *
  * @example
  * export default defineEntity({
  *   handle: 'member',
- *   label: 'Glofox Member',
+ *   label: 'Member',
  *   fields: [
- *     { handle: 'glofox_id', label: 'Glofox ID', matchCandidate: true, required: true },
+ *     { handle: 'external_id', label: 'External ID', matchCandidate: true, required: true },
  *     { handle: 'first_name', label: 'First Name' },
  *   ],
  *   contextFields: [
@@ -140,8 +140,8 @@ export function defineAgent(agent: AgentDefinition): AgentDefinition {
  *
  * @example
  * export default defineEnv({
- *   TWILIO_ACCOUNT_SID: {
- *     label: 'Twilio Account SID',
+ *   ACME_API_KEY: {
+ *     label: 'Acme API Key',
  *     scope: 'provision',
  *     required: true,
  *     visibility: 'encrypted'
@@ -208,12 +208,12 @@ export function defineSetupStep(step: SetupStepDefinition): SetupStepDefinition 
  *   label: 'Import Members',
  *   entity: 'member',
  *   setup: async (ctx) => {
- *     const count = await glofox.getMemberCount()
+ *     const count = await acmeApi.getMemberCount()
  *     return { total: count }
  *   },
  *   iterate: async (ctx) => {
- *     const apiKey = ctx.env.GLOFOX_API_KEY
- *     const { data, pagination } = await glofox.getMembers({
+ *     const apiKey = ctx.env.ACME_API_KEY
+ *     const { data, pagination } = await acmeApi.getMembers({
  *       apiKey,
  *       limit: ctx.limit,
  *       offset: ctx.cursor ?? 0,

@@ -266,7 +266,7 @@ export interface ReceiveMessageInput {
   message: CreateMessageType
   /** Optional contact metadata to associate the message */
   contact?: ReceiveMessageContact
-  /** Optional remote/external message ID (e.g., Twilio MessageSid) */
+  /** Optional remote/external message ID (provider message id) */
   remoteId?: string
 }
 
@@ -372,7 +372,7 @@ export const communicationChannel = {
    * Receive an inbound message on a communication channel.
    *
    * This is typically called from webhook handlers to process incoming messages
-   * (e.g., SMS from Twilio, emails, WhatsApp messages).
+   * (e.g., SMS, email, or messaging-channel providers).
    *
    * @example
    * ```ts
@@ -381,7 +381,7 @@ export const communicationChannel = {
    *   communicationChannelId: channel.id,
    *   from: '+1234567890',
    *   message: 'Hello!',
-   *   remoteId: 'twilio-message-sid-123',
+   *   remoteId: 'provider-message-id-123',
    * });
    * ```
    */
@@ -1389,14 +1389,14 @@ export const webhook = {
    *
    * @example
    * ```ts
-   * // Create a webhook for Twilio compliance callbacks
+   * // Create a webhook for provider compliance callbacks
    * const { url, id } = await webhook.create('compliance_status', {
    *   bundleSid: bundle.sid,
    *   complianceRecordId: record.id,
    * })
    *
-   * // Pass the URL to Twilio
-   * await twilioClient.bundles(bundle.sid).update({
+   * // Pass the URL to the upstream provider
+   * await providerClient.updateBundle(bundle.sid, {
    *   statusCallback: url,
    * })
    * ```
@@ -1934,18 +1934,18 @@ export const ai = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface CallStartParams {
-  /** Communication channel (the Twilio number) this call belongs to */
+  /** Communication channel (voice number) this call belongs to */
   communicationChannelId: string
   /** Caller number in E.164 */
   fromNumber: string
-  /** The dialed number (our Twilio number) in E.164 */
+  /** The dialed number (our channel number) in E.164 */
   toNumber: string
   /** Number the call is forwarded/dialed to (the human agent leg) */
   forwardedToNumber?: string | null
   direction?: 'INBOUND' | 'OUTBOUND'
-  /** Provider call id (Twilio CallSid) */
+  /** Provider call id (opaque) */
   externalId?: string | null
-  /** Raw provider status string (e.g. Twilio "ringing") */
+  /** Raw provider status string (opaque; not interpreted by the platform) */
   externalStatus?: string | null
   /** Transcription provider/engine name (e.g. "deepgram", "google") */
   transcriptionEngine?: string | null
@@ -2000,10 +2000,10 @@ export interface CallSummarizeResult {
 /**
  * Call client - manage a voice call session and its real-time transcript.
  *
- * Designed for the phone integration's Twilio Real-Time Transcription webhooks:
+ * Typical phone-integration flow:
  * - `start` when the inbound call arrives (creates the CallSession + thread + CALL block)
- * - `appendTranscript` for each `transcription-content` event (stored as a tagged ThreadMessage)
- * - `end` on call completion / `transcription-stopped`
+ * - `appendTranscript` for each transcription event (stored as a tagged ThreadMessage)
+ * - `end` on call completion (pass an explicit platform `status`)
  * - `summarize` to generate and persist an end-of-call summary
  *
  * **Requires sk_wkp_ or sk_app_ token.**

@@ -2,7 +2,7 @@
  * App event definition for integration executable config.
  *
  * Events are emitted via event.create and subscribed to as
- * `app.{appHandle}.{name}` (e.g. app.bft.member.updated).
+ * `app.{appHandle}.{name}` (e.g. app.acme.member.updated).
  */
 export interface AppEventDefinition {
   /** Event suffix after app handle, e.g. member.created */
@@ -16,7 +16,7 @@ export interface AppEventDefinition {
   /** Optional Lucide icon name for pickers */
   icon?: string
   /**
-   * Example flat domain payload for liquid context reference (e.g. glofox_id, phone, …).
+   * Example flat domain payload for liquid context reference (e.g. external_id, phone, …).
    * Not the full emit payload — studio/branch metadata is added at emit time.
    */
   examplePayload?: Record<string, unknown>
@@ -26,7 +26,7 @@ export interface AppEventDefinition {
    */
   contextFields?: AppEventContextField[]
   /**
-   * Workflow input type for app-event payloads, e.g. @app/bft/member/updated.
+   * Workflow input type for app-event payloads, e.g. @app/acme/member/updated.
    * Workflows declare this on inputs.data and subscribe with {{ data }}.
    */
   workflowInputType?: string

@@ -624,7 +624,7 @@ export const EventWiringPanelComponentDefinitionSchema =
         z.object({
           type: z.string(),
           label: z.string(),
-          glofoxType: z.string().optional(),
+          sourceType: z.string().optional(),
           description: z.string().optional(),
           icon: z.string().optional(),
         }),
