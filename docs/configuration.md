@@ -174,13 +174,26 @@ Workflows apply maps with an app-handle Liquid filter:
 {{ inputs.data | bft: "format", "member" }}
 {{ "model_handle" | bft: "config", "member" }}
 {{ "model_handle" | bft: "present", "member" }}
+{{ "model_handle_plural" | bft: "config", "member" }}
+{{ "model_label" | bft: "config", "member" }}
 ```
 
 | Op | Left-hand side | Returns |
 | --- | --- | --- |
 | `format` | Entity/envelope payload | CRM upsert fields (pass-through when map unset) |
-| `config` | Config key (`model_handle`, `match_id`, `match_fields`, …) | Mapped value, or `null` when unset |
+| `config` | Config key (see below) | Mapped value, or `null` when unset |
 | `present` | Config key | `true` when that config value is non-blank, else `false` |
+
+Common `config` keys:
+
+| Key | Returns |
+| --- | --- |
+| `model_handle` | Target CRM model handle |
+| `model_handle_plural` | Target CRM model plural handle (for instance URLs) |
+| `model_label` | Target CRM model display name |
+| `match_id` / `match_field_handle` | Match field handle |
+| `match_fields` | Array of match field handles |
+| `relationship.<handle>` | Mapped relationship target field handle |
 
 Use `present` (or assign `config` then compare) in step `if` conditions. liquidjs cannot parse a comparison glued onto multi-arg filter args:
 
@@ -293,6 +306,39 @@ signals: [
   },
 ]
 ```
+
+#### Contact signal `dataBlocks` and CRM instance links
+
+Workflows that call `contact.signal.create` may include `metadata.dataBlocks` for rich UI
+(profile / dateTime cards). To deep-link into CRM instances **only while** that entity’s
+App CRM map targets a model, emit `link.entityHandle` + `link.recordId` (and optionally
+`modelHandle` / `modelHandlePlural` / `modelLabel` from `| bft: "config"`):
+
+```yaml
+metadata:
+  appInstallationId: "{{ inputs.data.appInstallationId }}"
+  dataBlocks:
+    - type: profile
+      title: Details
+      fields:
+        - label: Class
+          value: "{{ inputs.data.booking.class_name }}"
+          link:
+            entityHandle: class
+            recordId: "{{ steps.upsert-class.outputs.response.results[0].instanceId }}"
+            modelHandle: "{{ 'model_handle' | bft: 'config', 'class' }}"
+            modelHandlePlural: "{{ 'model_handle_plural' | bft: 'config', 'class' }}"
+```
+
+UI behavior:
+
+- Links with `entityHandle` navigate only when the workplace’s current App CRM map for that
+  entity has a `targetModelHandle` (re-checked on open — unmapping removes links without
+  rewriting old signals).
+- Include `metadata.appInstallationId` (from the app event envelope) so the UI can load the
+  map overview for that install.
+- Agent/tool `dataBlocks` that omit `entityHandle` and already set full CRM `modelHandle` /
+  `recordId` continue to link as before.
 
 ---
 

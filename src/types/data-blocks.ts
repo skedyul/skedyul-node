@@ -8,6 +8,8 @@
  * Link structure for navigating to CRM views or external URLs.
  */
 export interface DataBlockLink {
+  /** App CRM entity handle (e.g. "class", "booking") for UI map gating */
+  entityHandle?: string
   modelHandle?: string
   modelHandlePlural?: string
   modelLabel?: string
@@ -51,6 +53,8 @@ export interface ProfileAvatar {
 export interface ProfileField {
   label: string
   value: string
+  /** Optional CRM navigation for this field value */
+  link?: DataBlockLink
 }
 
 /**
