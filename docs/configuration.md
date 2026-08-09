@@ -173,6 +173,32 @@ Workflows apply maps with an app-handle Liquid filter:
 ```liquid
 {{ inputs.data | bft: "format", "member" }}
 {{ "model_handle" | bft: "config", "member" }}
+{{ "model_handle" | bft: "present", "member" }}
+```
+
+| Op | Left-hand side | Returns |
+| --- | --- | --- |
+| `format` | Entity/envelope payload | CRM upsert fields (pass-through when map unset) |
+| `config` | Config key (`model_handle`, `match_id`, `match_fields`, …) | Mapped value, or `null` when unset |
+| `present` | Config key | `true` when that config value is non-blank, else `false` |
+
+Use `present` (or assign `config` then compare) in step `if` conditions. liquidjs cannot parse a comparison glued onto multi-arg filter args:
+
+```yaml
+# Valid — config-only gate
+if: "{{ 'model_handle' | bft: 'present', 'member' }}"
+
+# Valid — config + other inputs
+if: "{% assign member_match_id = 'match_id' | bft: 'config', 'member' %}{{ member_match_id != blank and inputs.data.member.glofox_id != blank }}"
+
+# Invalid liquidjs — do not write this
+if: "{{ 'match_id' | bft: 'config', 'member' != blank }}"
+```
+
+You can also chain the built-in `is_present` filter on any value:
+
+```liquid
+{{ "match_id" | bft: "config", "member" | is_present }}
 ```
 
 ```ts
