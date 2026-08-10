@@ -221,6 +221,18 @@ export const EntityRelationshipDefinitionSchema = z.object({
   description: z.string().optional(),
 })
 
+/** Suggested CRM map defaults declared on an entity (consumed generically by core). */
+export const EntityCrmMapDefaultsSchema = z.object({
+  modelHandle: z.string(),
+  matchFieldHandle: z.string().optional(),
+  matchRuleEntityPaths: z.array(z.string()).optional(),
+  fieldHandles: z.record(z.string(), z.string()),
+  relationshipHandles: z.record(z.string(), z.string()).optional(),
+  valueAliases: z
+    .record(z.string(), z.record(z.string(), z.string()))
+    .optional(),
+})
+
 export const EntityDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
@@ -229,6 +241,7 @@ export const EntityDefinitionSchema = z.object({
   fields: z.array(EntityFieldDefinitionSchema),
   contextFields: z.array(EntityFieldDefinitionSchema).optional(),
   relationships: z.array(EntityRelationshipDefinitionSchema).optional(),
+  crmMapDefaults: EntityCrmMapDefaultsSchema.optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -993,6 +1006,9 @@ export const SetupStepDefinitionSchema = z.object({
   listenToCrm: z.boolean().optional(),
   listenToEnv: z.boolean().optional(),
   capabilities: z.array(z.string()).optional(),
+  actionTool: z.string().optional(),
+  actionLabel: z.string().optional(),
+  href: z.string().optional(),
 })
 
 export const BatchPaginationSchema = z.object({
@@ -1119,6 +1135,7 @@ export type EntityFieldDefinition = z.infer<typeof EntityFieldDefinitionSchema>
 export type EntityRelationshipDefinition = z.infer<
   typeof EntityRelationshipDefinitionSchema
 >
+export type EntityCrmMapDefaults = z.infer<typeof EntityCrmMapDefaultsSchema>
 export type EntityDefinition = z.infer<typeof EntityDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
