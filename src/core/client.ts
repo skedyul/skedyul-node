@@ -55,6 +55,10 @@ let globalConfig: ClientConfig = {
  * Run a function with request-scoped configuration.
  * The configuration is isolated to this async context and won't affect other requests.
  *
+ * Also mirrors apiToken/baseUrl into process.env for the duration of the call so
+ * Lambda handlers still resolve the right token when AsyncLocalStorage is lost
+ * across await boundaries (same pattern as withRequestEnv in server hooks).
+ *
  * @example
  * ```ts
  * const result = await runWithConfig(
@@ -67,7 +71,44 @@ let globalConfig: ClientConfig = {
  * ```
  */
 export function runWithConfig<T>(config: ClientConfig, fn: () => T): T {
-  return requestConfigStorage.run(config, fn)
+  const originalApiToken = process.env.SKEDYUL_API_TOKEN
+  const originalApiUrl = process.env.SKEDYUL_API_URL
+
+  if (config.apiToken) {
+    process.env.SKEDYUL_API_TOKEN = config.apiToken
+  }
+  if (config.baseUrl) {
+    process.env.SKEDYUL_API_URL = config.baseUrl
+  }
+
+  const restoreProcessEnv = () => {
+    if (config.apiToken) {
+      if (originalApiToken === undefined) {
+        delete process.env.SKEDYUL_API_TOKEN
+      } else {
+        process.env.SKEDYUL_API_TOKEN = originalApiToken
+      }
+    }
+    if (config.baseUrl) {
+      if (originalApiUrl === undefined) {
+        delete process.env.SKEDYUL_API_URL
+      } else {
+        process.env.SKEDYUL_API_URL = originalApiUrl
+      }
+    }
+  }
+
+  try {
+    const result = requestConfigStorage.run(config, fn)
+    if (result instanceof Promise) {
+      return result.finally(restoreProcessEnv) as T
+    }
+    restoreProcessEnv()
+    return result
+  } catch (error) {
+    restoreProcessEnv()
+    throw error
+  }
 }
 
 /**
