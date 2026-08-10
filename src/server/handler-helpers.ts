@@ -91,3 +91,22 @@ export function buildRequestScopedConfig(env: Record<string, string>): {
     apiToken: env.SKEDYUL_API_TOKEN ?? process.env.SKEDYUL_API_TOKEN ?? '',
   }
 }
+
+/**
+ * Inject per-request env (e.g. SKEDYUL_API_TOKEN) into process.env for a handler.
+ *
+ * Lambda tool/webhook paths rely on this because AsyncLocalStorage from runWithConfig
+ * can be lost across await boundaries; getEffectiveConfig() falls back to process.env.
+ */
+export async function withRequestEnv<T>(
+  requestEnv: Record<string, string>,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const originalEnv = { ...process.env }
+  Object.assign(process.env, requestEnv)
+  try {
+    return await fn()
+  } finally {
+    process.env = originalEnv
+  }
+}

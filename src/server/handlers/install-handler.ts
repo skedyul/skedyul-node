@@ -12,6 +12,7 @@ import { runWithConfig } from '../../core/client'
 import { InstallError } from '../../errors'
 import { runWithLogContext } from '../context-logger'
 import { createContextLogger } from '../logger'
+import { withRequestEnv } from '../handler-helpers'
 
 /**
  * Handle install request.
@@ -58,9 +59,11 @@ export async function handleInstall(
     const installHandler: InstallHandler =
       typeof installHook === 'function' ? installHook : installHook.handler
     
-    const result = await runWithConfig(requestConfig, async () => {
-      return await runWithLogContext({ invocation: body.invocation }, async () => {
-        return await installHandler(installContext)
+    const result = await withRequestEnv(body.env ?? {}, async () => {
+      return await runWithConfig(requestConfig, async () => {
+        return await runWithLogContext({ invocation: body.invocation }, async () => {
+          return await installHandler(installContext)
+        })
       })
     })
 

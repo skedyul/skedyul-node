@@ -11,6 +11,7 @@ import type { HandlerResult, SetupRevalidateRequestBody } from './types'
 import { runWithConfig } from '../../core/client'
 import { runWithLogContext } from '../context-logger'
 import { createContextLogger } from '../logger'
+import { withRequestEnv } from '../handler-helpers'
 
 /**
  * Handle setup revalidate request (CRM/env change notification).
@@ -70,9 +71,11 @@ export async function handleSetupRevalidate(
         ? revalidateHook
         : revalidateHook.handler
 
-    const result = await runWithConfig(requestConfig, async () => {
-      return await runWithLogContext({ invocation: body.invocation }, async () => {
-        return await handler(ctx)
+    const result = await withRequestEnv(body.env ?? {}, async () => {
+      return await runWithConfig(requestConfig, async () => {
+        return await runWithLogContext({ invocation: body.invocation }, async () => {
+          return await handler(ctx)
+        })
       })
     })
 

@@ -12,7 +12,12 @@ import type { HandlerResult } from './types'
 import { runWithConfig } from '../../core/client'
 import { runWithLogContext } from '../context-logger'
 import { createContextLogger } from '../logger'
-import { parseHandlerEnvelope, buildRequestFromRaw, buildRequestScopedConfig } from '../handler-helpers'
+import {
+  parseHandlerEnvelope,
+  buildRequestFromRaw,
+  buildRequestScopedConfig,
+  withRequestEnv,
+} from '../handler-helpers'
 
 /**
  * Handle OAuth callback request.
@@ -65,11 +70,11 @@ export async function handleOAuthCallback(
         ? oauthCallbackHook
         : oauthCallbackHook.handler
 
-    // runWithConfig must be the outermost wrapper so AsyncLocalStorage survives
-    // async SDK calls (e.g. token.exchange) inside OAuth callback handlers.
-    const result = await runWithConfig(requestConfig, async () => {
-      return await runWithLogContext({ invocation }, async () => {
-        return await oauthCallbackHandler(oauthCallbackContext)
+    const result = await withRequestEnv(envelope.env, async () => {
+      return await runWithConfig(requestConfig, async () => {
+        return await runWithLogContext({ invocation }, async () => {
+          return await oauthCallbackHandler(oauthCallbackContext)
+        })
       })
     })
 

@@ -11,6 +11,7 @@ import type { HandlerResult, ProvisionRequestBody } from './types'
 import { runWithConfig } from '../../core/client'
 import { runWithLogContext } from '../context-logger'
 import { createContextLogger } from '../logger'
+import { withRequestEnv } from '../handler-helpers'
 
 /**
  * Handle provision request.
@@ -69,9 +70,11 @@ export async function handleProvision(
         ? provisionHook
         : (provisionHook as { handler: ProvisionHandler }).handler
 
-    const result = await runWithConfig(requestConfig, async () => {
-      return await runWithLogContext({ invocation: body.invocation }, async () => {
-        return await provisionHandler(provisionContext)
+    const result = await withRequestEnv(body.env ?? {}, async () => {
+      return await runWithConfig(requestConfig, async () => {
+        return await runWithLogContext({ invocation: body.invocation }, async () => {
+          return await provisionHandler(provisionContext)
+        })
       })
     })
 

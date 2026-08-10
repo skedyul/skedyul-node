@@ -11,6 +11,7 @@ import type { HandlerResult, UninstallRequestBody } from './types'
 import { runWithConfig } from '../../core/client'
 import { runWithLogContext } from '../context-logger'
 import { createContextLogger } from '../logger'
+import { withRequestEnv } from '../handler-helpers'
 
 /**
  * Handle uninstall request.
@@ -61,9 +62,11 @@ export async function handleUninstall(
     const uninstallHandlerFn: UninstallHandler =
       typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
 
-    const result = await runWithConfig(requestConfig, async () => {
-      return await runWithLogContext({ invocation: body.invocation }, async () => {
-        return await uninstallHandlerFn(uninstallContext)
+    const result = await withRequestEnv(body.env ?? {}, async () => {
+      return await runWithConfig(requestConfig, async () => {
+        return await runWithLogContext({ invocation: body.invocation }, async () => {
+          return await uninstallHandlerFn(uninstallContext)
+        })
       })
     })
 
