@@ -65,8 +65,10 @@ export async function handleOAuthCallback(
         ? oauthCallbackHook
         : oauthCallbackHook.handler
 
-    const result = await runWithLogContext({ invocation }, async () => {
-      return await runWithConfig(requestConfig, async () => {
+    // runWithConfig must be the outermost wrapper so AsyncLocalStorage survives
+    // async SDK calls (e.g. token.exchange) inside OAuth callback handlers.
+    const result = await runWithConfig(requestConfig, async () => {
+      return await runWithLogContext({ invocation }, async () => {
         return await oauthCallbackHandler(oauthCallbackContext)
       })
     })

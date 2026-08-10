@@ -61,8 +61,8 @@ export async function handleUninstall(
     const uninstallHandlerFn: UninstallHandler =
       typeof uninstallHook === 'function' ? uninstallHook : uninstallHook.handler
 
-    const result = await runWithLogContext({ invocation: body.invocation }, async () => {
-      return await runWithConfig(requestConfig, async () => {
+    const result = await runWithConfig(requestConfig, async () => {
+      return await runWithLogContext({ invocation: body.invocation }, async () => {
         return await uninstallHandlerFn(uninstallContext)
       })
     })

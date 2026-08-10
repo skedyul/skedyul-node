@@ -58,8 +58,8 @@ export async function handleInstall(
     const installHandler: InstallHandler =
       typeof installHook === 'function' ? installHook : installHook.handler
     
-    const result = await runWithLogContext({ invocation: body.invocation }, async () => {
-      return await runWithConfig(requestConfig, async () => {
+    const result = await runWithConfig(requestConfig, async () => {
+      return await runWithLogContext({ invocation: body.invocation }, async () => {
         return await installHandler(installContext)
       })
     })

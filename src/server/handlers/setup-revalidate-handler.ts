@@ -70,14 +70,11 @@ export async function handleSetupRevalidate(
         ? revalidateHook
         : revalidateHook.handler
 
-    const result = await runWithLogContext(
-      { invocation: body.invocation },
-      async () => {
-        return await runWithConfig(requestConfig, async () => {
-          return await handler(ctx)
-        })
-      },
-    )
+    const result = await runWithConfig(requestConfig, async () => {
+      return await runWithLogContext({ invocation: body.invocation }, async () => {
+        return await handler(ctx)
+      })
+    })
 
     return {
       status: 200,

@@ -69,8 +69,8 @@ export async function handleProvision(
         ? provisionHook
         : (provisionHook as { handler: ProvisionHandler }).handler
 
-    const result = await runWithLogContext({ invocation: body.invocation }, async () => {
-      return await runWithConfig(requestConfig, async () => {
+    const result = await runWithConfig(requestConfig, async () => {
+      return await runWithLogContext({ invocation: body.invocation }, async () => {
         return await provisionHandler(provisionContext)
       })
     })

@@ -178,8 +178,8 @@ export async function executeWebhookHandler(
       isProvisionContext: !isRuntimeWebhookContext(data.webhookContext),
     }
 
-    webhookResponse = await runWithLogContext({ invocation: data.invocation }, async () => {
-      return await runWithConfig(requestConfig, async () => {
+    webhookResponse = await runWithConfig(requestConfig, async () => {
+      return await runWithLogContext({ invocation: data.invocation }, async () => {
         return await runWithRateLimitExecutionContext(rateLimitContext, async () => {
           return await webhookDef.handler(data.webhookRequest, data.webhookContext)
         })
