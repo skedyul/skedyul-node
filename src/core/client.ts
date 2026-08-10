@@ -112,28 +112,45 @@ export function runWithConfig<T>(config: ClientConfig, fn: () => T): T {
 }
 
 /**
+ * Run with AsyncLocalStorage config only (does not mirror into process.env).
+ * Used when process.env is managed separately (e.g. withRequestEnv).
+ */
+export function runWithAlsConfig<T>(config: ClientConfig, fn: () => T): T {
+  return requestConfigStorage.run(config, fn)
+}
+
+/**
  * Get the effective configuration for the current context.
  * Request-scoped config takes precedence over global config.
  * Falls back to process.env for runtime-injected values.
  */
 function getEffectiveConfig(): ClientConfig {
-  // Check for request-scoped config first (AsyncLocalStorage)
+  const envToken = process.env.SKEDYUL_API_TOKEN
+  const envBaseUrl =
+    process.env.SKEDYUL_API_URL ?? process.env.SKEDYUL_NODE_URL ?? globalConfig.baseUrl
+
+  // Per-request envelope injection wins on warm Lambda (avoids stale ALS from prior hooks)
+  if (envToken && envBaseUrl) {
+    return { baseUrl: envBaseUrl, apiToken: envToken }
+  }
+
+  // Check for request-scoped config (AsyncLocalStorage)
   const requestConfig = requestConfigStorage.getStore()
   if (requestConfig?.baseUrl && requestConfig?.apiToken) {
     return requestConfig
   }
-  
+
   // Check if global config has been explicitly set via configure()
   if (globalConfig.baseUrl && globalConfig.apiToken) {
     return globalConfig
   }
-  
+
   // Fall back to process.env for runtime-injected values
   // This handles cases where env vars are set per-request (e.g., in tool handlers)
   // and AsyncLocalStorage context is lost across async boundaries
   return {
-    baseUrl: process.env.SKEDYUL_API_URL ?? process.env.SKEDYUL_NODE_URL ?? globalConfig.baseUrl,
-    apiToken: process.env.SKEDYUL_API_TOKEN ?? globalConfig.apiToken,
+    baseUrl: envBaseUrl,
+    apiToken: envToken ?? globalConfig.apiToken,
   }
 }
 
