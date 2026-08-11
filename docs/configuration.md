@@ -631,6 +631,15 @@ export default relationships
 | `many_to_one` | Multiple to single |
 | `many_to_many` | Multiple on both sides |
 
+### On-delete values
+
+| `onDelete` | Description |
+|------------|-------------|
+| `none` | No action (default) |
+| `cascade` | Delete related records |
+| `restrict` | Block deletion while references exist |
+| `set_null` | Clear the relation field on related records |
+
 ### CRM Index
 
 ```ts
