@@ -234,6 +234,8 @@ const FIELD_REQUIREMENT_MAP: Record<string, string> = {
 const CARDINALITY_MAP: Record<string, string> = {
   one_to_one: 'ONE_TO_ONE',
   one_to_many: 'ONE_TO_MANY',
+  many_to_one: 'MANY_TO_ONE',
+  many_to_many: 'MANY_TO_MANY',
 }
 
 /**
@@ -243,6 +245,7 @@ const ON_DELETE_MAP: Record<string, string> = {
   none: 'NONE',
   cascade: 'CASCADE',
   restrict: 'RESTRICT',
+  set_null: 'SET_NULL',
 }
 
 /**
@@ -307,6 +310,11 @@ export interface BackendFieldDefinition {
     options?: Array<{ value: string; label: string; color?: string | null }>
     limitChoices?: number
   }
+  aiMeta?: {
+    description?: string
+    mutability?: 'always' | 'restricted' | 'create_only' | 'immutable'
+  }
+  section?: string
 }
 
 /**
@@ -378,7 +386,11 @@ export interface BackendDesiredSchema {
 }
 
 /**
- * Transform a CRM schema to the backend's DesiredSchema format.
+ * Transform a CRM schema to a legacy backend DesiredSchema format.
+ *
+ * @deprecated The CLI API and UI upload accept public CRM v1 JSON directly
+ * (`list` / `unique` / `default` / `requirement` / `section` / `aiMeta`).
+ * Prefer sending the loaded schema without this transform.
  */
 export function transformToBackendSchema(schema: CRMSchema): BackendDesiredSchema {
   const fieldDefinitions: BackendDesiredSchema['fieldDefinitions'] = []
@@ -407,6 +419,8 @@ export function transformToBackendSchema(schema: CRMSchema): BackendDesiredSchem
         requirement: field.requirement
           ? FIELD_REQUIREMENT_MAP[field.requirement]
           : undefined,
+        ...(field.aiMeta ? { aiMeta: field.aiMeta } : {}),
+        ...(field.section ? { section: field.section } : {}),
       }
 
       if (field.default !== undefined) {

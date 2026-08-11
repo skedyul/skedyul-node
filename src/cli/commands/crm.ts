@@ -6,8 +6,6 @@ import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
 import {
   loadSchema,
   saveSchema,
-  transformToBackendSchema,
-  type BackendDesiredSchema,
 } from '../../config/schema-loader'
 import type { CRMSchema } from '../../schemas/crm-schema'
 
@@ -247,9 +245,7 @@ async function handlePush(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Transform to backend format
-  const backendSchema = transformToBackendSchema(schema)
-
+  // Send public v1 schema JSON directly (same shape as UI download/upload)
   if (!jsonOutput && !dryRun) {
     console.log('')
     console.log(`📦 Pushing schema "${schema.name}" to ${workplace}`)
@@ -267,7 +263,7 @@ async function handlePush(args: string[]): Promise<void> {
       body: JSON.stringify({
         workplace,
         workplaceId: workplaceToken.workplaceId,
-        schema: backendSchema,
+        schema,
         dryRun,
         autoApprove,
         schemaName: schema.name,

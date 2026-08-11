@@ -471,6 +471,8 @@ export type {
   CRMFieldRequirement,
   CRMFieldOption,
   CRMFieldDefinition,
+  CRMFieldAppearance,
+  CRMFieldAiMeta,
   CRMFieldSchema,
   CRMModelSchema,
   CRMCardinality,

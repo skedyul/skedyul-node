@@ -90,6 +90,18 @@ export const CRMFieldAppearanceSchemaZ = z.object({
 export type CRMFieldAppearance = z.infer<typeof CRMFieldAppearanceSchemaZ>
 
 /**
+ * AI metadata for CRM fields (hints for agents / auto-fill).
+ */
+export const CRMFieldAiMetaSchemaZ = z.object({
+  description: z.string().optional(),
+  mutability: z
+    .enum(['always', 'restricted', 'create_only', 'immutable'])
+    .optional(),
+})
+
+export type CRMFieldAiMeta = z.infer<typeof CRMFieldAiMetaSchemaZ>
+
+/**
  * Field schema for CRM models.
  */
 export const CRMFieldSchemaZ = z.object({
@@ -105,6 +117,8 @@ export const CRMFieldSchemaZ = z.object({
   list: z.boolean().optional(),
   default: z.unknown().optional(),
   definition: CRMFieldDefinitionSchema.optional(),
+  /** AI metadata - description and mutability hints for agents */
+  aiMeta: CRMFieldAiMetaSchemaZ.optional(),
   /**
    * Workplace-scoped field section handle (visualization helper).
    * Find-or-create on apply; display name is derived from the handle on create.
@@ -132,14 +146,24 @@ export type CRMModelSchema = z.infer<typeof CRMModelSchemaZ>
 /**
  * Relationship cardinality.
  */
-export const CRMCardinalitySchema = z.enum(['one_to_one', 'one_to_many'])
+export const CRMCardinalitySchema = z.enum([
+  'one_to_one',
+  'one_to_many',
+  'many_to_one',
+  'many_to_many',
+])
 
 export type CRMCardinality = z.infer<typeof CRMCardinalitySchema>
 
 /**
  * On delete behavior for relationships.
  */
-export const CRMOnDeleteSchema = z.enum(['none', 'cascade', 'restrict'])
+export const CRMOnDeleteSchema = z.enum([
+  'none',
+  'cascade',
+  'restrict',
+  'set_null',
+])
 
 export type CRMOnDelete = z.infer<typeof CRMOnDeleteSchema>
 
