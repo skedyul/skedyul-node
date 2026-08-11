@@ -41,8 +41,9 @@ export type FieldType =
  * - 'none': No action (orphan the reference)
  * - 'cascade': Delete related records
  * - 'restrict': Prevent deletion if references exist
+ * - 'set_null': Clear the relation field on related records
  */
-export type OnDelete = 'none' | 'cascade' | 'restrict'
+export type OnDelete = 'none' | 'cascade' | 'restrict' | 'set_null'
 
 /**
  * Field requirement types.
@@ -204,24 +205,27 @@ export interface RelationshipLink {
 }
 
 /**
- * Relationship cardinality from source (one) to target (many or one).
+ * Relationship cardinality from source to target.
  * - 'one_to_one': One source record relates to one target record
  * - 'one_to_many': One source record relates to many target records
- * 
- * Note: For many-to-one relationships, swap source and target and use 'one_to_many'.
+ * - 'many_to_one': Many source records relate to one target record
+ * - 'many_to_many': Many source records relate to many target records
  */
-export type Cardinality = 'one_to_one' | 'one_to_many'
+export type Cardinality =
+  | 'one_to_one'
+  | 'one_to_many'
+  | 'many_to_one'
+  | 'many_to_many'
 
 /**
  * Relationship definition between two models.
- * Source is always the "one" side, target is the "many" side (for one_to_many).
  */
 export interface RelationshipDefinition {
-  /** Source side of the relationship (the "one" side) */
+  /** Source side of the relationship */
   source: RelationshipLink
-  /** Target side of the relationship (the "many" side for one_to_many) */
+  /** Target side of the relationship */
   target: RelationshipLink
-  /** Cardinality: 'one_to_one' or 'one_to_many' */
+  /** Cardinality from the source side */
   cardinality: Cardinality
   /** Behavior when a related record is deleted */
   onDelete?: OnDelete

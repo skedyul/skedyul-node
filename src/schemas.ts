@@ -251,9 +251,16 @@ export const EntityDefinitionSchema = z.object({
 export const RelationshipCardinalitySchema = z.enum([
   'ONE_TO_ONE',
   'ONE_TO_MANY',
+  'MANY_TO_ONE',
+  'MANY_TO_MANY',
 ])
 
-export const OnDeleteBehaviorSchema = z.enum(['NONE', 'CASCADE', 'RESTRICT'])
+export const OnDeleteBehaviorSchema = z.enum([
+  'NONE',
+  'CASCADE',
+  'RESTRICT',
+  'SET_NULL',
+])
 
 export const RelationshipLinkSchema = z.object({
   model: z.string(),
