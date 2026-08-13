@@ -381,7 +381,7 @@ export const WorkflowDefinitionSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const PageTypeSchema = z.enum(['INSTANCE', 'LIST'])
-export const PageBlockTypeSchema = z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link', 'list', 'card'])
+export const PageBlockTypeSchema = z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'map', 'link', 'list', 'card'])
 export const PageFieldTypeSchema = z.enum(['STRING', 'FILE', 'NUMBER', 'DATE', 'BOOLEAN', 'SELECT', 'FORM', 'RELATIONSHIP'])
 
 export const PageFieldSourceSchema = z.object({
@@ -775,7 +775,7 @@ export const PageFieldDefinitionSchema: z.ZodType<PageFieldDefinition> = PageFie
 
 /** Legacy form block definition */
 export const LegacyFormBlockDefinitionSchema = z.object({
-  type: z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'link']),
+  type: z.enum(['form', 'spreadsheet', 'kanban', 'calendar', 'map', 'link']),
   title: z.string().optional(),
   fields: z.array(PageFieldDefinitionSchema).optional(),
   readonly: z.boolean().optional(),
