@@ -207,6 +207,10 @@ if: "{% assign member_match_id = 'match_id' | acme: 'config', 'member' %}{{ memb
 # Invalid liquidjs — do not write this. The runner rewrites it to `| present`
 # so published child workflows still run; authors should still use `present`.
 if: "{{ 'match_id' | acme: 'config', 'member' != blank }}"
+
+# Invalid liquidjs — `and` glued onto multi-arg filter args. The runner hoists
+# each `| present` / `| config` call into `{% assign %}` before parse.
+if: "{{ 'model_handle' | acme: 'present', 'member' and 'match_id' | acme: 'present', 'member' and steps.build-payload.outputs.response.data != blank }}"
 ```
 
 You can also chain the built-in `is_present` filter on any value:
@@ -217,7 +221,7 @@ You can also chain the built-in `is_present` filter on any value:
 
 `present` and `config` resolve from the **current workflow run's app-install scope**, not from a string left-hand side (`'model_handle'`). Event-triggered parents get that scope from the install that emitted the event. A child started with `type: workflow` + `run: "@acme/sync-child"` (or `run: handle`) **inherits the parent's install** onto the child run — including nested grandchildren — so the same filters work in child step `if`s, step inputs, and `liquid.render` templates even when the child has no `context.event`.
 
-If inherit is missing, the engine also accepts `inputs.data.appInstallationId` or `inputs.appInstallationId`. It does not invent an install for a manual/test parent. A namespaced CRM filter with no install scope **fails the step** (it does not skip-as-false). Leftover unparseable Liquid in an `if` also fails the step, except the known `| config', 'entity' != blank` footgun, which is rewritten to `| present` before parse.
+If inherit is missing, the engine also accepts `inputs.data.appInstallationId` or `inputs.appInstallationId`. It does not invent an install for a manual/test parent. A namespaced CRM filter with no install scope **fails the step** (it does not skip-as-false). Leftover unparseable Liquid in an `if` also fails the step, except known multi-arg filter footguns (`| config', 'entity' != blank`, and `and`/`or` glued onto `| present`/`| config`), which are rewritten before parse.
 
 Parent and child must agree on map presence: map exists → both `present` true; no map → both `present` false.
 
