@@ -204,8 +204,14 @@ if: "{{ 'model_handle' | acme: 'present', 'member' }}"
 # Valid — config + other inputs
 if: "{% assign member_match_id = 'match_id' | acme: 'config', 'member' %}{{ member_match_id != blank and inputs.data.member.external_id != blank }}"
 
-# Invalid liquidjs — do not write this
+# Invalid liquidjs — do not write this. Use `present` or assign-then-compare.
 if: "{{ 'match_id' | acme: 'config', 'member' != blank }}"
+```
+
+Step `if` is a **condition**, evaluated once (not pre-rendered as an output template). Top-level `and` / `or` between filter calls are combined by the runner after each atom is evaluated:
+
+```yaml
+if: "{{ 'model_handle' | acme: 'present', 'member' and 'match_id' | acme: 'present', 'member' and steps.build-payload.outputs.response.data != blank }}"
 ```
 
 You can also chain the built-in `is_present` filter on any value:
@@ -213,6 +219,12 @@ You can also chain the built-in `is_present` filter on any value:
 ```liquid
 {{ "match_id" | acme: "config", "member" | is_present }}
 ```
+
+`present` and `config` resolve from the **current workflow run's app-install scope**, not from a string left-hand side (`'model_handle'`). Event-triggered parents get that scope from the install that emitted the event. A child started with `type: workflow` + `run: "@acme/sync-child"` (or `run: handle`) **inherits the parent's install** onto the child run — including nested grandchildren — so the same filters work in child step `if`s, step inputs, and `liquid.render` templates even when the child has no `context.event`.
+
+If inherit is missing, the engine also accepts `inputs.data.appInstallationId` or `inputs.appInstallationId`. It does not invent an install for a manual/test parent. A namespaced CRM filter with no install scope **fails the step** (it does not skip-as-false). Leftover unparseable Liquid in an `if` also fails the step. `| config', 'entity' != blank` stays invalid.
+
+Parent and child must agree on map presence: map exists → both `present` true; no map → both `present` false.
 
 ```ts
 // provision/entities/member.ts
