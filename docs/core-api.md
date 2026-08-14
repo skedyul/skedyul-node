@@ -510,7 +510,9 @@ interface FileUrlResponse {
 
 ### file.upload()
 
-Upload a file and create a File record.
+Upload a file and create a File record. Files are stored **privately** under:
+
+`workplaces/{subdomain}/files/{timestamp}-{name}`
 
 ```ts
 // Upload from Buffer
@@ -520,14 +522,6 @@ const { id } = await file.upload({
   name: 'document.pdf',
   mimeType: 'application/pdf',
 })
-
-// Upload with path prefix
-const { id } = await file.upload({
-  content: imageBuffer,
-  name: 'photo.jpg',
-  mimeType: 'image/jpeg',
-  path: 'attachments',
-})
 ```
 
 **Parameters:**
@@ -536,7 +530,7 @@ const { id } = await file.upload({
 | `content` | `Buffer \| string` | File content (Buffer or base64) |
 | `name` | `string` | Original filename |
 | `mimeType` | `string` | MIME type |
-| `path` | `string` | Optional path prefix |
+| `path` | `string` | Optional; accepted for compatibility but ignored for the S3 key |
 
 **Returns:** `Promise<FileUploadResult>`
 
@@ -547,6 +541,7 @@ interface FileUploadResult {
 }
 ```
 
+Use `file.getUrl(id)` for a temporary download URL.
 ---
 
 ## webhook

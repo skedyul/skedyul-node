@@ -1343,8 +1343,9 @@ export const file = {
   /**
    * Upload file content and create a File record.
    *
-   * Files are scoped to the app installation and stored privately.
+   * Files are stored privately under workplaces/{subdomain}/files/{timestamp}-{name}.
    * Use file.getUrl() to generate a temporary download URL when needed.
+   * The optional `path` argument is accepted for compatibility but ignored for the S3 key.
    *
    * @example
    * ```ts
@@ -1354,14 +1355,6 @@ export const file = {
    *   content: buffer,
    *   name: 'document.pdf',
    *   mimeType: 'application/pdf',
-   * })
-   *
-   * // Upload with a path prefix for organization
-   * const { id } = await file.upload({
-   *   content: imageBuffer,
-   *   name: 'photo.jpg',
-   *   mimeType: 'image/jpeg',
-   *   path: 'attachments',
    * })
    * ```
    */
