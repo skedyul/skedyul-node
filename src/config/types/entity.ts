@@ -63,6 +63,12 @@ export interface EntityFieldDefinition {
   required?: boolean
   /** Enum options when the source value is constrained */
   options?: FieldOption[] | string[]
+  /**
+   * Optional CRM FieldDefinition handle to attach when Create fields
+   * mints the workplace field (e.g. `calendar/series_id`, `phone`).
+   * Core looks this up by handle; do not mint a private definition.
+   */
+  definition?: string
 }
 
 /**

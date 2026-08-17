@@ -212,6 +212,8 @@ export const EntityFieldDefinitionSchema = z.object({
       ]),
     )
     .optional(),
+  /** CRM FieldDefinition handle to attach on Create fields (e.g. calendar/series_id) */
+  definition: z.string().optional(),
 })
 
 export const EntityRelationshipDefinitionSchema = z.object({
