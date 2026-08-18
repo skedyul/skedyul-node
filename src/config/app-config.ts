@@ -56,11 +56,12 @@ export interface InstallConfig {
 export interface ProvisionConfig {
   /** Global environment variables (developer-level, shared across all installs) */
   env?: EnvSchema
-  /** INTERNAL model definitions (app-owned, not visible to users) */
+  /** INTERNAL model definitions for data shared across installs */
   models?: ModelDefinition[]
   /**
-   * App entity contracts for install-time CRM maps (not shared models).
+   * App entity contracts for install-time CRM maps (not shared or internal models).
    * Workplaces map these to CRM; workflows apply maps via app-handle Liquid filters.
+   * Runtime `instance.*('<entity>')` resolves the mapped workplace model.
    */
   entities?: EntityDefinition[]
   /** Relationship definitions between INTERNAL models */

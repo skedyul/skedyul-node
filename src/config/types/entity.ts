@@ -2,8 +2,10 @@
  * App entity definition types.
  *
  * Entities describe external/logical payload shapes that workplaces map to CRM
- * via install-time CRM maps. They are NOT shared models — the app does not own
- * CRM writes; workflows/agents apply maps.
+ * via install-time CRM maps. They are NOT shared models and they are NOT
+ * internal models (internal models are for data shared across installs).
+ * Workflows apply maps with an app-handle Liquid filter. Runtime
+ * `instance.list/create/update('<entity>')` also resolves the mapped workplace model.
  */
 
 import type { BaseDefinition, FieldOption } from './base'
