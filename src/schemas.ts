@@ -204,6 +204,8 @@ export const EntityFieldDefinitionSchema = z.object({
   /** @deprecated Prefer isUnique */
   matchCandidate: z.boolean().optional(),
   required: z.boolean().optional(),
+  /** Global FieldDefinition handle (e.g. calendar/recurrence) */
+  definition: z.string().optional(),
   options: z
     .array(
       z.union([
