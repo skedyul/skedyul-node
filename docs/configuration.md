@@ -168,6 +168,9 @@ export default config
 
 Declare external payload shapes that workplaces map to CRM at install time.
 Entities are **not** shared models — the app does not write CRM through them.
+Optional entity field `definition` is a global FieldDefinition handle (for
+example `calendar/recurrence`) that install apply attaches when it creates or
+retargets the mapped workplace field.
 Workflows apply maps with an app-handle Liquid filter:
 
 ```liquid
@@ -224,7 +227,7 @@ export default defineEntity({
   fields: [
     { handle: 'external_id', label: 'External ID', matchCandidate: true, required: true },
     { handle: 'first_name', label: 'First Name' },
-    { handle: 'email', label: 'Email' },
+    { handle: 'email', label: 'Email', definition: 'email' },
   ],
   contextFields: [
     {

@@ -61,6 +61,11 @@ export interface EntityFieldDefinition {
   matchCandidate?: boolean
   /** Whether this field should be mapped for a complete configuration */
   required?: boolean
+  /**
+   * Global FieldDefinition handle to attach when CRM apply creates or
+   * retargets the mapped workplace field (e.g. `calendar/recurrence`).
+   */
+  definition?: string
   /** Enum options when the source value is constrained */
   options?: FieldOption[] | string[]
 }
