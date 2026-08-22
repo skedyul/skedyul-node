@@ -1,9 +1,9 @@
 import { parseArgs } from '../utils'
 import {
   getCredentials,
-  callCliApi,
   getServerUrl,
 } from '../utils/auth'
+import { linkApp } from '../api'
 import { loadAppConfig } from '../utils/config'
 import { saveLinkConfig, getLinkConfig } from '../utils/link'
 import type { LinkConfig } from '../utils/link'
@@ -103,9 +103,8 @@ export async function linkCommand(args: string[]): Promise<void> {
   console.log(`\nLinking to ${workplaceSubdomain}...`)
 
   try {
-    const response = await callCliApi<LinkResponse>(
+    const response = await linkApp(
       { serverUrl, token: credentials.token },
-      '/link',
       {
         appHandle: config.handle,
         workplaceSubdomain,

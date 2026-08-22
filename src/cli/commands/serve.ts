@@ -9,7 +9,16 @@ import {
 } from '../utils'
 import { createSkedyulServer } from '../../server'
 import type { DedicatedServerInstance, ToolRegistry } from '../../types'
-import { getCredentials, callCliApi, getNgrokAuthtoken, setNgrokAuthtoken, getServerUrl } from '../utils/auth'
+import { getCredentials, getNgrokAuthtoken, setNgrokAuthtoken, getServerUrl } from '../utils/auth'
+import {
+  getInstallation,
+  heartbeat,
+  installApp,
+  linkApp,
+  registerEndpoint,
+  uninstallApp,
+  unregisterEndpoint,
+} from '../api'
 import { getLinkConfig, saveLinkConfig, ensureSkedyulDirs, type LinkConfig } from '../utils/link'
 import { findRegistryPath, loadInstallConfig, loadInstallHandler, loadAppConfig, buildExecutableSyncConfig, filterEnvForInstallWorkflow } from '../utils/config'
 import {
@@ -173,9 +182,8 @@ async function shouldRunInstallWorkflow(
   }
 
   try {
-    const result = await callCliApi<InstallationStatusResponse>(
+    const result = await getInstallation(
       { serverUrl: linkConfig.serverUrl, token: credentials.token },
-      '/installation',
       { appVersionId: linkConfig.appVersionId },
     )
     return result.status !== 'INSTALLED'
@@ -473,9 +481,8 @@ export async function serveCommand(args: string[]): Promise<void> {
           isNewInstallation: boolean
         }
 
-        const response = await callCliApi<LinkResponse>(
+        const response = await linkApp(
           { serverUrl, token: credentials.token },
-          '/link',
           {
             appHandle: appConfig.handle,
             workplaceSubdomain,
@@ -678,31 +685,16 @@ export async function serveCommand(args: string[]): Promise<void> {
     // Register endpoint with Skedyul
     console.log(`\nRegistering endpoint with Skedyul...`)
     try {
-      const registerUrl = `${linkConfig.serverUrl}/api/cli/register-endpoint`
-      const registerBody = {
+      await registerEndpoint(
+        { serverUrl: linkConfig.serverUrl, token: credentials.token },
+        {
           appVersionId: linkConfig.appVersionId,
           invokeEndpoint,
           config: executableConfig,
-      }
-
-      const registerResponse = await fetch(registerUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${credentials.token}`,
         },
-        body: JSON.stringify(registerBody),
-      })
-
-      if (!registerResponse.ok) {
-        const responseText = await registerResponse.text()
-        console.error(`Failed to register endpoint (HTTP ${registerResponse.status}):`)
-        // Show first 500 chars of response body for debugging
-        console.error(`  Response: ${responseText.substring(0, 500)}`)
-      } else {
+      )
       console.log(`  ✓ Registered as invokeEndpoint for ${linkConfig.appVersionHandle}`)
       console.log(`  ✓ Synced ${toolCount} tools to Skedyul`)
-      }
     } catch (error) {
       console.error(`Failed to register endpoint: ${error instanceof Error ? error.message : String(error)}`)
       // Continue anyway, might be a temporary issue
@@ -722,9 +714,8 @@ export async function serveCommand(args: string[]): Promise<void> {
         )
         const installEnv = filterEnvForInstallWorkflow(installEnvFromDb, installConfig)
 
-        await callCliApi(
+        await installApp(
           { serverUrl: linkConfig.serverUrl, token: credentials.token },
-          '/install',
           {
             appVersionId: linkConfig.appVersionId,
             env: installEnv,
@@ -750,10 +741,9 @@ export async function serveCommand(args: string[]): Promise<void> {
           webhookRegistry,
         )
 
-        await callCliApi(
+        await heartbeat(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
-          '/heartbeat',
-          { 
+          {
             appVersionId: linkConfig!.appVersionId,
             config: freshConfig,
           },
@@ -794,9 +784,8 @@ export async function serveCommand(args: string[]): Promise<void> {
 
       // Unregister endpoint (mark as offline, but keep installation)
       try {
-        await callCliApi(
+        await unregisterEndpoint(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
-          '/unregister-endpoint',
           { appVersionId: linkConfig!.appVersionId },
         )
         console.log('  ✓ Endpoint unregistered (installation preserved)')
@@ -829,9 +818,8 @@ export async function serveCommand(args: string[]): Promise<void> {
 
       // Unregister endpoint
       try {
-        await callCliApi(
+        await unregisterEndpoint(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
-          '/unregister-endpoint',
           { appVersionId: linkConfig!.appVersionId },
         )
         console.log('  ✓ Endpoint unregistered')
@@ -842,12 +830,11 @@ export async function serveCommand(args: string[]): Promise<void> {
       // Run uninstall workflow to clean up server-side resources
       try {
         console.log('  Running uninstall workflow...')
-        await callCliApi(
+        await uninstallApp(
           { serverUrl: linkConfig!.serverUrl, token: credentials!.token },
-          '/uninstall',
-          { 
+          {
             appInstallationId: linkConfig!.appInstallationId,
-            deleteFields: false, // Preserve custom fields for re-install
+            deleteFields: false,
           },
         )
         console.log('  ✓ Uninstall workflow started')

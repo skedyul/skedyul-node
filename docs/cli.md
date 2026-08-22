@@ -418,6 +418,48 @@ Or pass `--tunnel-url` if you manage ngrok separately.
 
 ---
 
+## Programmatic CLI API (`skedyul/cli`)
+
+CLI commands (`skedyul crm`, `skedyul workflows`, `skedyul invoke`, `skedyul dev link`) wrap this module. MCP and other tooling should call it instead of `fetch`ing `/api/cli/*`.
+
+Build a `CliContext` yourself — the API never reads `~/.skedyul`:
+
+```ts
+import {
+  crm,
+  workflows,
+  apps,
+  listWorkplaces,
+  type CliContext,
+} from 'skedyul/cli'
+
+const ctx: CliContext = {
+  token: process.env.SKEDYUL_CLI_TOKEN!, // sk_cli_*
+  serverUrl: 'https://admin.skedyul.it',
+}
+
+const workplaces = await listWorkplaces(ctx)
+await crm.listModels(ctx, 'gym-demo')
+await workflows.validate(ctx, 'gym-demo', yamlContent)
+await workflows.deploy(ctx, 'gym-demo', yamlContent, { publish: true })
+await apps.invokeTool(ctx, {
+  appInstallationId: 'inst_abc',
+  toolName: 'parse_lab_report',
+  args: {},
+})
+```
+
+| Namespace | Methods |
+|-----------|---------|
+| `workplaces` | `list`, `getWorkplaceToken` |
+| `crm` | `listModels`, `pullSchema`, `diffSchema`, `pushSchema`, `approveMigration` |
+| `workflows` | `list`, `get`, `validate`, `deploy`, `publish`, `pull`, `run`, `getRun` |
+| `apps` | `link`, `registerEndpoint`, `heartbeat`, `install`, `uninstall`, `invokeTool`, `listTools`, `syncResources` |
+
+`crm.pushSchema(..., { autoApprove: true })` approves a pending destructive migration via `POST /api/cli/approve-migration`.
+
+---
+
 ## Local server override
 
 Point the CLI at a local Skedyul instance:

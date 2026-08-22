@@ -1,10 +1,23 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
-import { parse as parseYaml } from 'yaml'
 import { parseArgs } from '../utils'
-import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
-import { validateWorkflowYAML } from '../../workflows/types'
+import { getCredentials, getServerUrl } from '../utils/auth'
+import {
+  deployWorkflow,
+  getWorkflow,
+  getWorkflowRun,
+  getWorkflowSchema,
+  listWorkflows,
+  listWorkflowVersions,
+  publishWorkflow,
+  pullWorkflow,
+  runWorkflow,
+  validateWorkflow,
+  validateWorkflowContent,
+  type CliContext,
+  type WorkflowRunStatus,
+} from '../api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -195,7 +208,7 @@ Examples:
 // Auth helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ensureAuth(): { token: string; serverUrl: string } {
+function ensureAuth(): CliContext {
   const credentials = getCredentials()
   if (!credentials?.token) {
     console.error('Error: Not authenticated')
@@ -203,18 +216,6 @@ function ensureAuth(): { token: string; serverUrl: string } {
     process.exit(1)
   }
   return { token: credentials.token, serverUrl: getServerUrl() }
-}
-
-async function getWorkplaceToken(
-  workplaceSubdomain: string,
-  serverUrl: string,
-  cliToken: string,
-): Promise<WorkplaceTokenResponse> {
-  return callCliApi<WorkplaceTokenResponse>(
-    { serverUrl, token: cliToken },
-    '/workplace-token',
-    { workplaceSubdomain },
-  )
 }
 
 async function loadWorkflowFile(filePath: string): Promise<{ content: string }> {
@@ -231,22 +232,7 @@ async function loadWorkflowFile(filePath: string): Promise<{ content: string }> 
     throw new Error('Workflow file must be a .yml or .yaml file')
   }
 
-  let rawWorkflow: unknown
-  try {
-    rawWorkflow = parseYaml(content)
-  } catch (err) {
-    throw new Error(`Failed to parse YAML: ${err instanceof Error ? err.message : String(err)}`)
-  }
-
-  const validation = validateWorkflowYAML(rawWorkflow)
-  if (!validation.success) {
-    const errorMessages = validation.error.issues
-      .map((e) => `  - ${String(e.path.join('.')) || '(root)'}: ${e.message}`)
-      .join('\n')
-    throw new Error(`Workflow validation failed:\n${errorMessages}`)
-  }
-
-  return { content }
+  return validateWorkflowContent(content)
 }
 
 function parseInputFlags(flags: Record<string, unknown>): Record<string, string> {
@@ -295,22 +281,11 @@ async function handleList(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<WorkflowsListResponse>(
-    { serverUrl, token },
-    '/workflows',
-    undefined,
-    { method: 'GET', query: { workplaceId: workplaceToken.workplaceId } },
-  )
-
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to list workflows')
-  }
+  const ctx = ensureAuth()
+  const listed = await listWorkflows(ctx, workplace)
 
   if (jsonOutput) {
-    console.log(JSON.stringify(result.workflows, null, 2))
+    console.log(JSON.stringify(listed, null, 2))
     return
   }
 
@@ -318,13 +293,13 @@ async function handleList(args: string[]): Promise<void> {
   console.log(`Workflows in ${workplace}`)
   console.log('')
 
-  if (result.workflows.length === 0) {
+  if (listed.length === 0) {
     console.log('  No workflows found.')
   } else {
     console.log('  Handle                      Name                          Active')
     console.log('  ──────────────────────────  ────────────────────────────  ───────')
 
-    for (const workflow of result.workflows) {
+    for (const workflow of listed) {
       const handle = workflow.handle.slice(0, 26).padEnd(26)
       const name = workflow.name.slice(0, 28).padEnd(28)
       const active =
@@ -347,29 +322,13 @@ async function handleGet(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<WorkflowGetResponse>(
-    { serverUrl, token },
-    '/workflows',
-    undefined,
-    {
-      method: 'GET',
-      query: { workplaceId: workplaceToken.workplaceId, handle },
-    },
-  )
-
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to get workflow')
-  }
+  const ctx = ensureAuth()
+  const workflow = await getWorkflow(ctx, workplace, handle)
 
   if (jsonOutput) {
-    console.log(JSON.stringify(result.workflow, null, 2))
+    console.log(JSON.stringify(workflow, null, 2))
     return
   }
-
-  const workflow = result.workflow
   console.log('')
   console.log(`Workflow: ${workflow.name}`)
   console.log('')
@@ -407,33 +366,13 @@ async function handleVersions(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<WorkflowGetResponse>(
-    { serverUrl, token },
-    '/workflows',
-    undefined,
-    {
-      method: 'GET',
-      query: {
-        workplaceId: workplaceToken.workplaceId,
-        handle,
-        action: 'versions',
-      },
-    },
-  )
-
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to list versions')
-  }
+  const ctx = ensureAuth()
+  const versions = await listWorkflowVersions(ctx, workplace, handle)
 
   if (jsonOutput) {
-    console.log(JSON.stringify(result.workflow.versions ?? [], null, 2))
+    console.log(JSON.stringify(versions, null, 2))
     return
   }
-
-  const versions = result.workflow.versions ?? []
   console.log('')
   console.log(`Versions for ${handle}`)
   console.log('')
@@ -482,20 +421,11 @@ async function handleDeploy(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<DeployWorkflowResponse>(
-    { serverUrl, token },
-    '/workflows',
-    {
-      action: 'deploy',
-      workplaceId: workplaceToken.workplaceId,
-      yamlContent: content,
-      publish: !draft,
-      versionLabel,
-    },
-  )
+  const ctx = ensureAuth()
+  const result = await deployWorkflow(ctx, workplace, content, {
+    publish: !draft,
+    versionLabel,
+  })
 
   if (!result.success) {
     const message = result.error || 'Deploy failed'
@@ -577,18 +507,8 @@ async function handleValidate(args: string[]): Promise<void> {
     return
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<ValidateWorkflowResponse>(
-    { serverUrl, token },
-    '/workflows',
-    {
-      action: 'validate',
-      workplaceId: workplaceToken.workplaceId,
-      yamlContent: content,
-    },
-  )
+  const ctx = ensureAuth()
+  const result = await validateWorkflow(ctx, workplace, content)
 
   if (!result.valid) {
     if (jsonOutput) {
@@ -626,22 +546,12 @@ async function handlePull(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<{ success: boolean; yaml: string; version: number; handle: string }>(
-    { serverUrl, token },
-    '/workflows',
-    undefined,
-    {
-      method: 'GET',
-      query: {
-        workplaceId: workplaceToken.workplaceId,
-        handle,
-        action: 'pull',
-        version: version !== undefined ? String(version) : undefined,
-      },
-    },
+  const ctx = ensureAuth()
+  const result = await pullWorkflow(
+    ctx,
+    workplace,
+    handle,
+    version !== undefined ? Number(version) : undefined,
   )
 
   if (jsonOutput) {
@@ -672,19 +582,8 @@ async function handlePublish(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-
-  const result = await callCliApi<{ success: boolean; workflowId: string; workflowVersionId: string; version: number }>(
-    { serverUrl, token },
-    '/workflows',
-    {
-      action: 'publish',
-      workplaceId: workplaceToken.workplaceId,
-      handle,
-      version: versionNumber,
-    },
-  )
+  const ctx = ensureAuth()
+  const result = await publishWorkflow(ctx, workplace, handle, versionNumber)
 
   if (jsonOutput) {
     console.log(JSON.stringify(result, null, 2))
@@ -739,21 +638,12 @@ async function promptForMissingInputs(
 }
 
 async function waitForWorkflowRun(
-  serverUrl: string,
-  token: string,
-  workplaceId: string,
+  ctx: CliContext,
+  workplace: string,
   workflowRunId: string,
-): Promise<WorkflowRunStatusResponse> {
+): Promise<WorkflowRunStatus> {
   while (true) {
-    const status = await callCliApi<WorkflowRunStatusResponse>(
-      { serverUrl, token },
-      '/workflows/run',
-      undefined,
-      {
-        method: 'GET',
-        query: { workplaceId, workflowRunId },
-      },
-    )
+    const status = await getWorkflowRun(ctx, workplace, workflowRunId)
 
     if (!status.success) {
       throw new Error(status.error || 'Failed to fetch workflow run status')
@@ -804,8 +694,7 @@ async function handleRun(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const { token, serverUrl } = ensureAuth()
-  const workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
+  const ctx = ensureAuth()
 
   let inputs: Record<string, string>
   try {
@@ -816,18 +705,11 @@ async function handleRun(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const schema = await callCliApi<WorkflowSchemaResponse>(
-    { serverUrl, token },
-    '/workflow-schema',
-    undefined,
-    {
-      method: 'GET',
-      query: {
-        workplaceId: workplaceToken.workplaceId,
-        handle,
-        version: version !== undefined ? String(version) : undefined,
-      },
-    },
+  const schema = await getWorkflowSchema(
+    ctx,
+    workplace,
+    handle,
+    version !== undefined ? Number(version) : undefined,
   )
 
   if (schema.error) {
@@ -842,16 +724,10 @@ async function handleRun(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const runResult = await callCliApi<RunWorkflowResponse>(
-    { serverUrl, token },
-    '/workflows/run',
-    {
-      workplaceId: workplaceToken.workplaceId,
-      handle,
-      version: version !== undefined ? Number(version) : undefined,
-      inputs,
-    },
-  )
+  const runResult = await runWorkflow(ctx, workplace, handle, {
+    version: version !== undefined ? Number(version) : undefined,
+    inputs,
+  })
 
   if (!runResult.success) {
     throw new Error(runResult.error || 'Failed to start workflow run')
@@ -871,9 +747,8 @@ async function handleRun(args: string[]): Promise<void> {
 
   if (wait) {
     const finalStatus = await waitForWorkflowRun(
-      serverUrl,
-      token,
-      workplaceToken.workplaceId,
+      ctx,
+      workplace,
       runResult.workflowRunId,
     )
 

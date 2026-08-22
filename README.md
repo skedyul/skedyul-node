@@ -120,6 +120,7 @@ See [Local development](./docs/cli.md#local-development) for the full workflow.
 | `skedyul/schemas/agent-schema` | Legacy multi-stage agent schema |
 | `skedyul/skills/types` | Skill YAML types |
 | `skedyul/scheduling` | Workflow-safe time windows and wait calculations |
+| `skedyul/cli` | Programmatic CLI API (CRM, workflows, apps, workplaces) |
 | `skedyul/cli/utils/auth` | CLI auth helpers (for monorepo tooling) |
 
 ## Server modes
