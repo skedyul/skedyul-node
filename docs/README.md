@@ -41,7 +41,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 
 | Doc | What it covers |
 |-----|----------------|
-| [CLI reference](./cli.md) | Auth, dev, build, deploy, agents, skills, workflows, chat, CRM, instances, events |
+| [CLI reference](./cli.md) | Auth, dev, build, deploy, agents, skills, workflows, chat, CRM, instances, events, programmatic `skedyul/cli` API |
 
 ## Two agent models
 

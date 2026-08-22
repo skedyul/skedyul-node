@@ -29,6 +29,16 @@ export default defineConfig([
     clean: false,
     external: [...builtinModules, ...cliExternals],
   },
+  // Programmatic CLI API (skedyul/cli) — CRM, workflows, apps, workplaces
+  {
+    entry: { 'cli/api/index': 'src/cli/api/index.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    dts: false,
+    splitting: false,
+    clean: false,
+    external: [...builtinModules, ...cliExternals],
+  },
   // CLI utils build (for skedyul-mcp and other packages that need auth utilities)
   // Exported via package.json "exports" field as "./cli/utils/auth"
   {

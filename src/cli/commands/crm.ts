@@ -1,70 +1,22 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
-import { parseArgs, formatJson } from '../utils'
-import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
+import { parseArgs } from '../utils'
+import { getCredentials, getServerUrl } from '../utils/auth'
 import {
   loadSchema,
   saveSchema,
 } from '../../config/schema-loader'
 import type { CRMSchema } from '../../schemas/crm-schema'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface WorkplaceTokenResponse {
-  token: string
-  expiresAt: string
-  workplaceId: string
-  workplaceName: string
-  workplaceSubdomain: string
-}
-
-interface SchemaImpact {
-  operationType: string
-  resourceType: string
-  resourceHandle: string
-  affectedRecords?: number
-  message?: string
-  isDestructive: boolean
-}
-
-interface SchemaDiffResponse {
-  success: boolean
-  hasChanges: boolean
-  impacts: SchemaImpact[]
-  error?: string
-}
-
-interface SchemaPushResponse {
-  success: boolean
-  migrationId?: string
-  requiresApproval: boolean
-  hasChanges?: boolean
-  impacts: SchemaImpact[]
-  error?: string
-}
-
-interface SchemaPullResponse {
-  success: boolean
-  schema: CRMSchema
-  workplaceName: string
-  error?: string
-}
-
-interface ModelsListResponse {
-  success: boolean
-  models: Array<{
-    id: string
-    handle: string
-    name: string
-    namePlural?: string
-    fieldCount: number
-    instanceCount: number
-  }>
-  error?: string
-}
+import {
+  approveMigration,
+  diffSchema,
+  listModels,
+  pullSchema,
+  pushSchema,
+  type CliContext,
+  type SchemaImpact,
+} from '../api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Help
@@ -130,19 +82,7 @@ Examples:
 // Auth Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function getWorkplaceToken(
-  workplaceSubdomain: string,
-  serverUrl: string,
-  cliToken: string,
-): Promise<WorkplaceTokenResponse> {
-  return callCliApi<WorkplaceTokenResponse>(
-    { serverUrl, token: cliToken },
-    '/workplace-token',
-    { workplaceSubdomain },
-  )
-}
-
-function ensureAuth(): { token: string; serverUrl: string } {
+function ensureAuth(): CliContext {
   const credentials = getCredentials()
   if (!credentials?.token) {
     console.error('Error: Not authenticated')
@@ -229,54 +169,18 @@ async function handlePush(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Get auth
-  const { token, serverUrl } = ensureAuth()
+  const ctx = ensureAuth()
 
-  // Get workplace token
-  let workplaceToken: WorkplaceTokenResponse
-  try {
-    workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-  } catch (error) {
-    if (jsonOutput) {
-      console.log(JSON.stringify({ error: `Failed to get workplace token: ${error instanceof Error ? error.message : String(error)}` }))
-    } else {
-      console.error(`Error: Failed to get workplace token: ${error instanceof Error ? error.message : String(error)}`)
-    }
-    process.exit(1)
-  }
-
-  // Send public v1 schema JSON directly (same shape as UI download/upload)
   if (!jsonOutput && !dryRun) {
     console.log('')
     console.log(`📦 Pushing schema "${schema.name}" to ${workplace}`)
     console.log('')
   }
 
-  // Send to backend
   try {
-    const response = await fetch(`${serverUrl}/api/cli/crm-schema`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        workplace,
-        workplaceId: workplaceToken.workplaceId,
-        schema,
-        dryRun,
-        autoApprove,
-        schemaName: schema.name,
-        schemaVersion: schema.version,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
-    }
-
-    const result = await response.json() as SchemaPushResponse
+    const result = dryRun
+      ? await diffSchema(ctx, workplace, schema)
+      : await pushSchema(ctx, workplace, schema, { autoApprove: false })
 
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2))
@@ -312,19 +216,10 @@ async function handlePush(args: string[]): Promise<void> {
           process.exit(1)
         }
 
-        // Send approval
-        const approvalResponse = await fetch(`${serverUrl}/api/cli/crm-schema/approve`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ migrationId: result.migrationId }),
-        })
-
-        if (!approvalResponse.ok) {
-          throw new Error('Failed to approve migration')
+        if (!result.migrationId) {
+          throw new Error('Migration requires approval but no migrationId was returned')
         }
+        await approveMigration(ctx, result.migrationId)
 
         console.log('')
         console.log('✅ Migration approved and applied')
@@ -365,43 +260,10 @@ async function handlePull(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Get auth
-  const { token, serverUrl } = ensureAuth()
-
-  // Get workplace token
-  let workplaceToken: WorkplaceTokenResponse
-  try {
-    workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-  } catch (error) {
-    if (jsonOutput) {
-      console.log(JSON.stringify({ error: `Failed to get workplace token: ${error instanceof Error ? error.message : String(error)}` }))
-    } else {
-      console.error(`Error: Failed to get workplace token: ${error instanceof Error ? error.message : String(error)}`)
-    }
-    process.exit(1)
-  }
+  const ctx = ensureAuth()
 
   try {
-    const response = await fetch(`${serverUrl}/api/cli/crm-schema?workplaceId=${workplaceToken.workplaceId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
-    }
-
-    const result = await response.json() as SchemaPullResponse
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to pull schema')
-    }
-
-    // Schema is already in CRM v1 format from the API
-    const schema = result.schema
+    const { schema } = await pullSchema(ctx, workplace)
 
     if (outputPath) {
       // Determine format from file extension or flag
@@ -456,43 +318,13 @@ async function handleModels(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Get auth
-  const { token, serverUrl } = ensureAuth()
-
-  // Get workplace token
-  let workplaceToken: WorkplaceTokenResponse
-  try {
-    workplaceToken = await getWorkplaceToken(workplace, serverUrl, token)
-  } catch (error) {
-    if (jsonOutput) {
-      console.log(JSON.stringify({ error: `Failed to get workplace token: ${error instanceof Error ? error.message : String(error)}` }))
-    } else {
-      console.error(`Error: Failed to get workplace token: ${error instanceof Error ? error.message : String(error)}`)
-    }
-    process.exit(1)
-  }
+  const ctx = ensureAuth()
 
   try {
-    const response = await fetch(`${serverUrl}/api/cli/crm-models?workplaceId=${workplaceToken.workplaceId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
-    }
-
-    const result = await response.json() as ModelsListResponse
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to list models')
-    }
+    const models = await listModels(ctx, workplace)
 
     if (jsonOutput) {
-      console.log(JSON.stringify(result.models, null, 2))
+      console.log(JSON.stringify(models, null, 2))
       return
     }
 
@@ -500,14 +332,14 @@ async function handleModels(args: string[]): Promise<void> {
     console.log(`📦 Models in ${workplace}`)
     console.log('')
 
-    if (result.models.length === 0) {
+    if (models.length === 0) {
       console.log('  No models found.')
     } else {
       // Table header
       console.log('  Handle                Label                   Fields  Instances')
       console.log('  ────────────────────  ──────────────────────  ──────  ─────────')
 
-      for (const model of result.models) {
+      for (const model of models) {
         const handle = model.handle.padEnd(20)
         const label = model.name.padEnd(22)
         const fields = String(model.fieldCount).padStart(6)

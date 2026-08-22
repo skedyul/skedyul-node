@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { parseArgs, formatJson } from '../utils'
 import { getCredentials, getServerUrl, getActiveProfileName } from '../utils/auth'
+import { invokeTool } from '../api'
 
 interface InvokeToolResponse {
   success: boolean
@@ -346,9 +347,8 @@ export async function invokeRemoteCommand(args: string[]): Promise<void> {
       appInstallationId,
     )
 
-    const response = await callInvokeApi(
-      serverUrl,
-      credentials.token,
+    const response = await invokeTool(
+      { serverUrl, token: credentials.token },
       {
         appInstallationId,
         toolName,
