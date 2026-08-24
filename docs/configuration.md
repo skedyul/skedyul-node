@@ -576,8 +576,10 @@ Optional field `section` is a workplace-scoped handle that groups fields in CRM 
 
 | Scope | Description | Use Case |
 |-------|-------------|----------|
-| `internal` | Only accessible by your app | App-specific data (logs, settings) |
-| `shared` | Linked to user's existing models | Contacts, appointments |
+| `internal` | App-owned data **shared across installs** of this app version. Rows live in the app-owner workplace. | Phone numbers, email domains, provider app credentials |
+| `shared` | Linked to the user's existing workplace models at install time | Contacts, appointments |
+
+Per-install records that belong to the workplace (for example a connected calendar and its sync token) are **not** internal models. Declare them as entities and map them with install CRM maps. `instance.list/create/update('<entity>')` resolves the mapped workplace model.
 
 ### Field Types
 

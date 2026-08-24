@@ -214,6 +214,8 @@ export const EntityFieldDefinitionSchema = z.object({
       ]),
     )
     .optional(),
+  /** CRM FieldDefinition handle to attach on Create fields (e.g. calendar/series_id) */
+  definition: z.string().optional(),
 })
 
 export const EntityRelationshipDefinitionSchema = z.object({
@@ -1062,9 +1064,9 @@ export const BatchOperationDefinitionSchema = z.object({
 
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
-  /** INTERNAL model definitions (app-owned, not visible to users) */
+  /** INTERNAL model definitions for data shared across installs */
   models: z.array(ModelDefinitionSchema).optional(),
-  /** App entity contracts for install-time CRM maps (not shared models) */
+  /** App entity contracts for install-time CRM maps (not shared or internal models) */
   entities: z.array(EntityDefinitionSchema).optional(),
   /** Relationship definitions between INTERNAL models */
   relationships: z.array(RelationshipDefinitionSchema).optional(),
