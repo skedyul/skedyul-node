@@ -8,6 +8,7 @@ import {
   listWorkplaces,
   pushSchema,
   validateWorkflow,
+  validateWorkflowContent,
   type CliContext,
 } from '../src/cli/api'
 
@@ -145,6 +146,30 @@ test('approveMigration posts /approve-migration', async () => {
   await approveMigration(ctx, 'mig_9')
   assert.equal(calls[0].url, 'https://admin.skedyul.it/api/cli/approve-migration')
   assert.deepEqual(calls[0].body, { migrationId: 'mig_9' })
+})
+
+test('validateWorkflowContent accepts platform workflow YAML with typed steps', () => {
+  const yaml = [
+    'name: Test Send Thread Message',
+    'handle: test-send-thread-message',
+    'inputs:',
+    '  thread-id:',
+    '    label: Thread ID',
+    '    required: true',
+    '    type: id',
+    'steps:',
+    '  send-message:',
+    '    type: task',
+    '    service:',
+    '      name: skedyul/threads',
+    '      cmd: message.send',
+    '    inputs:',
+    '      thread-id: "{{ inputs.thread-id }}"',
+    '',
+  ].join('\n')
+
+  const result = validateWorkflowContent(yaml)
+  assert.equal(result.content, yaml)
 })
 
 test('validateWorkflow rejects invalid YAML locally before any HTTP call', async () => {

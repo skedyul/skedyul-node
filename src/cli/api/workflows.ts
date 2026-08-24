@@ -114,6 +114,22 @@ export interface PullWorkflowResult {
   handle: string
 }
 
+function hasPlatformWorkflowSteps(rawWorkflow: unknown): boolean {
+  if (!rawWorkflow || typeof rawWorkflow !== 'object') {
+    return false
+  }
+  const steps = (rawWorkflow as Record<string, unknown>).steps
+  if (!steps || typeof steps !== 'object') {
+    return false
+  }
+  return Object.values(steps as Record<string, unknown>).some(
+    (step) =>
+      step &&
+      typeof step === 'object' &&
+      typeof (step as Record<string, unknown>).type === 'string',
+  )
+}
+
 /** Local Zod/YAML check used by CLI before any server call. */
 export function validateWorkflowContent(yamlContent: string): { content: string } {
   let rawWorkflow: unknown
@@ -123,12 +139,16 @@ export function validateWorkflowContent(yamlContent: string): { content: string 
     throw new Error(`Failed to parse YAML: ${err instanceof Error ? err.message : String(err)}`)
   }
 
+  // Platform workflow YAML (type: task, service.name/cmd) is validated server-side via
+  // WorkflowFileSchema. The local v1 schema is for SDK event workflows only.
   const validation = validateWorkflowYAML(rawWorkflow)
   if (!validation.success) {
-    const errorMessages = validation.error.issues
-      .map((e) => `  - ${String(e.path.join('.')) || '(root)'}: ${e.message}`)
-      .join('\n')
-    throw new Error(`Workflow validation failed:\n${errorMessages}`)
+    if (!hasPlatformWorkflowSteps(rawWorkflow)) {
+      const errorMessages = validation.error.issues
+        .map((e) => `  - ${String(e.path.join('.')) || '(root)'}: ${e.message}`)
+        .join('\n')
+      throw new Error(`Workflow validation failed:\n${errorMessages}`)
+    }
   }
 
   return { content: yamlContent }
