@@ -1,4 +1,11 @@
 /**
+ * Sync direction for events:
+ * - 'inbound': Events from external system → platform (e.g. Google Calendar changes)
+ * - 'outbound': Events from platform CRM → external system (e.g. pushing CRM changes to Google)
+ */
+export type EventDirection = 'inbound' | 'outbound'
+
+/**
  * App event definition for integration executable config.
  *
  * Events are emitted via event.create and subscribed to as
@@ -15,6 +22,13 @@ export interface AppEventDefinition {
   group?: string
   /** Optional Lucide icon name for pickers */
   icon?: string
+  /**
+   * Sync direction for this event type.
+   * - 'inbound': External system → platform (e.g. webhook events from Google)
+   * - 'outbound': Platform CRM → external (e.g. CRM instance.updated triggers)
+   * Defaults to 'inbound' for app.* events when not specified.
+   */
+  direction?: EventDirection
   /**
    * Example flat domain payload for liquid context reference (e.g. external_id, phone, …).
    * Not the full emit payload — studio/branch metadata is added at emit time.
