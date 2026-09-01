@@ -1,4 +1,10 @@
 import { z } from 'zod/v4'
+import {
+  EntityPoliciesSchema,
+  SkillExampleSchema,
+  SkillToolDefinitionSchema,
+  CRMModelFieldRequirementsSchema,
+} from './skills/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Env Variable Schemas
@@ -1060,6 +1066,32 @@ export const BatchOperationDefinitionSchema = z.object({
   icon: z.string().optional(),
 })
 
+/**
+ * Skill definition for app provisioning.
+ * Skills are capabilities that agents can use, with entity policies
+ * defining which CRM operations the skill needs access to.
+ */
+export const ProvisionSkillDefinitionSchema = z.object({
+  /** Unique identifier for the skill */
+  handle: z.string(),
+  /** Display name */
+  name: z.string(),
+  /** Short description for skill discovery */
+  description: z.string().optional(),
+  /** Full instructions injected into agent context when skill is loaded */
+  instructions: z.string(),
+  /** Entity policies - declares which entity operations this skill needs */
+  entityPolicies: EntityPoliciesSchema.optional(),
+  /** Additional tools (MCP, system) not covered by entity policies */
+  tools: z.array(SkillToolDefinitionSchema).optional(),
+  /** CRM context - specifies which model fields to include in schema */
+  crmContext: z.object({
+    models: z.record(z.string(), CRMModelFieldRequirementsSchema),
+  }).optional(),
+  /** Few-shot examples for the skill */
+  examples: z.array(SkillExampleSchema).optional(),
+})
+
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
   /** INTERNAL model definitions for data shared across installs */
@@ -1077,6 +1109,8 @@ export const ProvisionConfigSchema = z.object({
   setup: z.array(SetupStepDefinitionSchema).optional(),
   /** Batch operations for imports, syncs, and long-running tasks */
   batchOperations: z.array(BatchOperationDefinitionSchema).optional(),
+  /** Skills provided by this app */
+  skills: z.array(ProvisionSkillDefinitionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1156,6 +1190,7 @@ export type WebhookHandlerDefinition = z.infer<typeof WebhookHandlerDefinitionSc
 export type Webhooks = z.infer<typeof WebhooksSchema>
 export type InstallConfig = z.infer<typeof InstallConfigSchema>
 export type ProvisionConfig = z.infer<typeof ProvisionConfigSchema>
+export type ProvisionSkillDefinition = z.infer<typeof ProvisionSkillDefinitionSchema>
 export type SetupStepKind = z.infer<typeof SetupStepKindSchema>
 export type SetupStepDefinition = z.infer<typeof SetupStepDefinitionSchema>
 export type BatchPagination = z.infer<typeof BatchPaginationSchema>

@@ -120,6 +120,36 @@ export const CRMContextSchema = z.object({
 export type CRMContext = z.infer<typeof CRMContextSchema>
 
 /**
+ * Entity operation types for entity policies.
+ * These map to CRM operations at runtime via AppCrmMap.
+ */
+export const EntityOperationSchema = z.enum(['get', 'list', 'update', 'create', 'delete'])
+
+export type EntityOperation = z.infer<typeof EntityOperationSchema>
+
+/**
+ * Entity policies configuration - declares which entity operations a skill needs.
+ * At runtime, these are resolved to CRM tools via AppCrmMap.
+ *
+ * Example:
+ * ```yaml
+ * entityPolicies:
+ *   member:
+ *     - get
+ *     - update
+ *   booking:
+ *     - list
+ *     - create
+ * ```
+ */
+export const EntityPoliciesSchema = z.record(
+  z.string(), // entity handle (e.g., "member", "booking")
+  z.array(EntityOperationSchema) // allowed operations
+)
+
+export type EntityPolicies = z.infer<typeof EntityPoliciesSchema>
+
+/**
  * Full Skill YAML schema (supports both v1 and v2)
  * 
  * v1: tools is SkillToolRequirementSchema ({ requires: [...] })
@@ -138,7 +168,12 @@ export const SkillYAMLSchema = z.object({
   // Instructions injected into agent system prompt
   instructions: z.string(),
 
+  // Entity policies - declares which entity operations this skill needs
+  // At runtime, these are resolved to CRM tools via AppCrmMap
+  entityPolicies: EntityPoliciesSchema.optional(),
+
   // Tool configuration - supports both v1 and v2 formats
+  // Use for non-entity tools (MCP tools, system tools)
   tools: SkillToolsSchema.optional(),
 
   // CRM context - specifies which models/fields to include in schema
@@ -161,6 +196,7 @@ export const SkillYAMLV2Schema = z.object({
   version: z.string().optional(),
   description: z.string().optional(),
   instructions: z.string(),
+  entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
   crmContext: CRMContextSchema.optional(),
   examples: z.array(SkillExampleSchema).optional(),
@@ -243,6 +279,7 @@ export const LoadedSkillSchema = z.object({
   name: z.string(),
   instructions: z.string().optional(),
   description: z.string().optional(),
+  entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })

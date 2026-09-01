@@ -13,6 +13,8 @@ export {
   ResolvedSkillSchema,
   CRMModelFieldRequirementsSchema,
   CRMContextSchema as SkillCRMContextSchema,
+  EntityOperationSchema,
+  EntityPoliciesSchema,
 
   // Types
   type SkillSource,
@@ -26,6 +28,8 @@ export {
   type SkillDiscoveryInfo,
   type CRMModelFieldRequirements,
   type CRMContext as SkillCRMContext,
+  type EntityOperation,
+  type EntityPolicies,
 
   // Helper functions
   defineSkill,
