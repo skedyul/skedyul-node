@@ -169,8 +169,9 @@ export default config
 Declare external payload shapes that workplaces map to CRM at install time.
 Entities are **not** shared models — the app does not write CRM through them.
 Optional entity field `definition` is a global FieldDefinition handle (for
-example `calendar/recurrence`) that install apply attaches when it creates or
-retargets the mapped workplace field.
+example `calendar/recurrence`, `calendar/series_id`, or `phone`) that install
+apply attaches when it creates or retargets the mapped workplace field. Core
+looks this up by handle; do not mint a private definition.
 Workflows apply maps with an app-handle Liquid filter:
 
 ```liquid

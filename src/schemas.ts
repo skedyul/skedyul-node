@@ -204,7 +204,7 @@ export const EntityFieldDefinitionSchema = z.object({
   /** @deprecated Prefer isUnique */
   matchCandidate: z.boolean().optional(),
   required: z.boolean().optional(),
-  /** Global FieldDefinition handle (e.g. calendar/recurrence) */
+  /** Global FieldDefinition handle (e.g. calendar/recurrence, calendar/series_id) */
   definition: z.string().optional(),
   options: z
     .array(
@@ -214,8 +214,6 @@ export const EntityFieldDefinitionSchema = z.object({
       ]),
     )
     .optional(),
-  /** CRM FieldDefinition handle to attach on Create fields (e.g. calendar/series_id) */
-  definition: z.string().optional(),
 })
 
 export const EntityRelationshipDefinitionSchema = z.object({
