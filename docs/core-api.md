@@ -234,8 +234,22 @@ console.log(`Message ID: ${result.messageId}`)
 | `message.attachments` | `array` | Optional file attachments (stashed until inbox creates the message) |
 | `contact` | `object` | Optional contact association |
 | `remoteId` | `string` | Optional external message ID |
+| `expectedAttachmentCount` | `number` | Optional. Number of files that will be linked via `attachFilesToMessage` after this call. When set, `thread.message.received` is held until that many attachments land (or a 15s timeout) so workflows see the files. |
 
 **Returns:** `Promise<{ messageId: string }>`
+
+Typical email/MMS flow when files are downloaded after capture:
+
+```ts
+const { messageId } = await communicationChannel.receiveMessage({
+  communicationChannelId: channel.id,
+  from: inbound.from,
+  message: { message: inbound.text },
+  expectedAttachmentCount: inbound.attachments.length,
+})
+// upload files, then:
+await communicationChannel.attachFilesToMessage({ messageId, attachments })
+```
 
 ### communicationChannel.attachFilesToMessage()
 
@@ -270,7 +284,7 @@ await communicationChannel.attachFilesToMessage({
 
 **Returns:** `Promise<{ success: boolean; attachmentCount: number }>`
 
-Emits `thread.attachment.received` per new attachment once the ThreadMessage exists (or when the inbox processor links pending files).
+Emits `thread.attachment.received` per new attachment once the ThreadMessage exists (or when the inbox processor links pending files). If `thread.message.received` is still `PENDING` for this message, its `attachments` payload is patched so dispatch sees the files. If receive held that event (`expectedAttachmentCount`), this call completes the emit when the count is met.
 
 ---
 
