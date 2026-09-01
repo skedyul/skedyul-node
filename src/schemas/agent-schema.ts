@@ -58,13 +58,28 @@ export type McpToolBinding = {
   handle?: string
   displayName?: string
   description?: string
+  executionMode?: 'ALLOW_ALL' | 'REQUIRE_APPROVAL'
+  approvalTimeoutMs?: number
+}
+
+export type AppEntityToolBinding = {
+  kind: 'APP_ENTITY'
+  /** App handle (e.g., 'bft') */
+  appHandle: string
+  /** Entity handle (e.g., 'member', 'booking') */
+  entity: string
+  /** Operation: get, list, update, create, delete */
+  operation: 'get' | 'list' | 'update' | 'create' | 'delete'
+  handle?: string
+  displayName?: string
+  description?: string
   /** Execution mode: ALLOW_ALL (default) or REQUIRE_APPROVAL */
   executionMode?: ToolExecutionMode
   /** Approval timeout in ms (default: 86400000 = 1 day) */
   approvalTimeoutMs?: number
 }
 
-export type ToolBinding = SystemToolBinding | AgentToolBinding | McpToolBinding
+export type ToolBinding = SystemToolBinding | AgentToolBinding | McpToolBinding | AppEntityToolBinding
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool Reference Input - Flexible format accepted in .agent.json files
@@ -118,7 +133,11 @@ export interface ToolReferenceInput {
  */
 export function parseToolReferenceString(
   ref: string,
-): { kind: 'SYSTEM'; name: string } | { kind: 'AGENT'; name: string } | { kind: 'MCP'; server: string; tool: string } {
+):
+  | { kind: 'SYSTEM'; name: string }
+  | { kind: 'AGENT'; name: string }
+  | { kind: 'MCP'; server: string; tool: string }
+  | { kind: 'APP_ENTITY'; appHandle: string; entity: string; operation: string } {
   // Handle new colon-separated format
   if (ref.startsWith('system:')) {
     // system:crm:*, system:settings:*, system:thread:* → SYSTEM tool
@@ -131,11 +150,24 @@ export function parseToolReferenceString(
   }
 
   if (ref.startsWith('app:')) {
-    // app:server:tool → MCP tool
     const parts = ref.split(':')
     if (parts.length < 3) {
-      throw new Error(`Invalid app tool reference: "${ref}". Expected format: app:server:tool`)
+      throw new Error(`Invalid app tool reference: "${ref}". Expected format: app:server:tool or app:handle:entity:operation`)
     }
+
+    // Check if this is an app-scoped entity tool (4 parts with valid operation)
+    // Format: app:appHandle:entity:operation
+    const ENTITY_OPERATIONS = ['get', 'list', 'update', 'create', 'delete']
+    if (parts.length === 4 && ENTITY_OPERATIONS.includes(parts[3])) {
+      return {
+        kind: 'APP_ENTITY',
+        appHandle: parts[1],
+        entity: parts[2],
+        operation: parts[3],
+      }
+    }
+
+    // Otherwise, treat as MCP tool: app:server:tool
     const server = parts[1]
     const tool = parts.slice(2).join(':')
     return { kind: 'MCP', server, tool }
@@ -239,6 +271,16 @@ export function parseToolReference(input: string | ToolReferenceInput): ToolBind
         displayName: input.name,
         description: input.description,
       }
+    } else if (parsed.kind === 'APP_ENTITY') {
+      return {
+        kind: 'APP_ENTITY' as const,
+        appHandle: parsed.appHandle,
+        entity: parsed.entity,
+        operation: parsed.operation as AppEntityToolBinding['operation'],
+        handle: input.handle,
+        displayName: input.name,
+        description: input.description,
+      }
     }
   }
 
@@ -312,6 +354,22 @@ const ToolBindingZ = z.union([
     kind: z.literal('MCP'),
     server: z.string(),
     tool: z.string(),
+    handle: z.string().optional(),
+    displayName: z.string().optional(),
+    description: z.string().optional(),
+    /** Execution mode: ALLOW_ALL (default) or REQUIRE_APPROVAL */
+    executionMode: z.enum(['ALLOW_ALL', 'REQUIRE_APPROVAL']).optional(),
+    /** Approval timeout in ms (default: 86400000 = 1 day) */
+    approvalTimeoutMs: z.number().optional(),
+  }),
+  z.object({
+    kind: z.literal('APP_ENTITY'),
+    /** App handle (e.g., 'bft') */
+    appHandle: z.string(),
+    /** Entity handle (e.g., 'member', 'booking') */
+    entity: z.string(),
+    /** Operation: get, list, update, create, delete */
+    operation: z.enum(['get', 'list', 'update', 'create', 'delete']),
     handle: z.string().optional(),
     displayName: z.string().optional(),
     description: z.string().optional(),
