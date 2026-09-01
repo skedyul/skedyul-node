@@ -688,3 +688,5 @@ export type {
 export type { QueueTouchPoint } from './types'
 export { toGsm7, estimateSmsSegments } from './tools/sms/gsm7'
 export type { SmsEncoding, SmsSegmentEstimate } from './tools/sms/gsm7'
+// Config types - commonly used in skedyul-core
+export type { EventDirection } from './config/types/app-event'
