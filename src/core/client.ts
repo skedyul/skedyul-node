@@ -326,6 +326,12 @@ export interface ReceiveMessageInput {
   contact?: ReceiveMessageContact
   /** Optional remote/external message ID (provider message id) */
   remoteId?: string
+  /**
+   * How many files will be linked via attachFilesToMessage after this call.
+   * When set, the platform holds thread.message.received until that many
+   * attachments land (or a timeout), so consumers see the files.
+   */
+  expectedAttachmentCount?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -452,6 +458,9 @@ export const communicationChannel = {
       message: input.message,
       contact: input.contact,
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
+      ...(input.expectedAttachmentCount != null
+        ? { expectedAttachmentCount: input.expectedAttachmentCount }
+        : {}),
     })
     return data
   },
@@ -463,7 +472,9 @@ export const communicationChannel = {
    * - Before: attachments are stashed on MessageInbox and linked when the message is created
    * - After: rows are created immediately and `thread.attachment.received` is emitted
    *
-   * Typical flow for email/MMS: `receiveMessage` → `file.upload` → `attachFilesToMessage`.
+   * Typical flow for email/MMS: `receiveMessage({ expectedAttachmentCount })` →
+   * `file.upload` → `attachFilesToMessage`. Pass `expectedAttachmentCount` so
+   * `thread.message.received` waits for the files.
    *
    * @example
    * ```ts
