@@ -192,6 +192,60 @@ export async function invokeTool(
   })
 }
 
+export interface GetDeploymentInput {
+  deploymentId: string
+  tail?: number
+  includeLogs?: boolean
+  errorsOnly?: boolean
+}
+
+export interface DeploymentLogEntry {
+  timestamp?: string
+  level?: string
+  message?: string
+  [key: string]: unknown
+}
+
+export interface GetDeploymentResult {
+  success?: boolean
+  deploymentId?: string
+  status?: string
+  appHandle?: string | null
+  invokeEndpoint?: string | null
+  readyToInvoke?: boolean
+  provision?: {
+    id?: string
+    status?: string
+    currentStep?: string | null
+    errorMessage?: string | null
+  } | null
+  pendingMigration?: unknown
+  logs?: DeploymentLogEntry[]
+  errors?: DeploymentLogEntry[]
+  logsTotal?: number
+  logsTruncated?: boolean
+  logsError?: string | null
+  hint?: string
+  lastError?: string | null
+  error?: string
+  [key: string]: unknown
+}
+
+export async function getDeployment(
+  ctx: CliContext,
+  input: GetDeploymentInput,
+): Promise<GetDeploymentResult> {
+  return callCliApi<GetDeploymentResult>(cliApi(ctx), '/app-deploy', undefined, {
+    method: 'GET',
+    query: {
+      deploymentId: input.deploymentId,
+      tail: input.tail != null ? String(input.tail) : undefined,
+      logs: input.includeLogs === false ? 'false' : 'true',
+      errorsOnly: input.errorsOnly ? 'true' : undefined,
+    },
+  })
+}
+
 export const apps = {
   link: linkApp,
   registerEndpoint,
@@ -203,4 +257,5 @@ export const apps = {
   syncResources,
   listTools,
   invokeTool,
+  getDeployment,
 }

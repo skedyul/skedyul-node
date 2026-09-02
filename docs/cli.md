@@ -394,6 +394,41 @@ Events must be declared in `skedyul.config.ts` under `events` to appear in the c
 
 ---
 
+## App deployments (`skedyul apps`)
+
+Inspect a platform deployment (build + provision) by id:
+
+```bash
+skedyul apps deployment --id dpl_abc123
+skedyul apps deployment --id dpl_abc123 --errors-only
+skedyul apps deployment --id dpl_abc123 --tail 200 --json
+skedyul apps deployment --id dpl_abc123 --no-logs   # status / extracted errors only
+```
+
+| Flag | Description |
+|------|-------------|
+| `--id <id>` | Deployment id (required) |
+| `--tail, -n <n>` | Newest log lines (default 100, max 500) |
+| `--errors-only` | Error/warn lines only (still from the full log) |
+| `--no-logs` | Skip the log tail; failed deploys still include extracted errors |
+| `--json` | Print the API payload |
+
+Human output prints status, provision state, extracted errors, then the clipped log tail. Provision CloudWatch lines are prefixed `[provision]`. Use this after `skedyul deploy` fails (or after MCP `apps_deploy`) to see Dockerfile/build/provision issues.
+
+Programmatic:
+
+```ts
+import { apps, type CliContext } from 'skedyul/cli'
+
+const detail = await apps.getDeployment(ctx, {
+  deploymentId: 'dpl_abc123',
+  tail: 100,
+})
+console.log(detail.status, detail.errors, detail.logs)
+```
+
+---
+
 ## Ngrok setup
 
 Linked mode requires a tunnel so Skedyul can reach your local server:
@@ -415,6 +450,7 @@ Or pass `--tunnel-url` if you manage ngrok separately.
 | ngrok auth failed | `skedyul config set ngrokAuthtoken <token>` |
 | Tool not found locally | Run `skedyul build` and check registry path |
 | Deploy hangs | Ensure worker is running in your Skedyul environment |
+| Deploy failed | `skedyul apps deployment --id <deploymentId> --errors-only` |
 
 ---
 
@@ -454,7 +490,7 @@ await apps.invokeTool(ctx, {
 | `workplaces` | `list`, `getWorkplaceToken` |
 | `crm` | `listModels`, `pullSchema`, `diffSchema`, `pushSchema`, `approveMigration` |
 | `workflows` | `list`, `get`, `validate`, `deploy`, `publish`, `pull`, `run`, `getRun` |
-| `apps` | `link`, `registerEndpoint`, `heartbeat`, `install`, `uninstall`, `invokeTool`, `listTools`, `syncResources` |
+| `apps` | `link`, `registerEndpoint`, `heartbeat`, `install`, `uninstall`, `invokeTool`, `listTools`, `syncResources`, `getDeployment` |
 
 `crm.pushSchema(..., { autoApprove: true })` approves a pending destructive migration via `POST /api/cli/approve-migration`.
 

@@ -238,6 +238,7 @@ skedyul workflows deploy --file ./workflows/reminder.yaml --workplace <subdomain
 # Testing
 skedyul chat --agent booking --workplace <subdomain>
 skedyul dev invoke my_tool --workplace <subdomain>
+skedyul apps deployment --id dpl_...   # build + provision logs
 ```
 
 See [CLI reference](./docs/cli.md) for every command, flag, and config file path.
