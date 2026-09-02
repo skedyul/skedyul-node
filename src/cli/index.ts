@@ -22,6 +22,7 @@ import { chatCommand } from './commands/chat'
 import { skillsCommand } from './commands/skills'
 import { workflowsCommand } from './commands/workflows'
 import { eventCommand } from './commands/event'
+import { appsCommand } from './commands/apps'
 
 const args = process.argv.slice(2)
 
@@ -55,6 +56,7 @@ COMMANDS
   skills     Manage skills (list, get, deploy, publish, versions, delete)
   workflows  Manage workflows (list, get, deploy, run, publish, pull)
   event        Emit test app events to the event bus (CLI testing)
+  apps       Inspect app deployments and build logs
   dev        Development tools for building and testing apps locally
 
 GETTING STARTED
@@ -114,6 +116,7 @@ MORE HELP
   $ skedyul agents --help     Show agent management commands
   $ skedyul skills --help     Show skill management commands
   $ skedyul workflows --help  Show workflow management commands
+  $ skedyul apps --help       Show app deployment log commands
   $ skedyul chat --help       Show chat command options
   $ skedyul dev --help        Show development commands
   $ skedyul <cmd> --help      Show help for specific command
@@ -285,6 +288,11 @@ async function main(): Promise<void> {
 
   if (command === 'event') {
     await eventCommand(args.slice(1))
+    return
+  }
+
+  if (command === 'apps') {
+    await appsCommand(args.slice(1))
     return
   }
 

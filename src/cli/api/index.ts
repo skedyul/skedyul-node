@@ -52,6 +52,9 @@ export type {
   InvokeToolResult,
   SyncResourcesResult,
   PlatformTool,
+  GetDeploymentInput,
+  GetDeploymentResult,
+  DeploymentLogEntry,
 } from './apps'
 export {
   linkApp,
@@ -64,4 +67,5 @@ export {
   syncResources,
   listTools,
   invokeTool,
+  getDeployment,
 } from './apps'

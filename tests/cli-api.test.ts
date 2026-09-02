@@ -4,6 +4,7 @@ import {
   approveMigration,
   deployWorkflow,
   diffSchema,
+  getDeployment,
   listModels,
   listWorkplaces,
   pushSchema,
@@ -212,4 +213,30 @@ test('deployWorkflow posts action deploy with yamlContent', async () => {
   assert.equal(body.publish, true)
   assert.equal(body.yamlContent, yaml)
   assert.equal(result.success, true)
+})
+
+test('getDeployment GETs /app-deploy with log query params', async () => {
+  const calls = mockFetchSequence([
+    {
+      json: {
+        success: true,
+        deploymentId: 'dpl_1',
+        status: 'FAILED',
+        errors: [{ level: 'error', message: 'Dockerfile not found' }],
+        logs: [{ level: 'error', message: 'Dockerfile not found' }],
+      },
+    },
+  ])
+  const result = await getDeployment(ctx, {
+    deploymentId: 'dpl_1',
+    tail: 50,
+    errorsOnly: true,
+  })
+  assert.ok(calls[0].url.includes('/api/cli/app-deploy?'))
+  assert.ok(calls[0].url.includes('deploymentId=dpl_1'))
+  assert.ok(calls[0].url.includes('tail=50'))
+  assert.ok(calls[0].url.includes('errorsOnly=true'))
+  assert.equal(calls[0].method, 'GET')
+  assert.equal(result.status, 'FAILED')
+  assert.equal(result.errors?.[0]?.message, 'Dockerfile not found')
 })
