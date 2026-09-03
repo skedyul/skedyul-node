@@ -111,4 +111,23 @@ export interface EntityDefinition extends BaseDefinition {
    * Used by install suggest/analyze — not applied automatically.
    */
   crmMapDefaults?: EntityCrmMapDefaults
+  /**
+   * Platform situations this entity participates in, and the short MCP tool
+   * name to invoke for each. Omit a key to skip that situation.
+   * Core builds a typed payload (see CalendarWindowPullInput) — same pattern
+   * as channel `capabilities.messaging.send` + MessageSendInput.
+   */
+  tools?: EntityRuntimeTools
+}
+
+/**
+ * Situation → short MCP tool name. Keys are platform contracts; values are
+ * the app's tool handle (not `app:{handle}:…`).
+ */
+export interface EntityRuntimeTools {
+  /**
+   * CRM LIST calendar views, before reading instances.
+   * Invoked with CalendarWindowPullInput.
+   */
+  calendarWindowPull?: string
 }

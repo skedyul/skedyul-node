@@ -235,6 +235,10 @@ export const EntityCrmMapDefaultsSchema = z.object({
     .optional(),
 })
 
+export const EntityRuntimeToolsSchema = z.object({
+  calendarWindowPull: z.string().min(1).optional(),
+})
+
 export const EntityDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
@@ -244,6 +248,7 @@ export const EntityDefinitionSchema = z.object({
   contextFields: z.array(EntityFieldDefinitionSchema).optional(),
   relationships: z.array(EntityRelationshipDefinitionSchema).optional(),
   crmMapDefaults: EntityCrmMapDefaultsSchema.optional(),
+  tools: EntityRuntimeToolsSchema.optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1145,6 +1150,7 @@ export type EntityRelationshipDefinition = z.infer<
   typeof EntityRelationshipDefinitionSchema
 >
 export type EntityCrmMapDefaults = z.infer<typeof EntityCrmMapDefaultsSchema>
+export type EntityRuntimeTools = z.infer<typeof EntityRuntimeToolsSchema>
 export type EntityDefinition = z.infer<typeof EntityDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
@@ -1246,6 +1252,51 @@ export type MessageSendAttachment = z.infer<typeof MessageSendAttachmentSchema>
 export type MessageSendMessage = z.infer<typeof MessageSendMessageSchema>
 export type MessageSendInput = z.infer<typeof MessageSendInputSchema>
 export type MessageSendOutput = z.infer<typeof MessageSendOutputSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calendar window pull (entity.tools.calendarWindowPull)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const CalendarWindowPullWindowSchema = z.object({
+  startAt: z.string(),
+  endAt: z.string(),
+  timezone: z.string().optional(),
+})
+
+export const CalendarWindowPullModelSchema = z.object({
+  id: z.string(),
+  handle: z.string().optional(),
+})
+
+export const CalendarWindowPullEntitySchema = z.object({
+  handle: z.string(),
+})
+
+export const CalendarWindowPullCalendarsSchema = z.object({
+  ids: z.array(z.string()).optional(),
+})
+
+export const CalendarWindowPullInputSchema = z.object({
+  window: CalendarWindowPullWindowSchema,
+  model: CalendarWindowPullModelSchema.optional(),
+  entity: CalendarWindowPullEntitySchema.optional(),
+  calendars: CalendarWindowPullCalendarsSchema.optional(),
+})
+
+export const CalendarWindowPullOutputSchema = z.object({
+  calendarsUpserted: z.number().int().nonnegative(),
+  eventsUpserted: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+})
+
+export type CalendarWindowPullWindow = z.infer<typeof CalendarWindowPullWindowSchema>
+export type CalendarWindowPullModel = z.infer<typeof CalendarWindowPullModelSchema>
+export type CalendarWindowPullEntity = z.infer<typeof CalendarWindowPullEntitySchema>
+export type CalendarWindowPullCalendars = z.infer<
+  typeof CalendarWindowPullCalendarsSchema
+>
+export type CalendarWindowPullInput = z.infer<typeof CalendarWindowPullInputSchema>
+export type CalendarWindowPullOutput = z.infer<typeof CalendarWindowPullOutputSchema>
 
 export const MessageBulkRecipientSchema = z.object({
   address: z.string(),

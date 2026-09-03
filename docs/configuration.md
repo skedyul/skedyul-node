@@ -252,6 +252,28 @@ export default defineEntity({
 })
 ```
 
+Optional `tools` binds a short MCP tool name to a platform situation. Core
+looks up the mapped entity for the page model and invokes only declared keys.
+Omit a key to skip that situation. Values are the app tool handle (not
+`app:{handle}:…`).
+
+| Situation | When | Input schema |
+| --- | --- | --- |
+| `calendarWindowPull` | CRM LIST calendar view, before reading instances | `CalendarWindowPullInput` |
+
+This is the same pattern as channel `capabilities.messaging.send` +
+`MessageSendInput`: the app names the tool; the platform builds a typed
+payload. See [Tools](./tools.md#platform-calendar-window-pull).
+
+```ts
+defineEntity({
+  handle: 'calendar_event',
+  label: 'Calendar Event',
+  fields: [/* ... */],
+  tools: { calendarWindowPull: 'pull_meetings_window' },
+})
+```
+
 ```ts
 // provision/index.ts
 entities: [member, membership, booking, event],

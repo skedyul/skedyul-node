@@ -447,6 +447,59 @@ const inputSchema: ToolSchema = {
 }
 ```
 
+### Platform calendar window pull
+
+For entity tools wired via `defineEntity({ tools: { calendarWindowPull } })`,
+reuse the shared schemas from `skedyul` — same pattern as
+`MessageSendInput` for `capabilities.messaging.send`:
+
+- **Input:** `CalendarWindowPullInputSchema` / `CalendarWindowPullInput`
+- **Output:** `CalendarWindowPullOutputSchema` / `CalendarWindowPullOutput`
+
+The platform builds the input. Do not invent a parallel Google-shaped arg list
+(`time_min` / `time_max`).
+
+#### Input
+
+| Field | Description |
+|-------|-------------|
+| `window.startAt` | Inclusive window start (ISO datetime) |
+| `window.endAt` | Exclusive window end (ISO datetime) |
+| `window.timezone` | Optional IANA timezone of the calendar view |
+| `model.id` / `model.handle` | Workplace CRM model for the LIST page |
+| `entity.handle` | App entity handle that declared the tool |
+| `calendars.ids` | Optional Google/provider calendar ids; omit to pull every calendar |
+
+Example handler:
+
+```ts
+import {
+  CalendarWindowPullInputSchema,
+  CalendarWindowPullOutputSchema,
+  type CalendarWindowPullInput,
+  type CalendarWindowPullOutput,
+} from 'skedyul'
+
+export const pullMeetingsWindow: ToolDefinition<
+  CalendarWindowPullInput,
+  CalendarWindowPullOutput
+> = {
+  name: 'pull_meetings_window',
+  inputSchema: CalendarWindowPullInputSchema,
+  outputSchema: CalendarWindowPullOutputSchema,
+  handler: async (input) => {
+    const timeMin = input.window.startAt
+    const timeMax = input.window.endAt
+    // ...
+    return createSuccessResponse({
+      calendarsUpserted: 2,
+      eventsUpserted: 12,
+      truncated: false,
+    })
+  },
+}
+```
+
 ### Platform bulk messaging schemas
 
 For channel tools wired via `capabilities.messaging.send_batch`, reuse the shared schemas from `skedyul`:
