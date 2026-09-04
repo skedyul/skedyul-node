@@ -118,6 +118,30 @@ export interface EntityDefinition extends BaseDefinition {
    * as channel `capabilities.messaging.send` + MessageSendInput.
    */
   tools?: EntityRuntimeTools
+  /**
+   * Generic pre-save dialogs. Core/web render configured fields; the app
+   * declares copy, options, and when to show. Answers go on the CRM event
+   * envelope under the app handle (not into CRM scalar fields).
+   */
+  saveInteractions?: EntitySaveInteractionDefinition[]
+}
+
+export interface EntitySaveInteractionDefinition {
+  handle: string
+  when: {
+    onCreate?: boolean
+    onUpdate?: boolean
+    fieldsChanged?: string[]
+    relationshipsChanged?: string[]
+  }
+  dialog: {
+    title: string
+    message: string
+    severity?: 'warning' | 'info'
+    /** Entity / contextField handles to render (type + options come from the entity). */
+    fields: string[]
+    defaults?: Record<string, string>
+  }
 }
 
 /**
