@@ -89,7 +89,7 @@ runtime:
 | Section | Description |
 |---------|-------------|
 | `persona` | Agent name and voice style/format constraints |
-| `skills` | Skill references — skills own the tool definitions |
+| `skills` | Skill references — skills own the tool definitions. The agent must `system:skill:load` a skill each turn (`alwaysLoad` is deprecated and ignored). |
 | `tools` | Bootstrap tools always available (e.g. `system:skill:load`) |
 | `prompts` | `system`, `recovery`, `followUp`, `titleEnrichment` |
 | `behavior` | Response limits, scheduling patterns, message splitting |
@@ -97,6 +97,8 @@ runtime:
 | `runtime` | `model` and `personaModel` LLM selection |
 | `timeWindows` | Named availability policies |
 | `sandbox` | Sandbox testing configuration |
+
+Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
 
 ### Validation
 

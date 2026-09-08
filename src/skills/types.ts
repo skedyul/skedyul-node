@@ -155,6 +155,43 @@ export type EntityPolicies = z.infer<typeof EntityPoliciesSchema>
  * v1: tools is SkillToolRequirementSchema ({ requires: [...] })
  * v2: tools is array of SkillToolDefinitionSchema (full tool ownership)
  */
+export const EvaluatorPreconditionsSchema = z.object({
+  toolSucceeded: z.boolean().optional(),
+  anyWrittenFields: z.array(z.string()).optional(),
+  noneOfWrittenFields: z.array(z.string()).optional(),
+  crm: z
+    .array(
+      z.object({
+        field: z.string(),
+        op: z.enum(['eq', 'in', 'empty', 'notEmpty']),
+        value: z.unknown().optional(),
+      }),
+    )
+    .optional(),
+  skillsLoaded: z.array(z.string()).optional(),
+  skillsNotLoaded: z.array(z.string()).optional(),
+})
+
+export type EvaluatorPreconditions = z.infer<typeof EvaluatorPreconditionsSchema>
+
+export const SkillEvaluatorSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  target: z.enum(['message', 'tool', 'entity']),
+  selector: z.string().optional(),
+  criteria: z.string(),
+  passThreshold: z.number().optional(),
+  checks: z
+    .object({
+      requiredArgs: z.array(z.string()).optional(),
+      forbiddenArgValues: z.record(z.string(), z.array(z.unknown())).optional(),
+    })
+    .optional(),
+  preconditions: EvaluatorPreconditionsSchema.optional(),
+})
+
+export type SkillEvaluator = z.infer<typeof SkillEvaluatorSchema>
+
 export const SkillYAMLSchema = z.object({
   // Schema version
   $schema: z.string().optional(),
@@ -179,6 +216,11 @@ export const SkillYAMLSchema = z.object({
   // CRM context - specifies which models/fields to include in schema
   crmContext: CRMContextSchema.optional(),
 
+  ownedFields: z.array(z.string()).optional(),
+
+  // Quality evaluators owned by this skill
+  evaluators: z.array(SkillEvaluatorSchema).optional(),
+
   // Few-shot examples
   examples: z.array(SkillExampleSchema).optional(),
 })
@@ -199,6 +241,8 @@ export const SkillYAMLV2Schema = z.object({
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
   crmContext: CRMContextSchema.optional(),
+  ownedFields: z.array(z.string()).optional(),
+  evaluators: z.array(SkillEvaluatorSchema).optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })
 
@@ -222,7 +266,10 @@ export const SkillRefSchema = z.union([
   z.object({
     skill: z.string(),
     description: z.string().optional(), // For AI SDK Agent Skills discovery
-    /** Auto-inject this skill's instructions and tools on every agent turn */
+    /**
+     * @deprecated Ignored. The agent must call system:skill:load each turn.
+     * Kept so existing agent YAML still validates.
+     */
     alwaysLoad: z.boolean().optional(),
     // Version selection (pick one):
     version: z.number().optional(), // Pin to specific version number
