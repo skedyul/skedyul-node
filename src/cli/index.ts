@@ -52,7 +52,7 @@ COMMANDS
   invoke     Invoke a tool on a hosted app version
   instances  Manage CRM instances (list, get, create, update, delete)
   crm        Manage CRM schemas (push, pull, diff, models)
-  agents     Manage agents (list, get, push)
+  agents     Manage agents (list, get, deploy, test)
   skills     Manage skills (list, get, deploy, publish, versions, delete)
   workflows  Manage workflows (list, get, deploy, run, publish, pull)
   event        Emit test app events to the event bus (CLI testing)

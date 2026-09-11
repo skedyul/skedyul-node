@@ -14,6 +14,10 @@ import {
   validateAgentYAMLV3,
   type AgentYAMLV3,
 } from '../../schemas/agent-schema-v3'
+import {
+  inspectPlaygroundSession,
+  sendPlaygroundTurn,
+} from '../api/playground'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -126,6 +130,7 @@ Commands:
   versions          List versions of an agent
   ab                Set A/B testing traffic weights
   rollback          Rollback to a previous version
+  test              Run a playground turn (same path as the web playground)
 
 List Options:
   --workplace, -w   Workplace subdomain (required)
@@ -165,6 +170,16 @@ Rollback Options:
   --to              Version number to rollback to
   --json            Output as JSON
 
+Test Options:
+  --workplace, -w   Workplace subdomain (required)
+  --agent, -a       Agent handle (required to start a session)
+  --thread, -t      Continue an existing playground thread
+  --message, -m     User turn to send (omit to inspect the thread)
+  --now             ISO clock the agent should treat as now
+  --contact         Contact ID to impersonate
+  --installation    App installation ID (APP agents)
+  --json            Output as JSON
+
 Examples:
   # List all agents in a workplace
   skedyul agents list --workplace gym-demo
@@ -189,6 +204,15 @@ Examples:
 
   # Rollback to previous version
   skedyul agents rollback sales-agent --workplace gym-demo --to 1
+
+  # Playground turn (TESTING thread + runThreadAgentWorkflow)
+  skedyul agents test --agent sales-agent --workplace gym-demo --message "Hey"
+
+  # Continue the thread and pin studio now
+  skedyul agents test --thread th_xxx --workplace gym-demo --message "I'm sick" --now 2026-09-11T22:00:00+10:00
+
+  # Inspect scheduled messages
+  skedyul agents test --thread th_xxx --workplace gym-demo
 `)
 }
 
@@ -996,6 +1020,130 @@ async function handleRollback(args: string[]): Promise<void> {
 // Main Command
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function handleTest(args: string[]): Promise<void> {
+  const { flags } = parseArgs(args)
+
+  const workplace = (flags.workplace || flags.w) as string | undefined
+  const handle = (flags.agent || flags.a) as string | undefined
+  const threadId = (flags.thread || flags.t) as string | undefined
+  const message = (flags.message || flags.m) as string | undefined
+  const currentTime = flags.now as string | undefined
+  const contactId = flags.contact as string | undefined
+  const appInstallationId = flags.installation as string | undefined
+  const jsonOutput = Boolean(flags.json)
+
+  if (!workplace) {
+    console.error('Error: --workplace (-w) is required')
+    console.error(
+      'Usage: skedyul agents test --workplace gym-demo --agent sales-agent --message "Hey"',
+    )
+    process.exit(1)
+  }
+
+  if (!threadId && !handle) {
+    console.error('Error: --agent (-a) is required when starting a session')
+    console.error(
+      'Usage: skedyul agents test --workplace gym-demo --agent sales-agent --message "Hey"',
+    )
+    process.exit(1)
+  }
+
+  if (!message && !threadId) {
+    console.error('Error: --message (-m) is required when starting a session')
+    process.exit(1)
+  }
+
+  const { token, serverUrl } = ensureAuth()
+  const ctx = { token, serverUrl }
+
+  try {
+    if (!message) {
+      const result = await inspectPlaygroundSession(ctx, workplace, threadId!)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to inspect playground session')
+      }
+      if (jsonOutput) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      console.log('')
+      console.log(`Playground ${result.threadId}`)
+      if (result.agentHandle || result.agentName) {
+        console.log(`Agent     ${result.agentHandle ?? result.agentName}`)
+      }
+      console.log('')
+      for (const row of result.messages) {
+        const who = row.role === 'user' ? 'USER ' : 'AGENT'
+        console.log(`${who}  ${row.content}`)
+      }
+      if (result.scheduledMessages.length === 0) {
+        console.log('')
+        console.log('SCHED  (none)')
+      } else {
+        console.log('')
+        for (const row of result.scheduledMessages) {
+          console.log(`SCHED  ${row.status} ${row.scheduledAt} ${row.content}`)
+        }
+      }
+      for (const row of result.sendCalls) {
+        if (row.sendAt != null) {
+          console.log(`SENDAT ${String(row.sendAt)} ${row.content ?? ''}`)
+        }
+      }
+      console.log('')
+      return
+    }
+
+    const result = await sendPlaygroundTurn(ctx, workplace, {
+      handle,
+      threadId,
+      message,
+      currentTime,
+      contactId,
+      appInstallationId,
+    })
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to run playground turn')
+    }
+    if (jsonOutput) {
+      console.log(JSON.stringify(result, null, 2))
+      return
+    }
+    console.log('')
+    console.log(`THREAD ${result.threadId}`)
+    console.log(`STATUS ${result.status}`)
+    if (result.currentTime) {
+      console.log(`NOW    ${result.currentTime}`)
+    }
+    if (result.agentResponse) {
+      console.log(`AGENT  ${result.agentResponse}`)
+    } else {
+      console.log('AGENT  (no immediate SMS)')
+    }
+    if (result.scheduledMessages.length === 0) {
+      console.log('SCHED  (none)')
+    } else {
+      for (const row of result.scheduledMessages) {
+        console.log(`SCHED  ${row.status} ${row.scheduledAt} ${row.content}`)
+      }
+    }
+    console.log('')
+  } catch (error) {
+    if (jsonOutput) {
+      console.log(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+    } else {
+      console.error(
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+    process.exit(1)
+  }
+}
+
 export async function agentsCommand(args: string[]): Promise<void> {
   const subcommand = args[0]
 
@@ -1033,6 +1181,9 @@ export async function agentsCommand(args: string[]): Promise<void> {
       break
     case 'rollback':
       await handleRollback(subArgs)
+      break
+    case 'test':
+      await handleTest(subArgs)
       break
     default:
       console.error(`Error: Unknown subcommand: ${subcommand}`)
