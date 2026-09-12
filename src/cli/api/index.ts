@@ -51,6 +51,7 @@ export type {
   PlaygroundCreateResult,
   PlaygroundTurnInput,
   PlaygroundScheduledMessage,
+  PlaygroundSchedulingCheck,
 } from './playground'
 export {
   sendPlaygroundTurn,

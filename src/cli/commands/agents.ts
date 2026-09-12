@@ -1090,6 +1090,11 @@ async function handleTest(args: string[]): Promise<void> {
           console.log(`SENDAT ${String(row.sendAt)} ${row.content ?? ''}`)
         }
       }
+      if (result.schedulingCheck) {
+        console.log(
+          `CHECK  ${result.schedulingCheck.passed ? 'pass' : 'fail'} ${result.schedulingCheck.reason}`,
+        )
+      }
       console.log('')
       return
     }
@@ -1126,6 +1131,11 @@ async function handleTest(args: string[]): Promise<void> {
       for (const row of result.scheduledMessages) {
         console.log(`SCHED  ${row.status} ${row.scheduledAt} ${row.content}`)
       }
+    }
+    if (result.schedulingCheck) {
+      console.log(
+        `CHECK  ${result.schedulingCheck.passed ? 'pass' : 'fail'} ${result.schedulingCheck.reason}`,
+      )
     }
     console.log('')
   } catch (error) {

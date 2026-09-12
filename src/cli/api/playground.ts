@@ -10,6 +10,15 @@ export interface PlaygroundScheduledMessage {
   cancelOnActivity?: boolean
 }
 
+export interface PlaygroundSchedulingCheck {
+  applicable: boolean
+  passed: boolean
+  reason: string
+  namedDelay: boolean
+  verbalFollowUp: boolean
+  scheduledSend: boolean
+}
+
 export interface PlaygroundSendResult {
   success: boolean
   threadId: string
@@ -21,6 +30,7 @@ export interface PlaygroundSendResult {
   currentTime?: string
   scheduledMessageIds?: string[]
   scheduledMessages: PlaygroundScheduledMessage[]
+  schedulingCheck?: PlaygroundSchedulingCheck
   session?: {
     threadId: string
     agentId: string
@@ -49,6 +59,7 @@ export interface PlaygroundInspectResult {
     content: string | null
     sendAt: unknown
   }>
+  schedulingCheck?: PlaygroundSchedulingCheck
   error?: string
 }
 
