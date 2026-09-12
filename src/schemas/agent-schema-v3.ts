@@ -355,6 +355,14 @@ export const ResponsesBehaviorConfigSchema = z.object({
   allowSchedule: z.boolean().optional(),
 
   /**
+   * Whether the agent may skip sending when no reply is warranted.
+   * Platform injects silence rules and exposes system:message:skip.
+   * An explicit skip satisfies requireFinal. Off by default.
+   * @default false
+   */
+  allowSilent: z.boolean().optional(),
+
+  /**
    * Message splitting configuration.
    * Controls whether and how the agent splits responses into multiple messages.
    */
