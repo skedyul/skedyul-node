@@ -38,6 +38,7 @@ test('validateAgentYAMLV3 preserves behavior.responses maxImmediate and maxSched
         maxScheduled: 2,
         requireFinal: true,
         allowSchedule: true,
+        allowSilent: true,
       },
     },
   })
@@ -50,5 +51,6 @@ test('validateAgentYAMLV3 preserves behavior.responses maxImmediate and maxSched
     maxScheduled: 2,
     requireFinal: true,
     allowSchedule: true,
+    allowSilent: true,
   })
 })
