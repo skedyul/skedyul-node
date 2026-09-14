@@ -344,9 +344,12 @@ export {
   SkillToolRequirementSchema,
   SkillExampleSchema,
   SkillYAMLSchema,
+  SkillEvaluatorSchema,
   SkillRefSchema,
   SkillMetadataSchema,
   ResolvedSkillSchema,
+  EntityOperationSchema,
+  EntityPoliciesSchema,
   // Helper functions
   defineSkill,
   validateSkillYAML,
@@ -358,9 +361,12 @@ export type {
   SkillToolRequirement,
   SkillExample,
   SkillYAML,
+  SkillEvaluator,
   SkillRef,
   SkillMetadata,
   ResolvedSkill,
+  EntityOperation,
+  EntityPolicies,
 } from './skills'
 
 // ─────────────────────────────────────────────────────────────────

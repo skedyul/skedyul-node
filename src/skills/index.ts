@@ -7,18 +7,24 @@ export {
   SkillToolRequirementSchema,
   SkillExampleSchema,
   SkillYAMLSchema,
+  SkillEvaluatorSchema,
+  EvaluatorPreconditionsSchema,
   SkillRefSchema,
   SkillVersionWeightSchema,
   SkillMetadataSchema,
   ResolvedSkillSchema,
   CRMModelFieldRequirementsSchema,
   CRMContextSchema as SkillCRMContextSchema,
+  EntityOperationSchema,
+  EntityPoliciesSchema,
 
   // Types
   type SkillSource,
   type SkillToolRequirement,
   type SkillExample,
   type SkillYAML,
+  type SkillEvaluator,
+  type EvaluatorPreconditions,
   type SkillRef,
   type SkillVersionWeight,
   type SkillMetadata,
@@ -26,6 +32,8 @@ export {
   type SkillDiscoveryInfo,
   type CRMModelFieldRequirements,
   type CRMContext as SkillCRMContext,
+  type EntityOperation,
+  type EntityPolicies,
 
   // Helper functions
   defineSkill,

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validateAgentYAMLV3 } from '../src/schemas/agent-schema-v3'
 
-test('validateAgentYAMLV3 preserves alwaysLoad on skill bindings', () => {
+test('validateAgentYAMLV3 still parses deprecated alwaysLoad on skill bindings', () => {
   const result = validateAgentYAMLV3({
     $schema: 'https://skedyul.com/schemas/agent/v3',
     handle: 'sales',
