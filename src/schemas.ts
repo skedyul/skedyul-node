@@ -239,6 +239,23 @@ export const EntityRuntimeToolsSchema = z.object({
   calendarWindowPull: z.string().min(1).optional(),
 })
 
+export const EntitySaveInteractionSchema = z.object({
+  handle: z.string(),
+  when: z.object({
+    onCreate: z.boolean().optional(),
+    onUpdate: z.boolean().optional(),
+    fieldsChanged: z.array(z.string()).optional(),
+    relationshipsChanged: z.array(z.string()).optional(),
+  }),
+  dialog: z.object({
+    title: z.string(),
+    message: z.string(),
+    severity: z.enum(['warning', 'info']).optional(),
+    fields: z.array(z.string()),
+    defaults: z.record(z.string(), z.string()).optional(),
+  }),
+})
+
 export const EntityDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
@@ -249,6 +266,7 @@ export const EntityDefinitionSchema = z.object({
   relationships: z.array(EntityRelationshipDefinitionSchema).optional(),
   crmMapDefaults: EntityCrmMapDefaultsSchema.optional(),
   tools: EntityRuntimeToolsSchema.optional(),
+  saveInteractions: z.array(EntitySaveInteractionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1151,6 +1169,7 @@ export type EntityRelationshipDefinition = z.infer<
 >
 export type EntityCrmMapDefaults = z.infer<typeof EntityCrmMapDefaultsSchema>
 export type EntityRuntimeTools = z.infer<typeof EntityRuntimeToolsSchema>
+export type EntitySaveInteraction = z.infer<typeof EntitySaveInteractionSchema>
 export type EntityDefinition = z.infer<typeof EntityDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
