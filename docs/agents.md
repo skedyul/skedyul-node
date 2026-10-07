@@ -89,16 +89,59 @@ runtime:
 | Section | Description |
 |---------|-------------|
 | `persona` | Agent name and voice style/format constraints |
-| `skills` | Skill references — skills own the tool definitions. The agent must `system:skill:load` a skill each turn (`alwaysLoad` is deprecated and ignored). A workplace skill is a bare handle (`booking`). A skill from an installed app is `@app-handle/skills/skill-handle` (for example `@acme/skills/booking`). |
+| `skills` | Skill references — skills own the tool definitions. A workplace skill is a bare handle (`booking`). A skill from an installed app is `@app-handle/skills/skill-handle` (for example `@acme/skills/booking`). Set `alwaysLoad: true` to pre-seed that skill before the first model step; otherwise the agent calls `system:skill:load`. |
 | `tools` | Bootstrap tools always available (e.g. `system:skill:load`) |
-| `prompts` | `system`, `recovery`, `followUp`, `titleEnrichment` |
-| `behavior` | Response limits, scheduling patterns, message splitting |
+| `prompts` | `system` and `titleEnrichment`. `recovery` and `followUp` parse and are marked not implemented. |
+| `behavior` | Response limits, the acknowledgement gate, conversation policy, and scheduling patterns |
+| `settings` | Install-scoped values the agent asks for by key (`guidance`, `role: persona_name`) |
 | `policies` | Message/tool approval requirements |
 | `runtime` | `model` and `personaModel` LLM selection |
 | `timeWindows` | Named availability policies |
-| `sandbox` | Sandbox testing configuration |
+| `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
 
 Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
+
+### Behavior
+
+`behavior.responses` limits how the agent sends:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `maxImmediate` / `maxScheduled` / `requireFinal` | | Budgets and whether a final message is required |
+| `allowSilent` | `false` | The agent may call `system:message:skip` |
+| `allowSchedule` | `false` | The agent may schedule a future send |
+| `humanize` | `false` | Strip em dashes, smart quotes, and bullet leaders from outbound text |
+| `responseGate.enabled` | on when `allowSilent` is set | Treat a bare acknowledgement as a reason to skip |
+| `responseGate.strictMode` | `false` | Block the send instead of recommending a skip |
+| `responseGate.minAckConfidence` | `0.7` | Confidence required to call a message an acknowledgement (`0`–`1`) |
+
+`behavior.conversation` declares which conversational rules this agent wants. Each rule is `off` (not stated, not checked), `prompt` (stated, never blocks), or `reject` (the send is rejected and the model rewrites it). No level ends the run. Every rule defaults to `prompt` except `oneQuestionPerMessage`, which defaults to `off`.
+
+| Key | What it asks for |
+|-----|------------------|
+| `repeatQuestions` | Do not re-ask something the customer already answered |
+| `exampleCopy` | Do not send skill example wording verbatim |
+| `namedDelayFollowUp` | A named delay or a promised check-in should produce a scheduled send |
+| `oneMessagePerTurn` | Keep the turn to one message. Prompt-only; the hard count is `behavior.responses.maxImmediate` |
+| `fillerBan` | Skip rather than send filler. Stated only when `allowSilent` is set |
+| `cancelPendingOnAck` | A bare acknowledgement does not cancel a pending follow-up |
+| `oneQuestionPerMessage` | Ask one thing at a time. `reject` blocks a send with more than one question. Default `off` |
+| `onPolicyRejectExhausted` | `send` (default) releases the last rejected message; `skip` records a skip |
+
+`acknowledgeTimeGaps` (`false` by default) mentions a long gap since the last message. `timeGapThreshold` is that gap, for example `"3 days"`.
+
+`behavior.responses.messageSplitting` is accepted and marked not implemented.
+
+### Settings
+
+`settings` lists install-scoped values the agent asks for. The platform prints the label and value; it does not interpret the key.
+
+| Field | Meaning |
+|-------|---------|
+| `key` | Resolved against the install's agent config and env |
+| `label` | Shown to the model and in the console |
+| `guidance` | Prompt text. `{{value}}` is the install value, `{{workplace}}` is the workplace name |
+| `role` | `persona_name` uses this value as the agent's name for the install |
 
 ### Validation
 
@@ -118,9 +161,19 @@ skedyul chat --agent booking --workplace <subdomain>
 
 See [CLI reference](./cli.md#agents-skedyul-agents).
 
-### Planned features (schema accepted, not yet runtime)
+### Accepted but not implemented
 
-The v3 schema accepts `events` and `memory` blocks, but these are **not yet implemented** at runtime. Use thread events and workflow bindings for event-driven behavior today.
+These keys still parse so existing YAML validates. Each is marked `Not implemented` on the schema: setting them changes nothing.
+
+| Key | Use instead |
+|-----|-------------|
+| `events` | Thread events and workflow bindings |
+| `memory` | No replacement |
+| `prompts.recovery`, `prompts.followUp` | `prompts.system` |
+| `behavior.responses.messageSplitting` | `behavior.responses.maxImmediate` |
+| `sandbox.enabled` | The caller (playground, scenario replay, CLI) chooses sandbox mode |
+| `skills[].instructions` | The skill file |
+| `skills[].enabled` | Remove the skill from `skills` |
 
 ---
 
@@ -134,9 +187,12 @@ Reference a workplace skill by its handle. Reference a skill provided by an inst
 skills:
   - skill: booking
     description: Workplace booking flow
+    alwaysLoad: true
   - skill: "@acme/skills/booking"
     description: Load when the caller wants an appointment
 ```
+
+`alwaysLoad: true` pre-seeds that skill before the first model step. Omit it and the agent loads the skill with `system:skill:load`.
 
 `system:skill:load` takes that same reference as `name`.
 
@@ -174,7 +230,14 @@ crmContext:
 examples:
   - input: "I need an appointment next Tuesday"
     output: "I can check Tuesday availability. Morning or afternoon?"
+
+ownedFields:
+  - appointment_time
+requiredWrites:
+  - appointment_time
 ```
+
+`ownedFields` are entity field handles this skill may write while loaded. `requiredWrites` are handles it must have written before it replies. Only handles mapped in the install's CRM map are enforced.
 
 ### Skill tool definition (v2)
 
