@@ -814,6 +814,96 @@ test('install endpoint returns 404 when handler not configured', async () => {
   assert.strictEqual(response.statusCode, 404)
 })
 
+test('refresh_token hook returns env and does not persist it', async () => {
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'refresh-test',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    hooks: {
+      refresh_token: async (ctx) => {
+        assert.strictEqual(ctx.env.REFRESH_TOKEN, 'refresh-1')
+        assert.strictEqual(ctx.env.CLIENT_SECRET, 'secret')
+        return {
+          env: {
+            ACCESS_TOKEN: 'access-2',
+            TOKEN_EXPIRY: '2026-10-07T04:22:00.000Z',
+          },
+        }
+      },
+    },
+  }) as ServerlessServerInstance
+
+  const response = await serverless.handler({
+    path: '/refresh_token',
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      env: {
+        REFRESH_TOKEN: 'refresh-1',
+        CLIENT_SECRET: 'secret',
+        SKEDYUL_API_TOKEN: 'sk_wkp_test',
+      },
+    }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'refresh' },
+  })
+
+  assert.strictEqual(response.statusCode, 200)
+  const parsed = JSON.parse(response.body)
+  assert.strictEqual(parsed.env.ACCESS_TOKEN, 'access-2')
+  assert.strictEqual(parsed.env.TOKEN_EXPIRY, '2026-10-07T04:22:00.000Z')
+  assert.equal(parsed.appInstallationId, undefined)
+})
+
+test('refresh_token returns 404 when the hook is not configured', async () => {
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'no-refresh',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+  }) as ServerlessServerInstance
+
+  const response = await serverless.handler({
+    path: '/refresh_token',
+    httpMethod: 'POST',
+    body: JSON.stringify({ env: { REFRESH_TOKEN: 'refresh-1' } }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'no-refresh' },
+  })
+
+  assert.strictEqual(response.statusCode, 404)
+})
+
+test('refresh_token maps AppAuthInvalidError to APP_AUTH_INVALID', async () => {
+  const serverless = server.create({
+    computeLayer: 'serverless',
+    name: 'refresh-invalid',
+    version: '0.0.1',
+    tools: createEchoRegistry(),
+    hooks: {
+      refresh_token: async () => {
+        throw new AppAuthInvalidError('invalid_grant')
+      },
+    },
+  }) as ServerlessServerInstance
+
+  const response = await serverless.handler({
+    path: '/refresh_token',
+    httpMethod: 'POST',
+    body: JSON.stringify({ env: { REFRESH_TOKEN: 'rejected' } }),
+    headers: {},
+    queryStringParameters: null,
+    requestContext: { requestId: 'refresh-invalid' },
+  })
+
+  assert.strictEqual(response.statusCode, 401)
+  const parsed = JSON.parse(response.body)
+  assert.strictEqual(parsed.error.code, 'APP_AUTH_INVALID')
+  assert.strictEqual(parsed.error.message, 'invalid_grant')
+})
+
 test('uninstall handler is invoked and returns cleanedWebhookIds', async () => {
   const serverless = server.create({
     computeLayer: 'serverless',

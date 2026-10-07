@@ -16,6 +16,7 @@ import {
   handleProvisionRoute,
   handleSetupRevalidateRoute,
   handleOAuthCallbackRoute,
+  handleRefreshTokenRoute,
   handleWebhookRoute,
   handleMcpRoute,
   handleMcpBatchRoute,
@@ -76,6 +77,10 @@ export async function routeRequest(
 
     if (req.path === '/oauth_callback' && req.method === 'POST') {
       return handleOAuthCallbackRoute(req, ctx)
+    }
+
+    if (req.path === '/refresh_token' && req.method === 'POST') {
+      return handleRefreshTokenRoute(req, ctx)
     }
 
     if (req.path === '/health' && req.method === 'GET') {

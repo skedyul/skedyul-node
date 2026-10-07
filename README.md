@@ -10,7 +10,7 @@ The official Node.js SDK for building [Skedyul](https://skedyul.com) integration
 |------------|-------------|
 | **MCP tools** | Functions AI agents invoke via the Model Context Protocol |
 | **Webhooks** | HTTP handlers for SMS, email, OAuth callbacks, and third-party events |
-| **Lifecycle hooks** | Install, provision, uninstall, and OAuth flows |
+| **Lifecycle hooks** | Install, provision, uninstall, OAuth, and token refresh |
 | **CRM models** | App-owned (internal) and user-mapped (shared) data models |
 | **Agents (v3)** | Skills-based autonomous agents deployed per workplace |
 | **Skills & workflows** | YAML-defined capabilities and event-driven automation |
@@ -174,7 +174,7 @@ Full documentation lives in [`docs/`](./docs/README.md).
 | [Configuration](./docs/configuration.md) | `skedyul.config.ts` reference — models, channels, pages, env, queues |
 | [Tools](./docs/tools.md) | Building MCP tools with Zod schemas and handlers |
 | [Webhooks](./docs/webhooks.md) | Receiving external events and lifecycle hooks on channels |
-| [Lifecycle hooks](./docs/lifecycle-hooks.md) | Install, provision, uninstall, OAuth |
+| [Lifecycle hooks](./docs/lifecycle-hooks.md) | Install, provision, uninstall, OAuth, token refresh |
 | [Authentication](./docs/authentication.md) | Token types, scopes, and SDK configuration |
 | [Core API](./docs/core-api.md) | Platform resource client reference |
 | [Errors](./docs/errors.md) | Install and runtime error types |

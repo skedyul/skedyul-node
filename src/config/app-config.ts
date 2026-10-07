@@ -145,7 +145,7 @@ export interface SkedyulConfig {
   // ─────────────────────────────────────────────────────────────────────────────
   // Lifecycle Hooks
   // ─────────────────────────────────────────────────────────────────────────────
-  /** Lifecycle hooks for install, provision, uninstall, and oauth_callback */
+  /** Lifecycle hooks for install, provision, uninstall, oauth_callback, and refresh_token */
   hooks?: ServerHooks
 
   // ─────────────────────────────────────────────────────────────────────────────

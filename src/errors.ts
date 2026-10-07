@@ -142,3 +142,25 @@ export class AppAuthInvalidError extends Error {
     this.name = 'AppAuthInvalidError'
   }
 }
+
+/**
+ * Thrown by a tool, batch operation, or webhook when the stored access token
+ * cannot be used and the platform should refresh it, then retry once.
+ *
+ * This is not a dead connection. `AppAuthInvalidError` (`APP_AUTH_INVALID`)
+ * is reserved for a refresh that the provider rejects (for example
+ * `invalid_grant`).
+ *
+ * `tokenKey` names the install env key that holds the stale access token so
+ * the platform can skip a second refresh when that value has already changed.
+ */
+export class TokenRefreshRequiredError extends Error {
+  public readonly code = 'TOKEN_REFRESH_REQUIRED'
+  public readonly tokenKey?: string
+
+  constructor(message = 'Access token expired', options?: { tokenKey?: string }) {
+    super(message)
+    this.name = 'TokenRefreshRequiredError'
+    this.tokenKey = options?.tokenKey
+  }
+}

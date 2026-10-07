@@ -24,6 +24,7 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'AUTH_INVALID'
   | 'AUTH_EXPIRED'
+  | 'TOKEN_REFRESH_REQUIRED'
   | 'PERMISSION_DENIED'
   | 'RATE_LIMITED'
   | 'TIMEOUT'

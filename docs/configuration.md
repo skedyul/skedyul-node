@@ -424,6 +424,7 @@ export default defineConfig({
     provision: provisionHandler,
     uninstall: uninstallHandler,
     oauth_callback: oauthCallbackHandler,
+    refresh_token: refreshTokenHandler,
   },
 })
 ```

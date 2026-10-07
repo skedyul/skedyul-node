@@ -12,7 +12,7 @@ import type { RequestState, ToolCallArgs } from './types'
 import { getJsonSchemaFromToolSchema, normalizeBilling } from './utils'
 import { runWithConfig } from '../core/client'
 import { runWithRateLimitExecutionContext } from '../ratelimit/context'
-import { AppAuthInvalidError } from '../errors'
+import { AppAuthInvalidError, TokenRefreshRequiredError } from '../errors'
 import { RateLimitExceededError } from '../ratelimit/errors'
 import { runWithLogContext } from './context-logger'
 import { createContextLogger } from './logger'
@@ -340,6 +340,27 @@ export function createCallToolHandler<T extends ToolRegistry>(
           retry: {
             allowed: true,
             afterMs: error.retryAfterMs,
+          },
+        }
+      }
+
+      if (error instanceof TokenRefreshRequiredError) {
+        return {
+          success: false,
+          output: null,
+          billing: { credits: 0 },
+          meta: {
+            success: false,
+            message: error.message,
+            toolName,
+          },
+          error: {
+            code: error.code,
+            message: error.message,
+            category: 'auth' as const,
+            ...(error.tokenKey
+              ? { details: { tokenKey: error.tokenKey } }
+              : {}),
           },
         }
       }

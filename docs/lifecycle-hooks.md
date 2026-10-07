@@ -8,6 +8,7 @@ Lifecycle hooks allow your app to execute code at key moments: when users instal
 |------|-------------|---------|
 | `install` | User installs app | Validate credentials, setup per-installation resources |
 | `oauth_callback` | OAuth provider redirects | Exchange auth code for tokens |
+| `refresh_token` | A tool, batch operation, or webhook returns `TOKEN_REFRESH_REQUIRED` | Exchange the stored refresh token for a new access token |
 | `provision` | App version deployed | Setup version-level resources |
 | `uninstall` | User uninstalls app | Cleanup external resources |
 | `setup.revalidate` | CRM migration applied or install env key removed | Re-evaluate listening setup steps (`setup.complete` / `setup.invalidate`) |
@@ -31,6 +32,7 @@ const mcpServer = server.create({
   hooks: {
     install: installHandler,
     oauth_callback: oauthCallbackHandler,
+    refresh_token: refreshTokenHandler,
     provision: provisionHandler,
     uninstall: uninstallHandler,
     setup: { revalidate: setupRevalidateHandler },
@@ -245,6 +247,86 @@ const hooks: ServerHooksWithOAuth = {
 
 ---
 
+## Refresh Token Handler
+
+Called by the platform when a tool, batch operation, or webhook returns `TOKEN_REFRESH_REQUIRED`. The platform runs this hook once per installation, persists the returned env, then retries the original call.
+
+Do not refresh tokens inside the tool. The hook does the provider refresh and does not write the database.
+
+### Handler Signature
+
+```ts
+type RefreshTokenHandler = (ctx: RefreshTokenContext) => Promise<RefreshTokenResult>
+
+interface RefreshTokenContext {
+  /** Provision secrets, install tokens, and the workplace API token */
+  env: Record<string, string>
+  invocation?: InvocationContext
+  log: ContextLogger
+}
+
+interface RefreshTokenResult {
+  /** Install env to persist. Omit a refresh token the provider did not rotate. */
+  env?: Record<string, string>
+}
+```
+
+### Example
+
+```ts
+import { AppAuthInvalidError, type RefreshTokenHandler } from 'skedyul'
+
+const refreshTokenHandler: RefreshTokenHandler = async (ctx) => {
+  const response = await fetch('https://provider.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: ctx.env.REFRESH_TOKEN,
+      client_id: ctx.env.OAUTH_CLIENT_ID,
+      client_secret: ctx.env.OAUTH_CLIENT_SECRET,
+    }),
+  })
+
+  const tokens = await response.json()
+  if (!response.ok) {
+    if (tokens.error === 'invalid_grant') {
+      throw new AppAuthInvalidError('Refresh token was rejected. Reconnect the app.')
+    }
+    throw new Error(tokens.error_description ?? 'Token refresh failed')
+  }
+
+  return {
+    env: {
+      ACCESS_TOKEN: tokens.access_token,
+      TOKEN_EXPIRY: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      ...(tokens.refresh_token ? { REFRESH_TOKEN: tokens.refresh_token } : {}),
+    },
+  }
+}
+```
+
+Register it beside `oauth_callback`:
+
+```ts
+hooks: {
+  oauth_callback: {
+    handler: oauthCallbackHandler,
+    timeout: 60000,
+  },
+  refresh_token: {
+    handler: refreshTokenHandler,
+    timeout: 30000,
+  },
+}
+```
+
+The platform calls `POST /refresh_token` with `{ env, invocation }`. A successful body is `{ env }`. `AppAuthInvalidError` returns HTTP 401 with `error.code` `APP_AUTH_INVALID`, which marks the installation auth invalid. The platform does not retry the hook.
+
+Tools request a refresh by returning or throwing `TOKEN_REFRESH_REQUIRED` (see [Errors](./errors.md)). Include `details.tokenKey` (or `TokenRefreshRequiredError`'s `tokenKey`) so concurrent callers skip a second refresh after the stored access token has already changed.
+
+---
+
 ## Provision Handler
 
 Called when a new version of your app is deployed. Use this for version-level setup that applies to all installations.
@@ -383,11 +465,12 @@ Here's a complete example with all lifecycle hooks:
 import type {
   InstallHandler,
   OAuthCallbackHandler,
+  RefreshTokenHandler,
   ProvisionHandler,
   UninstallHandler,
   ServerHooksWithOAuth,
 } from 'skedyul'
-import { AuthenticationError, webhook } from 'skedyul'
+import { AppAuthInvalidError, AuthenticationError, webhook } from 'skedyul'
 
 // Install: Redirect to OAuth
 export const installHandler: InstallHandler<ServerHooksWithOAuth> = async (ctx) => {
@@ -435,6 +518,32 @@ export const oauthCallbackHandler: OAuthCallbackHandler = async (ctx) => {
   }
 }
 
+export const refreshTokenHandler: RefreshTokenHandler = async (ctx) => {
+  const response = await fetch('https://provider.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: ctx.env.REFRESH_TOKEN,
+      client_id: ctx.env.OAUTH_CLIENT_ID,
+      client_secret: ctx.env.OAUTH_CLIENT_SECRET,
+    }),
+  })
+  const tokens = await response.json()
+  if (!response.ok) {
+    if (tokens.error === 'invalid_grant') {
+      throw new AppAuthInvalidError('Refresh token was rejected. Reconnect the app.')
+    }
+    throw new Error(tokens.error_description ?? 'Token refresh failed')
+  }
+  return {
+    env: {
+      ACCESS_TOKEN: tokens.access_token,
+      ...(tokens.refresh_token ? { REFRESH_TOKEN: tokens.refresh_token } : {}),
+    },
+  }
+}
+
 // Provision: Version-level setup
 export const provisionHandler: ProvisionHandler = async (ctx) => {
   console.log(`Provisioning version ${ctx.app.versionId}`)
@@ -467,6 +576,7 @@ export const uninstallHandler: UninstallHandler = async (ctx) => {
 export const hooks: ServerHooksWithOAuth = {
   install: installHandler,
   oauth_callback: oauthCallbackHandler,
+  refresh_token: refreshTokenHandler,
   provision: provisionHandler,
   uninstall: uninstallHandler,
 }
