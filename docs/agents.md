@@ -89,7 +89,7 @@ runtime:
 | Section | Description |
 |---------|-------------|
 | `persona` | Agent name and voice style/format constraints |
-| `skills` | Skill references — skills own the tool definitions. The agent must `system:skill:load` a skill each turn (`alwaysLoad` is deprecated and ignored). |
+| `skills` | Skill references — skills own the tool definitions. The agent must `system:skill:load` a skill each turn (`alwaysLoad` is deprecated and ignored). A workplace skill is a bare handle (`booking`). A skill from an installed app is `@app-handle/skills/skill-handle` (for example `@acme/skills/booking`). |
 | `tools` | Bootstrap tools always available (e.g. `system:skill:load`) |
 | `prompts` | `system`, `recovery`, `followUp`, `titleEnrichment` |
 | `behavior` | Response limits, scheduling patterns, message splitting |
@@ -127,6 +127,18 @@ The v3 schema accepts `events` and `memory` blocks, but these are **not yet impl
 ## Skills
 
 Skills bundle instructions and tool definitions. Agents load skills dynamically via `system:skill:load`.
+
+Reference a workplace skill by its handle. Reference a skill provided by an installed app with `@app-handle/skills/skill-handle`. The app handle is the integration's handle (`acme`), and the skill handle is the handle declared in that app's `provision.skills`.
+
+```yaml
+skills:
+  - skill: booking
+    description: Workplace booking flow
+  - skill: "@acme/skills/booking"
+    description: Load when the caller wants an appointment
+```
+
+`system:skill:load` takes that same reference as `name`.
 
 ### Skill YAML v2
 
