@@ -441,8 +441,8 @@ export type ConversationPolicyLevel = z.infer<
  * discovery flow, a booking confirmation bot wants none. Declare them here so
  * the same runtime can serve both.
  *
- * Every key defaults to `prompt`. Set `off` for a direct agent that should
- * just answer.
+ * Every key defaults to `prompt` except `oneQuestionPerMessage`, which
+ * defaults to `off`. Set `off` for a direct agent that should just answer.
  */
 export const ConversationBehaviorConfigSchema = z.object({
   /** Do not re-ask something the customer already answered. */
@@ -470,6 +470,12 @@ export const ConversationBehaviorConfigSchema = z.object({
    * and only stated when the thread has pending scheduled messages.
    */
   cancelPendingOnAck: ConversationPolicyLevelSchema.optional(),
+  /**
+   * Ask one thing at a time. `reject` blocks a send that asks more than one
+   * question. Defaults to `off` at runtime: an agent that collects several
+   * answers in one message is a legitimate design.
+   */
+  oneQuestionPerMessage: ConversationPolicyLevelSchema.optional(),
   /**
    * Fallback when every send this turn was rejected by a policy gate.
    * `send` releases the last rejected message, `skip` records a skip.

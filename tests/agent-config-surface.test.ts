@@ -22,6 +22,7 @@ const IMPLEMENTED = [
   'behavior.conversation.namedDelayFollowUp',
   'behavior.conversation.onPolicyRejectExhausted',
   'behavior.conversation.oneMessagePerTurn',
+  'behavior.conversation.oneQuestionPerMessage',
   'behavior.conversation.repeatQuestions',
   'behavior.responses.allowSchedule',
   'behavior.responses.allowSilent',
@@ -204,6 +205,7 @@ test('conversation policy accepts off, prompt and reject per rule', () => {
         exampleCopy: 'reject',
         namedDelayFollowUp: 'prompt',
         oneMessagePerTurn: 'off',
+        oneQuestionPerMessage: 'reject',
         fillerBan: 'off',
         cancelPendingOnAck: 'prompt',
         onPolicyRejectExhausted: 'skip',
@@ -215,6 +217,7 @@ test('conversation policy accepts off, prompt and reject per rule', () => {
   if (!result.success) return
   assert.equal(result.data.behavior?.conversation?.repeatQuestions, 'off')
   assert.equal(result.data.behavior?.conversation?.exampleCopy, 'reject')
+  assert.equal(result.data.behavior?.conversation?.oneQuestionPerMessage, 'reject')
 })
 
 test('conversation policy rejects a level it cannot enforce', () => {
