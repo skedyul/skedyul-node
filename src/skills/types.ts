@@ -216,7 +216,17 @@ export const SkillYAMLSchema = z.object({
   // CRM context - specifies which models/fields to include in schema
   crmContext: CRMContextSchema.optional(),
 
+  /**
+   * Entity field handles this skill is allowed to write while loaded.
+   * Writing outside this list is reported as an unowned write.
+   */
   ownedFields: z.array(z.string()).optional(),
+
+  /**
+   * Entity field handles this skill must have written before it replies.
+   * Only handles mapped in the install's AppCrmMap are enforced.
+   */
+  requiredWrites: z.array(z.string()).optional(),
 
   // Quality evaluators owned by this skill
   evaluators: z.array(SkillEvaluatorSchema).optional(),
@@ -242,6 +252,7 @@ export const SkillYAMLV2Schema = z.object({
   tools: z.array(SkillToolDefinitionSchema).optional(),
   crmContext: CRMContextSchema.optional(),
   ownedFields: z.array(z.string()).optional(),
+  requiredWrites: z.array(z.string()).optional(),
   evaluators: z.array(SkillEvaluatorSchema).optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })
@@ -267,16 +278,21 @@ export const SkillRefSchema = z.union([
     skill: z.string(),
     description: z.string().optional(), // For AI SDK Agent Skills discovery
     /**
-     * @deprecated Ignored. The agent must call system:skill:load each turn.
-     * Kept so existing agent YAML still validates.
+     * Pre-seed this skill as loaded before the first model step, so the agent
+     * does not have to call system:skill:load for it.
      */
     alwaysLoad: z.boolean().optional(),
     // Version selection (pick one):
     version: z.number().optional(), // Pin to specific version number
     versions: z.array(SkillVersionWeightSchema).optional(), // A/B testing weights
-    // Legacy support:
-    instructions: z.string().optional(), // Inline instructions (deprecated)
-    enabled: z.boolean().optional(),
+    /**
+     * @deprecated Not implemented. Instructions come from the skill file.
+     */
+    instructions: z.string().optional().describe('Not implemented'),
+    /**
+     * @deprecated Not implemented. Remove the skill from `skills` instead.
+     */
+    enabled: z.boolean().optional().describe('Not implemented'),
   }),
 ])
 

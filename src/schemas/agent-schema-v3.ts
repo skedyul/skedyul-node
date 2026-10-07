@@ -363,25 +363,22 @@ export const ResponsesBehaviorConfigSchema = z.object({
   allowSilent: z.boolean().optional(),
 
   /**
+   * Strip em dashes, smart quotes and bullet leaders from outbound messages.
+   * @default false
+   */
+  humanize: z.boolean().optional(),
+
+  /**
    * Message splitting configuration.
-   * Controls whether and how the agent splits responses into multiple messages.
+   * @deprecated Not implemented — accepted but never applied at runtime.
    */
   messageSplitting: z
     .object({
-      /**
-       * Whether to allow natural message splitting.
-       * When true, the agent may split responses into multiple messages
-       * when it improves conversational flow.
-       */
       enabled: z.boolean(),
-
-      /**
-       * Custom prompt to override the default message splitting guidance.
-       * If not provided, uses sensible defaults for when to split vs. keep together.
-       */
       prompt: z.string().optional(),
     })
-    .optional(),
+    .optional()
+    .describe('Not implemented'),
 
   /**
    * Response gate configuration.
@@ -418,6 +415,77 @@ export const ResponsesBehaviorConfigSchema = z.object({
 
 export type ResponsesBehaviorConfig = z.infer<
   typeof ResponsesBehaviorConfigSchema
+>
+
+/**
+ * How strongly the platform enforces one declared conversation rule.
+ *
+ * - `off` — not stated in the prompt and not checked at runtime
+ * - `prompt` — stated as a rule; the agent is steered, never blocked
+ * - `reject` — the send is rejected at runtime so the model rewrites it
+ *
+ * No level ends the run: a style rule must never cost the customer a reply.
+ */
+export const ConversationPolicyLevelSchema = z.enum(['off', 'prompt', 'reject'])
+
+export type ConversationPolicyLevel = z.infer<
+  typeof ConversationPolicyLevelSchema
+>
+
+/**
+ * Conversational behavior the agent declares for itself.
+ *
+ * The runtime enforces mechanical invariants — arguments validate, declared
+ * budgets hold, no duplicate payload, permissions route. Opinions about how a
+ * conversation should go are not invariants: a sales qualifier wants a
+ * discovery flow, a booking confirmation bot wants none. Declare them here so
+ * the same runtime can serve both.
+ *
+ * Every key defaults to `prompt` except `oneQuestionPerMessage`, which
+ * defaults to `off`. Set `off` for a direct agent that should just answer.
+ */
+export const ConversationBehaviorConfigSchema = z.object({
+  /** Do not re-ask something the customer already answered. */
+  repeatQuestions: ConversationPolicyLevelSchema.optional(),
+  /** Do not send skill example wording verbatim. */
+  exampleCopy: ConversationPolicyLevelSchema.optional(),
+  /**
+   * A named delay or a promised check-in should produce a scheduled send.
+   * `prompt` reprompts once and accepts the turn either way; `reject` fails
+   * the turn when no scheduled send follows.
+   */
+  namedDelayFollowUp: ConversationPolicyLevelSchema.optional(),
+  /**
+   * Keep the turn to one message. Prompt-only — the hard count comes from
+   * `behavior.responses.maxImmediate`.
+   */
+  oneMessagePerTurn: ConversationPolicyLevelSchema.optional(),
+  /**
+   * Skip rather than send filler. Prompt-only, and only stated when
+   * `behavior.responses.allowSilent` is set.
+   */
+  fillerBan: ConversationPolicyLevelSchema.optional(),
+  /**
+   * A bare acknowledgement does not cancel a pending follow-up. Prompt-only,
+   * and only stated when the thread has pending scheduled messages.
+   */
+  cancelPendingOnAck: ConversationPolicyLevelSchema.optional(),
+  /**
+   * Ask one thing at a time. `reject` blocks a send that asks more than one
+   * question. Defaults to `off` at runtime: an agent that collects several
+   * answers in one message is a legitimate design.
+   */
+  oneQuestionPerMessage: ConversationPolicyLevelSchema.optional(),
+  /**
+   * Fallback when every send this turn was rejected by a policy gate.
+   * `send` releases the last rejected message, `skip` records a skip.
+   * @default "send"
+   */
+  onPolicyRejectExhausted: z.enum(['send', 'skip']).optional(),
+})
+
+export type ConversationBehaviorConfig = z.infer<
+  typeof ConversationBehaviorConfigSchema
 >
 
 /**
@@ -499,9 +567,52 @@ export const BehaviorConfigV3Schema = z.object({
    * Patterns define triggers like "user indicates they'll return later".
    */
   scheduling: SchedulingBehaviorConfigSchema.optional(),
+
+  /**
+   * Conversation policy - which conversational rules this agent wants, and
+   * whether each is stated in the prompt or enforced at runtime.
+   */
+  conversation: ConversationBehaviorConfigSchema.optional(),
+
+  /**
+   * Mention a long gap since the last message when one has passed.
+   * @default false
+   */
+  acknowledgeTimeGaps: z.boolean().optional(),
+
+  /**
+   * Gap that counts as long for `acknowledgeTimeGaps`, e.g. "3 days".
+   */
+  timeGapThreshold: z.string().optional(),
 })
 
 export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
+
+/**
+ * An install-scoped value the agent asks for by key.
+ *
+ * The platform does not interpret the key. It prints the label and value for
+ * the model and renders `guidance` when the install supplied a value, so what
+ * a setting means stays the app's business.
+ */
+export const AgentSettingV3Schema = z.object({
+  /** Setting key, resolved against the install's AgentConfig and env. */
+  key: z.string().min(1),
+  /** Human label shown to the model and in the console. */
+  label: z.string().optional(),
+  /**
+   * Prompt guidance for this setting. `{{value}}` interpolates the install
+   * value and `{{workplace}}` the workplace name.
+   */
+  guidance: z.string().optional(),
+  /**
+   * Marks a setting as supplying a platform value rather than prose.
+   * `persona_name` overrides the agent's persona name for this install.
+   */
+  role: z.enum(['persona_name']).optional(),
+})
+
+export type AgentSettingV3 = z.infer<typeof AgentSettingV3Schema>
 
 /**
  * Prompts configuration for agent-specific prompt injections.
@@ -510,10 +621,18 @@ export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
 export const PromptsConfigV3Schema = z.object({
   /** Main system prompt with workflow instructions */
   system: z.string().optional(),
-  /** Injected during second pass when skills were loaded but tools not used */
-  recovery: z.string().optional(),
-  /** Injected during follow-up passes when context needs updating */
-  followUp: z.string().optional(),
+  /**
+   * Injected during second pass when skills were loaded but tools not used.
+   * @deprecated Ignored on the durable turn path; only the legacy stream path
+   * reads it. Put the guidance in `system` instead.
+   */
+  recovery: z.string().optional().describe('Not implemented'),
+  /**
+   * Injected during follow-up passes when context needs updating.
+   * @deprecated Ignored on the durable turn path; only the legacy stream path
+   * reads it. Put the guidance in `system` instead.
+   */
+  followUp: z.string().optional().describe('Not implemented'),
   /** Thread list title generation (system + user template with {{var}} placeholders) */
   titleEnrichment: z
     .object({
@@ -554,18 +673,24 @@ export const AgentYAMLV3Schema = z.object({
   tools: z.array(AgentToolRefSchema).optional(),
 
   /**
+   * Settings - Install-scoped values the agent asks for by key.
+   * Rendered into the prompt with the label and guidance declared here.
+   */
+  settings: z.array(AgentSettingV3Schema).optional(),
+
+  /**
    * Events - When the agent activates
    * @deprecated Not yet implemented - this is a planned feature for event-driven agents.
    * Fields are accepted but not used at runtime.
    */
-  events: EventsConfigSchema.optional(),
+  events: EventsConfigSchema.optional().describe('Not implemented'),
 
   /**
    * Memory - How the agent remembers
    * @deprecated Not yet implemented - this is a planned feature.
    * Fields are accepted but not used at runtime.
    */
-  memory: MemoryConfigV3Schema.optional(),
+  memory: MemoryConfigV3Schema.optional().describe('Not implemented'),
 
   // Policies - Business rules for the agent
   policies: PoliciesConfigV3Schema.optional(),
