@@ -290,6 +290,19 @@ export interface EmptyFormComponent extends FormStyleProps {
 }
 
 /**
+ * Markdown component definition (editable markdown / prompt fields).
+ */
+export interface MarkdownComponent extends FormStyleProps {
+  component: 'markdown'
+  label?: string
+  placeholder?: string
+  helpText?: string
+  required?: boolean
+  disabled?: boolean
+  value?: string
+}
+
+/**
  * Alert component definition.
  */
 export interface AlertComponent extends FormStyleProps {
@@ -317,6 +330,7 @@ export type FormComponent =
   | ListComponent
   | EmptyFormComponent
   | AlertComponent
+  | MarkdownComponent
 
 /**
  * Layout column definition.

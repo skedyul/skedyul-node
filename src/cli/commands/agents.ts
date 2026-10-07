@@ -141,13 +141,15 @@ Get Options:
   --json            Output as JSON
 
 Deploy Options:
-  --file, -f        Path to agent definition file (.agent.yml or .agent.json)
+  --file, -f        Path to agent definition file (.agent.yml, .agent.json, or .agent-pack.yaml)
   --workplace, -w   Workplace subdomain (required)
   --draft           Deploy as draft (not published)
+  --upload          Force multipart upload (for large files >500KB)
   --json            Output as JSON
 
-  Supports both legacy (multi-stage) and v3 (skills-based) agent formats.
-  V3 agents use skills, events, and memory instead of stages.
+  Supports v3 (skills-based) agents and agent-pack bundles.
+  Agent-pack files (.agent-pack.yaml) include embedded skills, evaluators, and scenarios.
+  Files larger than 500KB automatically use multipart upload.
 
 Publish Options:
   --workplace, -w   Workplace subdomain (required)
@@ -543,6 +545,9 @@ async function handleUpdate(args: string[]): Promise<void> {
   await handleDeploy(args)
 }
 
+// Threshold for using multipart upload (500KB)
+const MULTIPART_THRESHOLD = 500 * 1024
+
 async function handleDeploy(args: string[]): Promise<void> {
   const { flags } = parseArgs(args)
 
@@ -550,6 +555,7 @@ async function handleDeploy(args: string[]): Promise<void> {
   const workplace = (flags.workplace || flags.w) as string | undefined
   const isDraft = Boolean(flags.draft)
   const jsonOutput = Boolean(flags.json)
+  const forceUpload = Boolean(flags.upload)
 
   if (!filePath) {
     console.error('Error: --file (-f) is required')
@@ -566,11 +572,28 @@ async function handleDeploy(args: string[]): Promise<void> {
   let agent: AgentSchema | AgentYAMLV3
   let content: string
   let isV3: boolean
+  let isAgentPack = false
   try {
-    const result = await loadAgentFile(filePath)
-    agent = result.agent
-    content = result.content
-    isV3 = result.isV3
+    // Check if it's an agent-pack file
+    const absolutePath = path.resolve(filePath)
+    content = fs.readFileSync(absolutePath, 'utf-8')
+    const rawContent = parseYaml(content) as Record<string, unknown>
+    isAgentPack = rawContent?.kind === 'skedyul.agent-pack'
+
+    if (isAgentPack) {
+      // For agent-pack, extract agent for display purposes
+      const agentObj = rawContent.agent as Record<string, unknown> | undefined
+      if (!agentObj) {
+        throw new Error('Agent-pack missing "agent" field')
+      }
+      agent = agentObj as unknown as AgentYAMLV3
+      isV3 = true
+    } else {
+      const result = await loadAgentFile(filePath)
+      agent = result.agent
+      content = result.content
+      isV3 = result.isV3
+    }
   } catch (error) {
     if (jsonOutput) {
       console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
@@ -594,40 +617,49 @@ async function handleDeploy(args: string[]): Promise<void> {
     process.exit(1)
   }
 
+  const fileSize = Buffer.byteLength(content, 'utf8')
+  const useMultipart = forceUpload || fileSize > MULTIPART_THRESHOLD || isAgentPack
+
   if (!jsonOutput) {
     let agentType: string
-    if (isV3) {
+    if (isAgentPack) {
+      agentType = 'agent-pack (bundled)'
+    } else if (isV3) {
       agentType = 'v3 (skills-based)'
     } else {
       agentType = isMultiStageAgent(agent as AgentSchema) ? 'multi-stage' : 'single-stage'
     }
     console.log('')
     console.log(`Deploying ${agentType} agent "${agent.name}" to ${workplace}${isDraft ? ' (draft)' : ''}`)
+    if (useMultipart) {
+      console.log(`  Using multipart upload (${(fileSize / 1024).toFixed(1)} KB)`)
+    }
     console.log('')
   }
 
   try {
-    const response = await fetch(`${serverUrl}/api/cli/agents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
+    let result: DeployResponse & { deployedSkills?: Array<{ handle: string; version: number }> }
+
+    if (useMultipart) {
+      result = await deployAgentMultipart({
+        serverUrl,
+        token,
         workplaceId: workplaceToken.workplaceId,
         subdomain: workplaceToken.workplaceSubdomain,
-        action: 'deploy',
-        yamlContent: content,
+        filePath,
+        content,
         publish: !isDraft,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+      })
+    } else {
+      result = await deployAgentJson({
+        serverUrl,
+        token,
+        workplaceId: workplaceToken.workplaceId,
+        subdomain: workplaceToken.workplaceSubdomain,
+        content,
+        publish: !isDraft,
+      })
     }
-
-    const result = await response.json() as DeployResponse
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to deploy agent')
@@ -660,6 +692,14 @@ async function handleDeploy(args: string[]): Promise<void> {
         console.log(`  Tools:     ${result.agent.tools.length} bound`)
       }
     }
+
+    if (result.deployedSkills?.length) {
+      console.log(`  Skills:    ${result.deployedSkills.length} deployed`)
+      for (const skill of result.deployedSkills) {
+        console.log(`    - ${skill.handle} v${skill.version}`)
+      }
+    }
+
     console.log('')
   } catch (error) {
     if (jsonOutput) {
@@ -669,6 +709,74 @@ async function handleDeploy(args: string[]): Promise<void> {
     }
     process.exit(1)
   }
+}
+
+async function deployAgentJson(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  subdomain: string
+  content: string
+  publish: boolean
+}): Promise<DeployResponse> {
+  const response = await fetch(`${params.serverUrl}/api/cli/agents`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: JSON.stringify({
+      workplaceId: params.workplaceId,
+      subdomain: params.subdomain,
+      action: 'deploy',
+      yamlContent: params.content,
+      publish: params.publish,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json() as Promise<DeployResponse>
+}
+
+async function deployAgentMultipart(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  subdomain: string
+  filePath: string
+  content: string
+  publish: boolean
+}): Promise<DeployResponse & { deployedSkills?: Array<{ handle: string; version: number }> }> {
+  const formData = new FormData()
+
+  const blob = new Blob([params.content], { type: 'text/yaml' })
+  const fileName = path.basename(params.filePath)
+  formData.append('file', blob, fileName)
+
+  formData.append('metadata', JSON.stringify({
+    workplaceId: params.workplaceId,
+    subdomain: params.subdomain,
+    publish: params.publish,
+  }))
+
+  const response = await fetch(`${params.serverUrl}/api/cli/agents/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json()
 }
 
 async function handlePublish(args: string[]): Promise<void> {

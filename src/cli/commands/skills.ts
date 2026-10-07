@@ -95,7 +95,10 @@ Deploy Options:
   --workplace, -w   Workplace subdomain (required)
   --draft           Deploy as draft (not published)
   --label           Version label (e.g., "experiment-shorter-prompts")
+  --upload          Force multipart upload (for large files >500KB)
   --json            Output as JSON
+
+  Note: Files larger than 500KB automatically use multipart upload.
 
 Publish Options:
   --workplace, -w   Workplace subdomain (required)
@@ -356,6 +359,9 @@ async function handleGet(args: string[]): Promise<void> {
   }
 }
 
+// Threshold for using multipart upload (500KB)
+const MULTIPART_THRESHOLD = 500 * 1024
+
 async function handleDeploy(args: string[]): Promise<void> {
   const { flags } = parseArgs(args)
 
@@ -364,6 +370,7 @@ async function handleDeploy(args: string[]): Promise<void> {
   const isDraft = Boolean(flags.draft)
   const versionLabel = flags.label as string | undefined
   const jsonOutput = Boolean(flags.json)
+  const forceUpload = Boolean(flags.upload)
 
   if (!filePath) {
     console.error('Error: --file (-f) is required')
@@ -406,38 +413,41 @@ async function handleDeploy(args: string[]): Promise<void> {
     process.exit(1)
   }
 
+  const fileSize = Buffer.byteLength(content, 'utf8')
+  const useMultipart = forceUpload || fileSize > MULTIPART_THRESHOLD
+
   if (!jsonOutput) {
     console.log('')
     console.log(`Deploying skill "${skill.name}" to ${workplace}${isDraft ? ' (draft)' : ''}`)
+    if (useMultipart) {
+      console.log(`  Using multipart upload (${(fileSize / 1024).toFixed(1)} KB)`)
+    }
     console.log('')
   }
 
   try {
-    const response = await fetch(`${serverUrl}/api/cli/skills`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        action: 'deploy',
+    let result: DeployResponse
+
+    if (useMultipart) {
+      result = await deploySkillMultipart({
+        serverUrl,
+        token,
         workplaceId: workplaceToken.workplaceId,
-        yamlContent: content,
+        filePath,
+        content,
         publish: !isDraft,
         versionLabel,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string; details?: Array<{ path: string; message: string }> }
-      if (errorData.details) {
-        const detailsStr = errorData.details.map((d) => `  - ${d.path}: ${d.message}`).join('\n')
-        throw new Error(`${errorData.error}\n${detailsStr}`)
-      }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+      })
+    } else {
+      result = await deploySkillJson({
+        serverUrl,
+        token,
+        workplaceId: workplaceToken.workplaceId,
+        content,
+        publish: !isDraft,
+        versionLabel,
+      })
     }
-
-    const result = await response.json() as DeployResponse
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to deploy skill')
@@ -466,6 +476,82 @@ async function handleDeploy(args: string[]): Promise<void> {
     }
     process.exit(1)
   }
+}
+
+async function deploySkillJson(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  content: string
+  publish: boolean
+  versionLabel?: string
+}): Promise<DeployResponse> {
+  const response = await fetch(`${params.serverUrl}/api/cli/skills`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: JSON.stringify({
+      action: 'deploy',
+      workplaceId: params.workplaceId,
+      yamlContent: params.content,
+      publish: params.publish,
+      versionLabel: params.versionLabel,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string; details?: Array<{ path: string; message: string }> }
+    if (errorData.details) {
+      const detailsStr = errorData.details.map((d) => `  - ${d.path}: ${d.message}`).join('\n')
+      throw new Error(`${errorData.error}\n${detailsStr}`)
+    }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json() as Promise<DeployResponse>
+}
+
+async function deploySkillMultipart(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  filePath: string
+  content: string
+  publish: boolean
+  versionLabel?: string
+}): Promise<DeployResponse> {
+  const formData = new FormData()
+
+  const blob = new Blob([params.content], { type: 'text/yaml' })
+  const fileName = path.basename(params.filePath)
+  formData.append('file', blob, fileName)
+
+  formData.append('metadata', JSON.stringify({
+    workplaceId: params.workplaceId,
+    publish: params.publish,
+    versionLabel: params.versionLabel,
+  }))
+
+  const response = await fetch(`${params.serverUrl}/api/cli/skills/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string; details?: Array<{ path: string; message: string }> }
+    if (errorData.details) {
+      const detailsStr = errorData.details.map((d) => `  - ${d.path}: ${d.message}`).join('\n')
+      throw new Error(`${errorData.error}\n${detailsStr}`)
+    }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json() as Promise<DeployResponse>
 }
 
 async function handlePublish(args: string[]): Promise<void> {

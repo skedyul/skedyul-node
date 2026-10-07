@@ -382,6 +382,38 @@ export const ResponsesBehaviorConfigSchema = z.object({
       prompt: z.string().optional(),
     })
     .optional(),
+
+  /**
+   * Response gate configuration.
+   * Automatically detects acknowledgment messages and recommends skipping
+   * responses when a scheduled follow-up already exists.
+   */
+  responseGate: z
+    .object({
+      /**
+       * Whether the response gate is enabled.
+       * When true, the platform evaluates incoming messages for acknowledgment
+       * patterns and may recommend skipping a response if scheduled follow-ups exist.
+       * @default true (when allowSilent is true)
+       */
+      enabled: z.boolean().optional(),
+
+      /**
+       * Whether to hard-block sends when gate recommends skip.
+       * When true, system:message:send is blocked unless overrideGate is provided.
+       * When false (default), returns an error encouraging skip but allows override.
+       * @default false
+       */
+      strictMode: z.boolean().optional(),
+
+      /**
+       * Minimum confidence threshold for acknowledgment detection.
+       * Only recommend skip when confidence meets this threshold.
+       * @default 0.7
+       */
+      minAckConfidence: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
 })
 
 export type ResponsesBehaviorConfig = z.infer<
