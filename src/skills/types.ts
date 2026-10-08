@@ -58,6 +58,12 @@ export const SkillToolDefinitionSchema = z.object({
   sandbox: SkillToolSandboxSchema.optional(),
   requiresApproval: z.boolean().optional(),
   constraints: ToolConstraintsSchema.optional(),
+  /**
+   * Memory ids that must already be filled before this tool may run.
+   * Each id is an immediate dependency. Confirm needs a reservation;
+   * it does not itself call reserve.
+   */
+  needs: z.array(z.string().min(1)).optional(),
 })
 
 export type SkillToolDefinition = z.infer<typeof SkillToolDefinitionSchema>
@@ -150,6 +156,39 @@ export const EntityPoliciesSchema = z.record(
 export type EntityPolicies = z.infer<typeof EntityPoliciesSchema>
 
 /**
+ * How long a memory entry stays reusable. Examples: `10m`, `2h`, `1d`.
+ */
+export const SkillMemoryTtlSchema = z
+  .string()
+  .regex(/^\d+\s*[smhd]$/, 'ttl must look like 10m, 2h, or 1d')
+
+/**
+ * One AgentMemory entry the harness fills before a dependent tool or reply
+ * can run. `tool` fills it when the tool succeeds. When `entity` and `match`
+ * are set, a mapped CRM instance with that match value and a remote id fills
+ * it first.
+ */
+export const SkillMemorySchema = z.object({
+  id: z.string().min(1),
+  tool: z.string().min(1),
+  ttl: SkillMemoryTtlSchema,
+  entity: z.string().min(1).optional(),
+  match: z.string().min(1).optional(),
+})
+
+export type SkillMemory = z.infer<typeof SkillMemorySchema>
+
+/**
+ * Memory ids a customer-facing reply needs. Omit `reply` when the skill never
+ * sends a message, such as an admin booking.
+ */
+export const SkillReplySchema = z.object({
+  needs: z.array(z.string().min(1)).optional(),
+})
+
+export type SkillReply = z.infer<typeof SkillReplySchema>
+
+/**
  * Full Skill YAML schema (supports both v1 and v2)
  * 
  * v1: tools is SkillToolRequirementSchema ({ requires: [...] })
@@ -231,6 +270,15 @@ export const SkillYAMLSchema = z.object({
   // Quality evaluators owned by this skill
   evaluators: z.array(SkillEvaluatorSchema).optional(),
 
+  /**
+   * Thread AgentMemory entries. The harness fills each one from a mapped CRM
+   * instance or from a successful call to `tool`. Stored as `memory:<id>`.
+   */
+  memory: z.array(SkillMemorySchema).optional(),
+
+  /** Memory ids required before system:message:send. */
+  reply: SkillReplySchema.optional(),
+
   // Few-shot examples
   examples: z.array(SkillExampleSchema).optional(),
 })
@@ -254,6 +302,8 @@ export const SkillYAMLV2Schema = z.object({
   ownedFields: z.array(z.string()).optional(),
   requiredWrites: z.array(z.string()).optional(),
   evaluators: z.array(SkillEvaluatorSchema).optional(),
+  memory: z.array(SkillMemorySchema).optional(),
+  reply: SkillReplySchema.optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })
 
@@ -344,6 +394,8 @@ export const LoadedSkillSchema = z.object({
   description: z.string().optional(),
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
+  memory: z.array(SkillMemorySchema).optional(),
+  reply: SkillReplySchema.optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })
 
