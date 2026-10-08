@@ -351,6 +351,8 @@ export {
   ResolvedSkillSchema,
   EntityOperationSchema,
   EntityPoliciesSchema,
+  SkillMemorySchema,
+  SkillReplySchema,
   // Helper functions
   defineSkill,
   validateSkillYAML,
@@ -368,6 +370,8 @@ export type {
   ResolvedSkill,
   EntityOperation,
   EntityPolicies,
+  SkillMemory,
+  SkillReply,
 } from './skills'
 
 // ─────────────────────────────────────────────────────────────────
