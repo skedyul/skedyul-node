@@ -90,7 +90,7 @@ runtime:
 |---------|-------------|
 | `persona` | Agent name and voice style/format constraints |
 | `skills` | Skill references — skills own the tool definitions. A workplace skill is a bare handle (`booking`). A skill from an installed app is `@app-handle/skills/skill-handle` (for example `@acme/skills/booking`). Set `alwaysLoad: true` to pre-seed that skill before the first model step; otherwise the agent calls `system:skill:load`. |
-| `tools` | Bootstrap tools always available (e.g. `system:skill:load`) |
+| `tools` | Bootstrap tools always available (e.g. `system:skill:load`). A tool may be a name or `{ tool, description?, fields? }`. `fields` is the CRM list projection: those field handles are hydrated. Omit `fields` to hydrate every field. |
 | `prompts` | `system` and `titleEnrichment`. `recovery` and `followUp` parse and are marked not implemented. |
 | `behavior` | Response limits, the acknowledgement gate, conversation policy, and scheduling patterns |
 | `settings` | Install-scoped values the agent asks for by key (`guidance`, `role: persona_name`) |
@@ -214,6 +214,9 @@ instructions: |
 tools:
   - tool: list_availability
     description: List open appointment slots
+    fields:
+      - name
+      - starts_at
     requiresApproval: false
   - tool: create_appointment
     description: Book a confirmed appointment
@@ -245,10 +248,57 @@ requiredWrites:
 |-------|-------------|
 | `tool` | Tool name |
 | `description` | Override description for the agent |
+| `fields` | CRM list field handles to hydrate (for example `name`, `kind`). Omit to hydrate every field. |
 | `overrides` | Default input overrides |
 | `sandbox.mock` | Mock response for sandbox testing |
 | `requiresApproval` | Require human approval before execution |
 | `constraints` | `maxCallsPerRun`, `idempotent`, `restricted`, `tags` |
+| `needs` | Memory ids that must already be filled before this tool runs |
+
+### Memory
+
+A skill can declare memory the harness must have before a later tool or a customer reply. Each entry is a row in thread `AgentMemory` (key `memory:<id>`) with `expiresAt` taken from `ttl`. The model cannot write these keys. This is separate from the scratchpad and from the agent's rolling summary.
+
+Two fillers:
+
+- **CRM.** When `entity` and `match` are set and the install has a live CRM map, one instance whose match field equals the caller (and whose map match field, the remote id, is set) fills the entry. The provider tool does not run.
+- **Tool.** Otherwise the named `tool` must succeed. A successful call writes the entry and, when `entity` is mapped, upserts that instance on the remote id.
+
+`needs` on a tool lists only its immediate memory ids. `reply.needs` gates `system:message:send`. A skill that books without texting the customer omits `reply`.
+
+```yaml
+memory:
+  - id: client
+    entity: client
+    match: phone
+    tool: app:acme:clients_search
+    ttl: 2h
+  - id: calendars
+    tool: app:acme:calendars_list
+    ttl: 30m
+  - id: slot
+    tool: app:acme:calendar_slots_availability_list
+    ttl: 10m
+  - id: reservation
+    tool: app:acme:calendar_slots_reserve
+    ttl: 15m
+
+tools:
+  - tool: app:acme:clients_search
+  - tool: app:acme:calendars_list
+    needs: [client]
+  - tool: app:acme:calendar_slots_availability_list
+    needs: [client, calendars]
+  - tool: app:acme:calendar_slots_reserve
+    needs: [client, slot]
+  - tool: app:acme:calendar_slots_confirm
+    needs: [client, reservation]
+
+reply:
+  needs: [client]
+```
+
+`ttl` is `10m`, `2h`, or `1d`. A phone in the latest user message that differs from the phone stored on the entry expires it. `ownedFields` and `requiredWrites` stay a separate decision: those are fields the model must set. Reading or mirroring a client record is `entity` plus `match` on the memory entry.
 
 ### Helpers
 
