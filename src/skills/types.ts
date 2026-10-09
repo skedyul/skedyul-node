@@ -59,6 +59,11 @@ export const SkillToolDefinitionSchema = z.object({
   requiresApproval: z.boolean().optional(),
   constraints: ToolConstraintsSchema.optional(),
   /**
+   * CRM list field handles to hydrate. When set on a list tool, list
+   * results include these fields. Omit to hydrate every field.
+   */
+  fields: z.array(z.string().min(1)).optional(),
+  /**
    * Memory ids that must already be filled before this tool may run.
    * Each id is an immediate dependency. Confirm needs a reservation;
    * it does not itself call reserve.

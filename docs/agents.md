@@ -90,7 +90,7 @@ runtime:
 |---------|-------------|
 | `persona` | Agent name and voice style/format constraints |
 | `skills` | Skill references — skills own the tool definitions. A workplace skill is a bare handle (`booking`). A skill from an installed app is `@app-handle/skills/skill-handle` (for example `@acme/skills/booking`). Set `alwaysLoad: true` to pre-seed that skill before the first model step; otherwise the agent calls `system:skill:load`. |
-| `tools` | Bootstrap tools always available (e.g. `system:skill:load`) |
+| `tools` | Bootstrap tools always available (e.g. `system:skill:load`). A tool may be a name or `{ tool, description?, fields? }`. `fields` is the CRM list projection: those field handles are hydrated. Omit `fields` to hydrate every field. |
 | `prompts` | `system` and `titleEnrichment`. `recovery` and `followUp` parse and are marked not implemented. |
 | `behavior` | Response limits, the acknowledgement gate, conversation policy, and scheduling patterns |
 | `settings` | Install-scoped values the agent asks for by key (`guidance`, `role: persona_name`) |
@@ -214,6 +214,9 @@ instructions: |
 tools:
   - tool: list_availability
     description: List open appointment slots
+    fields:
+      - name
+      - starts_at
     requiresApproval: false
   - tool: create_appointment
     description: Book a confirmed appointment
@@ -245,6 +248,7 @@ requiredWrites:
 |-------|-------------|
 | `tool` | Tool name |
 | `description` | Override description for the agent |
+| `fields` | CRM list field handles to hydrate (for example `name`, `kind`). Omit to hydrate every field. |
 | `overrides` | Default input overrides |
 | `sandbox.mock` | Mock response for sandbox testing |
 | `requiresApproval` | Require human approval before execution |
