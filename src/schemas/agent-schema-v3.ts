@@ -93,6 +93,11 @@ export const AgentToolRefSchema = z.union([
   z.object({
     tool: z.string(),
     description: z.string().optional(),
+    /**
+     * CRM list field handles to hydrate. When set on a list tool, list
+     * results include these fields. Omit to hydrate every field.
+     */
+    fields: z.array(z.string().min(1)).optional(),
   }),
 ])
 
