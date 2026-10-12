@@ -17,6 +17,9 @@ export {
   CRMContextSchema as SkillCRMContextSchema,
   EntityOperationSchema,
   EntityPoliciesSchema,
+  SkillMemorySchema,
+  SkillMemoryTtlSchema,
+  SkillReplySchema,
 
   // Types
   type SkillSource,
@@ -34,6 +37,8 @@ export {
   type CRMContext as SkillCRMContext,
   type EntityOperation,
   type EntityPolicies,
+  type SkillMemory,
+  type SkillReply,
 
   // Helper functions
   defineSkill,

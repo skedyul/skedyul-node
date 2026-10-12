@@ -249,6 +249,52 @@ requiredWrites:
 | `sandbox.mock` | Mock response for sandbox testing |
 | `requiresApproval` | Require human approval before execution |
 | `constraints` | `maxCallsPerRun`, `idempotent`, `restricted`, `tags` |
+| `needs` | Memory ids that must already be filled before this tool runs |
+
+### Memory
+
+A skill can declare memory the harness must have before a later tool or a customer reply. Each entry is a row in thread `AgentMemory` (key `memory:<id>`) with `expiresAt` taken from `ttl`. The model cannot write these keys. This is separate from the scratchpad and from the agent's rolling summary.
+
+Two fillers:
+
+- **CRM.** When `entity` and `match` are set and the install has a live CRM map, one instance whose match field equals the caller (and whose map match field, the remote id, is set) fills the entry. The provider tool does not run.
+- **Tool.** Otherwise the named `tool` must succeed. A successful call writes the entry and, when `entity` is mapped, upserts that instance on the remote id.
+
+`needs` on a tool lists only its immediate memory ids. `reply.needs` gates `system:message:send`. A skill that books without texting the customer omits `reply`.
+
+```yaml
+memory:
+  - id: client
+    entity: client
+    match: phone
+    tool: app:acme:clients_search
+    ttl: 2h
+  - id: calendars
+    tool: app:acme:calendars_list
+    ttl: 30m
+  - id: slot
+    tool: app:acme:calendar_slots_availability_list
+    ttl: 10m
+  - id: reservation
+    tool: app:acme:calendar_slots_reserve
+    ttl: 15m
+
+tools:
+  - tool: app:acme:clients_search
+  - tool: app:acme:calendars_list
+    needs: [client]
+  - tool: app:acme:calendar_slots_availability_list
+    needs: [client, calendars]
+  - tool: app:acme:calendar_slots_reserve
+    needs: [client, slot]
+  - tool: app:acme:calendar_slots_confirm
+    needs: [client, reservation]
+
+reply:
+  needs: [client]
+```
+
+`ttl` is `10m`, `2h`, or `1d`. A phone in the latest user message that differs from the phone stored on the entry expires it. `ownedFields` and `requiredWrites` stay a separate decision: those are fields the model must set. Reading or mirroring a client record is `entity` plus `match` on the memory entry.
 
 ### Helpers
 
