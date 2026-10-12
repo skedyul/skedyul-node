@@ -8,7 +8,7 @@ Skedyul supports two agent configuration models plus YAML-based skills and event
 |-------|---------------|--------------|----------|
 | **Provision agents** | `skedyul.config.ts` → `defineAgent()` | App version deploy | Simple multi-tenant agents bound to app tools |
 | **Agent YAML v3** | `agents/*.yaml` | `skedyul agents deploy` | Skills-based autonomous agents per workplace |
-| **Skills** | `skills/*.yaml` | `skedyul skills deploy` | Reusable capability bundles that own tools |
+| **Skills** | `skills/*.yaml` | `skedyul skills deploy` | Reusable capability bundles that own tools. Pass `--app <appId>` for an app-owned skill. |
 | **Workflow YAML v2** | `workflows/*.yaml` | `skedyul workflows deploy` | Event-driven automation with steps |
 
 ---
