@@ -93,6 +93,7 @@ Get Options:
 Deploy Options:
   --file, -f        Path to skill definition file (.skill.yml)
   --workplace, -w   Workplace subdomain (required)
+  --app, --app-id   App id. Required for an app-owned skill. Does not create a workplace copy.
   --draft           Deploy as draft (not published)
   --label           Version label (e.g., "experiment-shorter-prompts")
   --upload          Force multipart upload (for large files >500KB)
@@ -103,6 +104,7 @@ Deploy Options:
 Publish Options:
   --workplace, -w   Workplace subdomain (required)
   --version, -v     Version number to publish (required)
+  --app, --app-id   App id. Required for an app-owned skill.
   --json            Output as JSON
 
 Versions Options:
@@ -118,7 +120,8 @@ Examples:
   skedyul skills get sales-qualification -w crux
   skedyul skills deploy -f ./skills/sales-qualification.skill.yml -w crux
   skedyul skills deploy -f ./skills/sales-v2.skill.yml -w crux --draft
-  skedyul skills publish sales-qualification -w crux -v 2
+  skedyul skills deploy -f ./skills/closing.skill.yml -w crux --app app_123
+  skedyul skills publish sales-qualification -w crux -v 2 --app app_123
   skedyul skills versions sales-qualification -w crux
   skedyul skills delete sales-qualification -w crux
 `)
@@ -371,6 +374,7 @@ async function handleDeploy(args: string[]): Promise<void> {
   const versionLabel = flags.label as string | undefined
   const jsonOutput = Boolean(flags.json)
   const forceUpload = Boolean(flags.upload)
+  const appId = (flags.app || flags['app-id']) as string | undefined
 
   if (!filePath) {
     console.error('Error: --file (-f) is required')
@@ -437,6 +441,7 @@ async function handleDeploy(args: string[]): Promise<void> {
         content,
         publish: !isDraft,
         versionLabel,
+        appId,
       })
     } else {
       result = await deploySkillJson({
@@ -446,6 +451,7 @@ async function handleDeploy(args: string[]): Promise<void> {
         content,
         publish: !isDraft,
         versionLabel,
+        appId,
       })
     }
 
@@ -485,6 +491,7 @@ async function deploySkillJson(params: {
   content: string
   publish: boolean
   versionLabel?: string
+  appId?: string
 }): Promise<DeployResponse> {
   const response = await fetch(`${params.serverUrl}/api/cli/skills`, {
     method: 'POST',
@@ -498,6 +505,7 @@ async function deploySkillJson(params: {
       yamlContent: params.content,
       publish: params.publish,
       versionLabel: params.versionLabel,
+      appId: params.appId,
     }),
   })
 
@@ -521,6 +529,7 @@ async function deploySkillMultipart(params: {
   content: string
   publish: boolean
   versionLabel?: string
+  appId?: string
 }): Promise<DeployResponse> {
   const formData = new FormData()
 
@@ -532,6 +541,7 @@ async function deploySkillMultipart(params: {
     workplaceId: params.workplaceId,
     publish: params.publish,
     versionLabel: params.versionLabel,
+    appId: params.appId,
   }))
 
   const response = await fetch(`${params.serverUrl}/api/cli/skills/upload`, {
@@ -561,6 +571,7 @@ async function handlePublish(args: string[]): Promise<void> {
   const workplace = (flags.workplace || flags.w) as string | undefined
   const version = (flags.version || flags.v) as string | number | undefined
   const jsonOutput = Boolean(flags.json)
+  const appId = (flags.app || flags['app-id']) as string | undefined
 
   if (!handle) {
     console.error('Error: Skill handle is required')
@@ -610,6 +621,7 @@ async function handlePublish(args: string[]): Promise<void> {
         workplaceId: workplaceToken.workplaceId,
         handle,
         version: versionNum,
+        appId,
       }),
     })
 
