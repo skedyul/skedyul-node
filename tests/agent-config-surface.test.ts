@@ -105,6 +105,7 @@ const IMPLEMENTED = [
   'timeWindows',
   'tools[]',
   'tools[].description',
+  'tools[].fields[]',
   'tools[].tool',
   'version',
 ]
