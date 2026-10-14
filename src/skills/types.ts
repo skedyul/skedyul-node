@@ -68,16 +68,90 @@ export const EntityCrmPredicateSchema = z.object({
 export type EntityCrmPredicate = z.infer<typeof EntityCrmPredicateSchema>
 
 /**
- * Conditions a tool call needs. The harness checks every `crm` predicate
+ * Field constraint in the new entities shape.
+ * - Primitive value (string, number, boolean): exact match (op: eq)
+ * - `{ notEmpty: true }`: field must have a value (op: notEmpty)
+ */
+export const EntityFieldConstraintSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.object({ notEmpty: z.literal(true) }),
+])
+
+export type EntityFieldConstraint = z.infer<typeof EntityFieldConstraintSchema>
+
+/**
+ * New declarative shape for tool/reply requires.
+ * Maps entity handle -> field handle -> constraint.
+ *
+ * Example:
+ * ```yaml
+ * entities:
+ *   member:
+ *     is_qualified: true
+ *     sentiment: { notEmpty: true }
+ * ```
+ */
+export const EntitiesRequiresSchema = z.record(
+  z.string(), // entity handle
+  z.record(z.string(), EntityFieldConstraintSchema), // field -> constraint
+)
+
+export type EntitiesRequires = z.infer<typeof EntitiesRequiresSchema>
+
+/**
+ * Conditions a tool call needs. The harness checks every predicate
  * against the turn-start CRM context and rejects the call with `reason`
  * when one fails, so the model is steered instead of the run failing.
+ *
+ * Supports two shapes:
+ * - Legacy `crm`: array of EntityCrmPredicate objects
+ * - New `entities`: declarative map of entity.field constraints
  */
 export const SkillToolRequiresSchema = z.object({
   crm: z.array(EntityCrmPredicateSchema).optional(),
+  entities: EntitiesRequiresSchema.optional(),
   reason: z.string().optional(),
 })
 
 export type SkillToolRequires = z.infer<typeof SkillToolRequiresSchema>
+
+/**
+ * Normalize a SkillToolRequires to crm predicates array.
+ * Converts the new `entities` shape to `crm` predicates for evaluation.
+ */
+export function normalizeRequiresToPredicates(
+  requires: SkillToolRequires | undefined,
+): EntityCrmPredicate[] {
+  if (!requires) return []
+
+  const predicates: EntityCrmPredicate[] = []
+
+  // Add existing crm predicates
+  if (requires.crm) {
+    predicates.push(...requires.crm)
+  }
+
+  // Convert entities shape to predicates
+  if (requires.entities) {
+    for (const [entity, fields] of Object.entries(requires.entities)) {
+      for (const [field, constraint] of Object.entries(fields)) {
+        if (
+          typeof constraint === 'object' &&
+          constraint !== null &&
+          'notEmpty' in constraint
+        ) {
+          predicates.push({ entity, field, op: 'notEmpty' })
+        } else {
+          predicates.push({ entity, field, op: 'eq', value: constraint })
+        }
+      }
+    }
+  }
+
+  return predicates
+}
 
 /**
  * Full tool definition owned by a skill (v2)
@@ -525,7 +599,7 @@ export function validateSkillYAML(skill: unknown): { success: true; data: SkillY
 /**
  * Every `tools[].requires.crm` and `reply.requires.crm` predicate must name an
  * entity from the skill's `entityPolicies`, and `eq` / `in` need a value
- * (`in` an array).
+ * (`in` an array). Also validates the new `entities` shape.
  */
 export function validateSkillToolRequires(
   skill: Pick<SkillYAML, 'tools' | 'entityPolicies' | 'reply'>,
@@ -533,7 +607,7 @@ export function validateSkillToolRequires(
   const entities = new Set(Object.keys(skill.entityPolicies ?? {}))
   const issues: { path: (string | number)[]; message: string }[] = []
 
-  const check = (
+  const checkCrm = (
     owner: string,
     predicates: EntityCrmPredicate[] | undefined,
     path: (string | number)[],
@@ -555,12 +629,30 @@ export function validateSkillToolRequires(
     }
   }
 
-  if (isV2SkillTools(skill.tools)) {
-    for (const [toolIndex, tool] of skill.tools.entries()) {
-      check(tool.tool, tool.requires?.crm, ['tools', toolIndex, 'requires', 'crm'])
+  const checkEntities = (
+    owner: string,
+    entitiesMap: EntitiesRequires | undefined,
+    path: (string | number)[],
+  ) => {
+    if (!entitiesMap) return
+    for (const [entity, fields] of Object.entries(entitiesMap)) {
+      if (!entities.has(entity)) {
+        issues.push({
+          path: [...path, entity],
+          message: `${owner} requires entity "${entity}", which is not in entityPolicies`,
+        })
+      }
     }
   }
-  check('reply', skill.reply?.requires?.crm, ['reply', 'requires', 'crm'])
+
+  if (isV2SkillTools(skill.tools)) {
+    for (const [toolIndex, tool] of skill.tools.entries()) {
+      checkCrm(tool.tool, tool.requires?.crm, ['tools', toolIndex, 'requires', 'crm'])
+      checkEntities(tool.tool, tool.requires?.entities, ['tools', toolIndex, 'requires', 'entities'])
+    }
+  }
+  checkCrm('reply', skill.reply?.requires?.crm, ['reply', 'requires', 'crm'])
+  checkEntities('reply', skill.reply?.requires?.entities, ['reply', 'requires', 'entities'])
   return issues
 }
 

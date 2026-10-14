@@ -4,7 +4,11 @@ import {
   validateAgentRouting,
   validateAgentYAMLV3,
 } from '../src/schemas/agent-schema-v3'
-import { skillTurnToolWarnings, validateSkillYAML } from '../src/skills/types'
+import {
+  normalizeRequiresToPredicates,
+  skillTurnToolWarnings,
+  validateSkillYAML,
+} from '../src/skills/types'
 
 const baseAgent = {
   $schema: 'https://skedyul.com/schemas/agent/v3',
@@ -206,4 +210,114 @@ test('skillTurnToolWarnings flags turn tools a skill declares', () => {
   assert.match(warnings[0] ?? '', /system:message:send is a turn tool/)
   assert.match(warnings[1] ?? '', /system:message:skip/)
   assert.deepEqual(skillTurnToolWarnings({ tools: { requires: ['system:message:send'] } }).length, 1)
+})
+
+// New entities shape tests
+test('validateSkillYAML keeps entities requires (new shape)', () => {
+  const result = validateSkillYAML({
+    handle: 'closing',
+    name: 'Closing',
+    instructions: 'Offer the listed pack.',
+    entityPolicies: { member: ['get', 'update'] },
+    tools: [
+      {
+        tool: 'app:acme:package:list',
+        requires: {
+          entities: {
+            member: {
+              is_qualified: true,
+            },
+          },
+          reason: 'Not qualified yet.',
+        },
+      },
+    ],
+  })
+
+  assert.equal(result.success, true)
+  if (!result.success) return
+  const tools = Array.isArray(result.data.tools) ? result.data.tools : []
+  assert.deepEqual(tools[0]?.requires?.entities, {
+    member: { is_qualified: true },
+  })
+})
+
+test('validateSkillYAML rejects entities entity outside entityPolicies', () => {
+  const result = validateSkillYAML({
+    handle: 'closing',
+    name: 'Closing',
+    instructions: 'Offer the listed pack.',
+    entityPolicies: { member: ['get'] },
+    tools: [
+      {
+        tool: 'app:acme:package:list',
+        requires: { entities: { lead: { stage: { notEmpty: true } } } },
+      },
+    ],
+  })
+
+  assert.equal(result.success, false)
+  if (result.success) return
+  assert.deepEqual(result.error.issues[0]?.path, ['tools', 0, 'requires', 'entities', 'lead'])
+})
+
+test('normalizeRequiresToPredicates converts entities to crm predicates', () => {
+  const predicates = normalizeRequiresToPredicates({
+    entities: {
+      member: {
+        is_qualified: true,
+        sentiment: { notEmpty: true },
+      },
+    },
+  })
+
+  assert.equal(predicates.length, 2)
+  assert.deepEqual(predicates[0], { entity: 'member', field: 'is_qualified', op: 'eq', value: true })
+  assert.deepEqual(predicates[1], { entity: 'member', field: 'sentiment', op: 'notEmpty' })
+})
+
+test('normalizeRequiresToPredicates handles both crm and entities', () => {
+  const predicates = normalizeRequiresToPredicates({
+    crm: [{ entity: 'member', field: 'stage', op: 'notEmpty' }],
+    entities: { member: { is_qualified: true } },
+  })
+
+  assert.equal(predicates.length, 2)
+  assert.deepEqual(predicates[0], { entity: 'member', field: 'stage', op: 'notEmpty' })
+  assert.deepEqual(predicates[1], { entity: 'member', field: 'is_qualified', op: 'eq', value: true })
+})
+
+test('normalizeRequiresToPredicates returns empty for undefined', () => {
+  assert.deepEqual(normalizeRequiresToPredicates(undefined), [])
+})
+
+test('validateSkillYAML keeps reply.requires with entities shape', () => {
+  const result = validateSkillYAML({
+    handle: 'sales',
+    name: 'Sales',
+    instructions: 'Score every turn.',
+    entityPolicies: { member: ['update'] },
+    reply: {
+      requires: {
+        entities: {
+          member: {
+            intent_score: { notEmpty: true },
+            engagement_level: { notEmpty: true },
+            sentiment: { notEmpty: true },
+          },
+        },
+        reason: 'Write scoring before sending.',
+      },
+    },
+  })
+
+  assert.equal(result.success, true)
+  if (!result.success) return
+  assert.deepEqual(result.data.reply?.requires?.entities, {
+    member: {
+      intent_score: { notEmpty: true },
+      engagement_level: { notEmpty: true },
+      sentiment: { notEmpty: true },
+    },
+  })
 })
