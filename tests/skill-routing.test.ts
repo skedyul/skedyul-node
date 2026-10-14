@@ -6,6 +6,7 @@ import {
 } from '../src/schemas/agent-schema-v3'
 import {
   normalizeRequiresToPredicates,
+  resolveFieldsToLegacy,
   skillTurnToolWarnings,
   validateSkillYAML,
 } from '../src/skills/types'

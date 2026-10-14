@@ -287,6 +287,11 @@ export type SkillFields = z.infer<typeof SkillFieldsSchema>
 /**
  * Derive crmContext, ownedFields, requiredWrites from unified fields shape.
  * Used by harness when fields is present.
+ *
+ * `crmContext.models` is keyed by entity handle; callers that fetch CRM
+ * schema map entity handles to CRM model handles. `ownedFields` and
+ * `requiredWrites` are bare field handles because CRM write gates compare
+ * the bare keys of an update payload.
  */
 export function resolveFieldsToLegacy(fields: SkillFields | undefined): {
   crmContext: CRMContext | undefined
@@ -298,32 +303,29 @@ export function resolveFieldsToLegacy(fields: SkillFields | undefined): {
   }
 
   const models: Record<string, { required?: string[]; recommended?: string[] }> = {}
-  const ownedFields: string[] = []
-  const requiredWrites: string[] = []
+  const ownedFields = new Set<string>()
+  const requiredWrites = new Set<string>()
+  const clean = (list: string[] | undefined): string[] =>
+    (list ?? []).map((f) => f.trim()).filter((f) => f.length > 0)
 
   for (const [entity, groups] of Object.entries(fields)) {
-    const hydrated = [
-      ...(groups.track ?? []),
-      ...(groups.own ?? []),
-      ...(groups.see ?? []),
-    ]
-    const writable = [
-      ...(groups.track ?? []),
-      ...(groups.own ?? []),
-      ...(groups.set ?? []),
-    ]
+    const track = clean(groups.track)
+    const own = clean(groups.own)
+    const see = clean(groups.see)
+    const set = clean(groups.set)
+    const hydrated = [...new Set([...track, ...own, ...see])]
 
     if (hydrated.length > 0) {
       models[entity] = { required: hydrated }
     }
-    ownedFields.push(...writable.map((f) => `${entity}.${f}`))
-    requiredWrites.push(...(groups.track ?? []).map((f) => `${entity}.${f}`))
+    for (const field of [...track, ...own, ...set]) ownedFields.add(field)
+    for (const field of track) requiredWrites.add(field)
   }
 
   return {
     crmContext: Object.keys(models).length > 0 ? { models } : undefined,
-    ownedFields: ownedFields.length > 0 ? ownedFields : undefined,
-    requiredWrites: requiredWrites.length > 0 ? requiredWrites : undefined,
+    ownedFields: ownedFields.size > 0 ? [...ownedFields] : undefined,
+    requiredWrites: requiredWrites.size > 0 ? [...requiredWrites] : undefined,
   }
 }
 
