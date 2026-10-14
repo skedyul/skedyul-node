@@ -96,6 +96,7 @@ runtime:
 | `settings` | Install-scoped values the agent asks for by key (`guidance`, `role: persona_name`) |
 | `policies` | Message/tool approval requirements |
 | `runtime` | `model` and `personaModel` LLM selection |
+| `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, `guidance`, and `signals`. See [Routing](#routing) |
 | `timeWindows` | Named availability policies |
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
 
@@ -143,6 +144,32 @@ Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for t
 | `guidance` | Prompt text. `{{value}}` is the install value, `{{workplace}}` is the workplace name |
 | `role` | `persona_name` uses this value as the agent's name for the install |
 
+### Routing
+
+With `routing.enabled`, a router model step runs once per turn, before the main model. It reads the skill descriptions, `guidance`, the `signals` values, the recent messages, and the Current Context. It returns `{ skills, reason }` limited to the declared skill handles. The harness loads those skills before the main model runs, and `system:skill:load` is not offered.
+
+```yaml
+routing:
+  enabled: true
+  fallback: [sales-qualification]
+  signals:
+    - { entity: member, field: membership_status }
+    - { entity: member, field: is_qualified }
+  guidance: >-
+    membership_status says who they are; is_qualified says whether an offer
+    is allowed yet. Decide from both before the message text.
+```
+
+| Field | Meaning |
+|-------|---------|
+| `enabled` | Turn on the router step |
+| `signals` | CRM fields shown to the router first, as `entity.field: value`. A missing value prints `unset` |
+| `guidance` | How to weigh the signals and descriptions. Router prompt only |
+| `fallback` | Skills loaded when the router returns nothing or fails. Must be declared in `skills` |
+| `model` | Router model. Defaults to `runtime.model` |
+
+`signals` and `guidance` never reach the main prompt. Write the routing judgement into each `skills[].description`.
+
 ### Validation
 
 ```ts
@@ -150,6 +177,8 @@ import { validateAgentYAMLV3, AgentYAMLV3Schema } from 'skedyul/schemas/agent-sc
 
 const result = validateAgentYAMLV3(yamlObject)
 ```
+
+`validateAgentYAMLV3` also checks `routing`: `fallback` may only name declared skills. `validateAgentRouting(agent, skillEntities)` additionally checks that each signal entity appears in some skill's `entityPolicies`, for callers that have the skill files.
 
 ### CLI
 
@@ -254,6 +283,18 @@ requiredWrites:
 | `requiresApproval` | Require human approval before execution |
 | `constraints` | `maxCallsPerRun`, `idempotent`, `restricted`, `tags` |
 | `needs` | Memory ids that must already be filled before this tool runs |
+| `requires` | `crm` conditions on an `entityPolicies` entity, plus a `reason`. A failed condition rejects the call with `reason` |
+
+```yaml
+tools:
+  - tool: app:acme:package:list
+    requires:
+      crm:
+        - { entity: member, field: is_qualified, op: eq, value: true }
+      reason: Not qualified yet. Keep discovering; do not name packs or prices.
+```
+
+`op` is `eq`, `in` (array `value`), `empty`, or `notEmpty`. The condition reads the CRM record at turn start, after the CRM map rename.
 
 ### Memory
 

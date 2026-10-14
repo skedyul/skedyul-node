@@ -47,6 +47,39 @@ export const ToolConstraintsSchema = z.object({
 export type ToolConstraints = z.infer<typeof ToolConstraintsSchema>
 
 /**
+ * CRM predicate ops, shared by evaluator preconditions and tool gates.
+ * `eq` and `in` compare a value; `empty` and `notEmpty` take none.
+ */
+export const CrmPredicateOpSchema = z.enum(['eq', 'in', 'empty', 'notEmpty'])
+
+export type CrmPredicateOp = z.infer<typeof CrmPredicateOpSchema>
+
+/**
+ * One CRM condition on a named entity, e.g. member.is_qualified eq true.
+ * `entity` is a handle from the skill's `entityPolicies`.
+ */
+export const EntityCrmPredicateSchema = z.object({
+  entity: z.string().min(1),
+  field: z.string().min(1),
+  op: CrmPredicateOpSchema,
+  value: z.unknown().optional(),
+})
+
+export type EntityCrmPredicate = z.infer<typeof EntityCrmPredicateSchema>
+
+/**
+ * Conditions a tool call needs. The harness checks every `crm` predicate
+ * against the turn-start CRM context and rejects the call with `reason`
+ * when one fails, so the model is steered instead of the run failing.
+ */
+export const SkillToolRequiresSchema = z.object({
+  crm: z.array(EntityCrmPredicateSchema).optional(),
+  reason: z.string().optional(),
+})
+
+export type SkillToolRequires = z.infer<typeof SkillToolRequiresSchema>
+
+/**
  * Full tool definition owned by a skill (v2)
  * Skills own their tools with full configuration including descriptions,
  * overrides, sandbox mocks, approval settings, and execution constraints.
@@ -69,6 +102,8 @@ export const SkillToolDefinitionSchema = z.object({
    * it does not itself call reserve.
    */
   needs: z.array(z.string().min(1)).optional(),
+  /** CRM conditions checked before the call runs. */
+  requires: SkillToolRequiresSchema.optional(),
 })
 
 export type SkillToolDefinition = z.infer<typeof SkillToolDefinitionSchema>
@@ -207,7 +242,7 @@ export const EvaluatorPreconditionsSchema = z.object({
     .array(
       z.object({
         field: z.string(),
-        op: z.enum(['eq', 'in', 'empty', 'notEmpty']),
+        op: CrmPredicateOpSchema,
         value: z.unknown().optional(),
       }),
     )
@@ -461,10 +496,54 @@ export function defineSkill(skill: SkillYAML): SkillYAML {
  */
 export function validateSkillYAML(skill: unknown): { success: true; data: SkillYAML } | { success: false; error: z.ZodError } {
   const result = SkillYAMLSchema.safeParse(skill)
-  if (result.success) {
-    return { success: true, data: result.data }
+  if (!result.success) {
+    return { success: false, error: result.error }
   }
-  return { success: false, error: result.error }
+  const requiresIssues = validateSkillToolRequires(result.data)
+  if (requiresIssues.length > 0) {
+    return {
+      success: false,
+      error: new z.ZodError(
+        requiresIssues.map((issue) => ({
+          code: 'custom' as const,
+          path: issue.path,
+          message: issue.message,
+          input: undefined,
+        })),
+      ),
+    }
+  }
+  return { success: true, data: result.data }
+}
+
+/**
+ * Each `tools[].requires.crm` predicate must name an entity from the skill's
+ * `entityPolicies`, and `eq` / `in` need a value (`in` an array).
+ */
+export function validateSkillToolRequires(
+  skill: Pick<SkillYAML, 'tools' | 'entityPolicies'>,
+): { path: (string | number)[]; message: string }[] {
+  if (!isV2SkillTools(skill.tools)) return []
+  const entities = new Set(Object.keys(skill.entityPolicies ?? {}))
+  const issues: { path: (string | number)[]; message: string }[] = []
+  for (const [toolIndex, tool] of skill.tools.entries()) {
+    for (const [index, predicate] of (tool.requires?.crm ?? []).entries()) {
+      const path = ['tools', toolIndex, 'requires', 'crm', index]
+      if (!entities.has(predicate.entity)) {
+        issues.push({
+          path: [...path, 'entity'],
+          message: `${tool.tool} requires entity "${predicate.entity}", which is not in entityPolicies`,
+        })
+      }
+      if (predicate.op === 'eq' && predicate.value === undefined) {
+        issues.push({ path: [...path, 'value'], message: 'op eq needs a value' })
+      }
+      if (predicate.op === 'in' && !Array.isArray(predicate.value)) {
+        issues.push({ path: [...path, 'value'], message: 'op in needs an array value' })
+      }
+    }
+  }
+  return issues
 }
 
 /**

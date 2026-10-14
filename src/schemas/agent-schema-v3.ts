@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 import { EventsConfigSchema } from '../events/types'
-import { SkillRefSchema } from '../skills/types'
+import { SkillRefSchema, type SkillRef } from '../skills/types'
 import { SandboxConfigSchema } from '../context/types'
 
 /**
@@ -204,6 +204,39 @@ export const RuntimeConfigV3Schema = z.object({
 })
 
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
+
+/**
+ * One CRM field the skill router reads before choosing skills. `entity` is a
+ * handle from a skill's `entityPolicies`; `field` is a field handle on it.
+ */
+export const RoutingSignalSchema = z.object({
+  entity: z.string().min(1),
+  field: z.string().min(1),
+})
+
+export type RoutingSignal = z.infer<typeof RoutingSignalSchema>
+
+/**
+ * Harness skill routing. When enabled, a router model step picks the skills
+ * for the turn from `skills[].description`, `guidance`, the signal values,
+ * the recent messages, and the Current Context. The chosen skills are loaded
+ * before the main model runs and `system:skill:load` is not offered.
+ *
+ * Signals and guidance are shown to the router only, never the main prompt.
+ */
+export const RoutingConfigV3Schema = z.object({
+  enabled: z.boolean().optional(),
+  /** CRM fields printed to the router as `entity.field: value`. */
+  signals: z.array(RoutingSignalSchema).optional(),
+  /** How to weigh the signals and descriptions. Router prompt only. */
+  guidance: z.string().optional(),
+  /** Skill handles loaded when the router returns nothing or fails. */
+  fallback: z.array(z.string().min(1)).optional(),
+  /** Router model. Defaults to `runtime.model`. */
+  model: z.string().optional(),
+})
+
+export type RoutingConfigV3 = z.infer<typeof RoutingConfigV3Schema>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Time Window Types (for scheduling and time-aware behavior)
@@ -703,6 +736,9 @@ export const AgentYAMLV3Schema = z.object({
   // Runtime - Execution configuration (model + personaModel)
   runtime: RuntimeConfigV3Schema.optional(),
 
+  // Routing - Harness picks the turn's skills before the main model runs
+  routing: RoutingConfigV3Schema.optional(),
+
   // Prompts - Agent-specific prompt injections
   prompts: PromptsConfigV3Schema.optional(),
 
@@ -738,8 +774,78 @@ export function validateAgentYAMLV3(
   agent: unknown,
 ): { success: true; data: AgentYAMLV3 } | { success: false; error: z.ZodError } {
   const result = AgentYAMLV3Schema.safeParse(agent)
-  if (result.success) {
-    return { success: true, data: result.data }
+  if (!result.success) {
+    return { success: false, error: result.error }
   }
-  return { success: false, error: result.error }
+  const routingIssues = validateAgentRouting(result.data)
+  if (routingIssues.length > 0) {
+    return {
+      success: false,
+      error: new z.ZodError(
+        routingIssues.map((issue) => ({
+          code: 'custom' as const,
+          path: issue.path,
+          message: issue.message,
+          input: undefined,
+        })),
+      ),
+    }
+  }
+  return { success: true, data: result.data }
+}
+
+export interface AgentRoutingIssue {
+  path: (string | number)[]
+  message: string
+}
+
+function skillRefHandle(ref: SkillRef): string {
+  return typeof ref === 'string' ? ref : ref.skill
+}
+
+/**
+ * Cross-field checks for `routing`. `fallback` may only name declared skills,
+ * and an enabled router needs at least one skill to choose from.
+ *
+ * `skillEntities`, when given, is the set of entity handles that appear in
+ * any declared skill's `entityPolicies`; each signal's entity must be in it.
+ * Callers that cannot resolve skill files omit it.
+ */
+export function validateAgentRouting(
+  agent: Pick<AgentYAMLV3, 'routing' | 'skills'>,
+  skillEntities?: ReadonlySet<string>,
+): AgentRoutingIssue[] {
+  const routing = agent.routing
+  if (!routing) return []
+  const issues: AgentRoutingIssue[] = []
+  const declared = new Set((agent.skills ?? []).map(skillRefHandle))
+
+  if (routing.enabled && declared.size === 0) {
+    issues.push({
+      path: ['routing', 'enabled'],
+      message: 'routing.enabled needs at least one entry in skills',
+    })
+  }
+
+  for (const [index, handle] of (routing.fallback ?? []).entries()) {
+    if (!declared.has(handle)) {
+      issues.push({
+        path: ['routing', 'fallback', index],
+        message: `routing.fallback names "${handle}", which is not in skills`,
+      })
+    }
+  }
+
+  if (skillEntities) {
+    for (const [index, signal] of (routing.signals ?? []).entries()) {
+      if (!skillEntities.has(signal.entity)) {
+        issues.push({
+          path: ['routing', 'signals', index, 'entity'],
+          message: `routing signal entity "${signal.entity}" is not in any skill's entityPolicies`,
+        })
+      }
+    }
+  }
+
+  return issues
 }
