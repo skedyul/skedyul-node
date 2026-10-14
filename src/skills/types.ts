@@ -240,6 +240,94 @@ export const CRMContextSchema = z.object({
 export type CRMContext = z.infer<typeof CRMContextSchema>
 
 /**
+ * Field access groups for unified field declaration.
+ * - track: hydrated + writable + MUST write before reply
+ * - own: hydrated + writable
+ * - see: hydrated, read-only
+ * - set: writable but not hydrated
+ */
+export const SkillFieldGroupSchema = z.object({
+  track: z.array(z.string()).optional(),
+  own: z.array(z.string()).optional(),
+  see: z.array(z.string()).optional(),
+  set: z.array(z.string()).optional(),
+})
+
+export type SkillFieldGroup = z.infer<typeof SkillFieldGroupSchema>
+
+/**
+ * Unified fields declaration by entity handle.
+ * Replaces crmContext.models, ownedFields, and requiredWrites.
+ *
+ * Example:
+ * ```yaml
+ * fields:
+ *   member:
+ *     track:
+ *       - intent_score
+ *       - engagement_level
+ *       - sentiment
+ *     own:
+ *       - stage
+ *       - is_qualified
+ *       - readiness
+ *     see:
+ *       - membership_status
+ *     set:
+ *       - closed_at
+ * ```
+ */
+export const SkillFieldsSchema = z.record(
+  z.string(), // entity handle
+  SkillFieldGroupSchema,
+)
+
+export type SkillFields = z.infer<typeof SkillFieldsSchema>
+
+/**
+ * Derive crmContext, ownedFields, requiredWrites from unified fields shape.
+ * Used by harness when fields is present.
+ */
+export function resolveFieldsToLegacy(fields: SkillFields | undefined): {
+  crmContext: CRMContext | undefined
+  ownedFields: string[] | undefined
+  requiredWrites: string[] | undefined
+} {
+  if (!fields) {
+    return { crmContext: undefined, ownedFields: undefined, requiredWrites: undefined }
+  }
+
+  const models: Record<string, { required?: string[]; recommended?: string[] }> = {}
+  const ownedFields: string[] = []
+  const requiredWrites: string[] = []
+
+  for (const [entity, groups] of Object.entries(fields)) {
+    const hydrated = [
+      ...(groups.track ?? []),
+      ...(groups.own ?? []),
+      ...(groups.see ?? []),
+    ]
+    const writable = [
+      ...(groups.track ?? []),
+      ...(groups.own ?? []),
+      ...(groups.set ?? []),
+    ]
+
+    if (hydrated.length > 0) {
+      models[entity] = { required: hydrated }
+    }
+    ownedFields.push(...writable.map((f) => `${entity}.${f}`))
+    requiredWrites.push(...(groups.track ?? []).map((f) => `${entity}.${f}`))
+  }
+
+  return {
+    crmContext: Object.keys(models).length > 0 ? { models } : undefined,
+    ownedFields: ownedFields.length > 0 ? ownedFields : undefined,
+    requiredWrites: requiredWrites.length > 0 ? requiredWrites : undefined,
+  }
+}
+
+/**
  * Entity operation types for entity policies.
  * These map to CRM operations at runtime via AppCrmMap.
  */
@@ -376,14 +464,26 @@ export const SkillYAMLSchema = z.object({
   crmContext: CRMContextSchema.optional(),
 
   /**
+   * Unified field declaration per entity. Replaces crmContext, ownedFields,
+   * requiredWrites with a single shape. Groups:
+   * - track: must write every turn (hydrated + writable)
+   * - own: read + write (hydrated + writable)
+   * - see: read-only (hydrated)
+   * - set: write-only (not hydrated)
+   */
+  fields: SkillFieldsSchema.optional(),
+
+  /**
    * Entity field handles this skill is allowed to write while loaded.
    * Writing outside this list is reported as an unowned write.
+   * @deprecated Use fields.{entity}.own or fields.{entity}.set instead.
    */
   ownedFields: z.array(z.string()).optional(),
 
   /**
    * Entity field handles this skill must have written before it replies.
    * Only handles mapped in the install's AppCrmMap are enforced.
+   * @deprecated Use fields.{entity}.track instead.
    */
   requiredWrites: z.array(z.string()).optional(),
 
@@ -419,6 +519,7 @@ export const SkillYAMLV2Schema = z.object({
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
   crmContext: CRMContextSchema.optional(),
+  fields: SkillFieldsSchema.optional(),
   ownedFields: z.array(z.string()).optional(),
   requiredWrites: z.array(z.string()).optional(),
   evaluators: z.array(SkillEvaluatorSchema).optional(),
@@ -514,6 +615,7 @@ export const LoadedSkillSchema = z.object({
   description: z.string().optional(),
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
+  fields: SkillFieldsSchema.optional(),
   memory: z.array(SkillMemorySchema).optional(),
   reply: SkillReplySchema.optional(),
   examples: z.array(SkillExampleSchema).optional(),

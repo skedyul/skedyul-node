@@ -220,6 +220,19 @@ export const EntityFieldDefinitionSchema = z.object({
       ]),
     )
     .optional(),
+  /**
+   * AI metadata for agent tool schemas and field behavior.
+   * - description: agent-facing description (richer than UI helptext)
+   * - mutability: how freely the agent may write this field
+   */
+  aiMeta: z
+    .object({
+      description: z.string().optional(),
+      mutability: z
+        .enum(['always', 'restricted', 'create_only', 'immutable'])
+        .optional(),
+    })
+    .optional(),
 })
 
 export const EntityRelationshipDefinitionSchema = z.object({
