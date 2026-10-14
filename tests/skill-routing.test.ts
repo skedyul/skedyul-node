@@ -4,7 +4,7 @@ import {
   validateAgentRouting,
   validateAgentYAMLV3,
 } from '../src/schemas/agent-schema-v3'
-import { validateSkillYAML } from '../src/skills/types'
+import { skillTurnToolWarnings, validateSkillYAML } from '../src/skills/types'
 
 const baseAgent = {
   $schema: 'https://skedyul.com/schemas/agent/v3',
@@ -153,4 +153,57 @@ test('validateSkillYAML rejects eq without a value and in without an array', () 
   assert.equal(result.success, false)
   if (result.success) return
   assert.equal(result.error.issues.length, 2)
+})
+
+test('validateSkillYAML keeps reply.requires and checks its entity', () => {
+  const ok = validateSkillYAML({
+    handle: 'onboarding',
+    name: 'Onboarding',
+    instructions: 'Send next steps.',
+    entityPolicies: { member: ['update'] },
+    reply: {
+      needs: ['client'],
+      requires: {
+        crm: [{ entity: 'member', field: 'offer_made', op: 'notEmpty' }],
+        reason: 'No offer has been made yet.',
+      },
+    },
+  })
+  assert.equal(ok.success, true)
+  if (ok.success) {
+    assert.deepEqual(ok.data.reply, {
+      needs: ['client'],
+      requires: {
+        crm: [{ entity: 'member', field: 'offer_made', op: 'notEmpty' }],
+        reason: 'No offer has been made yet.',
+      },
+    })
+  }
+
+  const bad = validateSkillYAML({
+    handle: 'onboarding',
+    name: 'Onboarding',
+    instructions: 'Send next steps.',
+    entityPolicies: { member: ['update'] },
+    reply: { requires: { crm: [{ entity: 'lead', field: 'stage', op: 'notEmpty' }] } },
+  })
+  assert.equal(bad.success, false)
+  if (!bad.success) {
+    assert.deepEqual(bad.error.issues[0]?.path, ['reply', 'requires', 'crm', 0, 'entity'])
+  }
+})
+
+test('skillTurnToolWarnings flags turn tools a skill declares', () => {
+  const warnings = skillTurnToolWarnings({
+    tools: [
+      { tool: 'app:acme:member:update' },
+      { tool: 'system:message:send', description: 'The one reply.' },
+      { tool: 'system:message:skip' },
+      { tool: 'system:message:cancel' },
+    ],
+  })
+  assert.equal(warnings.length, 2)
+  assert.match(warnings[0] ?? '', /system:message:send is a turn tool/)
+  assert.match(warnings[1] ?? '', /system:message:skip/)
+  assert.deepEqual(skillTurnToolWarnings({ tools: { requires: ['system:message:send'] } }).length, 1)
 })

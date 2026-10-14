@@ -219,11 +219,17 @@ export const SkillMemorySchema = z.object({
 export type SkillMemory = z.infer<typeof SkillMemorySchema>
 
 /**
- * Memory ids a customer-facing reply needs. Omit `reply` when the skill never
- * sends a message, such as an admin booking.
+ * The skill's contract on the turn's one reply. The send itself belongs to
+ * the platform; every loaded skill's contract must pass before it goes out.
+ *
+ * - `needs`: memory ids that must be filled. Omit when the skill never sends
+ *   a message, such as an admin booking.
+ * - `requires`: CRM conditions on an `entityPolicies` entity, checked against
+ *   the turn-start record. A failure rejects the send with `reason`.
  */
 export const SkillReplySchema = z.object({
   needs: z.array(z.string().min(1)).optional(),
+  requires: SkillToolRequiresSchema.optional(),
 })
 
 export type SkillReply = z.infer<typeof SkillReplySchema>
@@ -517,33 +523,72 @@ export function validateSkillYAML(skill: unknown): { success: true; data: SkillY
 }
 
 /**
- * Each `tools[].requires.crm` predicate must name an entity from the skill's
- * `entityPolicies`, and `eq` / `in` need a value (`in` an array).
+ * Every `tools[].requires.crm` and `reply.requires.crm` predicate must name an
+ * entity from the skill's `entityPolicies`, and `eq` / `in` need a value
+ * (`in` an array).
  */
 export function validateSkillToolRequires(
-  skill: Pick<SkillYAML, 'tools' | 'entityPolicies'>,
+  skill: Pick<SkillYAML, 'tools' | 'entityPolicies' | 'reply'>,
 ): { path: (string | number)[]; message: string }[] {
-  if (!isV2SkillTools(skill.tools)) return []
   const entities = new Set(Object.keys(skill.entityPolicies ?? {}))
   const issues: { path: (string | number)[]; message: string }[] = []
-  for (const [toolIndex, tool] of skill.tools.entries()) {
-    for (const [index, predicate] of (tool.requires?.crm ?? []).entries()) {
-      const path = ['tools', toolIndex, 'requires', 'crm', index]
+
+  const check = (
+    owner: string,
+    predicates: EntityCrmPredicate[] | undefined,
+    path: (string | number)[],
+  ) => {
+    for (const [index, predicate] of (predicates ?? []).entries()) {
+      const at = [...path, index]
       if (!entities.has(predicate.entity)) {
         issues.push({
-          path: [...path, 'entity'],
-          message: `${tool.tool} requires entity "${predicate.entity}", which is not in entityPolicies`,
+          path: [...at, 'entity'],
+          message: `${owner} requires entity "${predicate.entity}", which is not in entityPolicies`,
         })
       }
       if (predicate.op === 'eq' && predicate.value === undefined) {
-        issues.push({ path: [...path, 'value'], message: 'op eq needs a value' })
+        issues.push({ path: [...at, 'value'], message: 'op eq needs a value' })
       }
       if (predicate.op === 'in' && !Array.isArray(predicate.value)) {
-        issues.push({ path: [...path, 'value'], message: 'op in needs an array value' })
+        issues.push({ path: [...at, 'value'], message: 'op in needs an array value' })
       }
     }
   }
+
+  if (isV2SkillTools(skill.tools)) {
+    for (const [toolIndex, tool] of skill.tools.entries()) {
+      check(tool.tool, tool.requires?.crm, ['tools', toolIndex, 'requires', 'crm'])
+    }
+  }
+  check('reply', skill.reply?.requires?.crm, ['reply', 'requires', 'crm'])
   return issues
+}
+
+/**
+ * Tools the platform owns on every customer-facing turn. A skill that lists
+ * one changes nothing at runtime: its description never reaches the model.
+ */
+export const TURN_TOOL_NAMES: readonly string[] = [
+  'system:message:send',
+  'system:message:skip',
+  'system:scratchpad:set',
+  'system:scratchpad:get',
+  'system:scratchpad:list',
+]
+
+/**
+ * Warnings for turn tools a skill declares in `tools`. Reply rules belong in
+ * `reply` or `requiredWrites`, and reply wording in `instructions`.
+ */
+export function skillTurnToolWarnings(
+  skill: Pick<SkillYAML, 'tools'>,
+): string[] {
+  return getSkillToolNames(skill.tools)
+    .filter((tool) => TURN_TOOL_NAMES.includes(tool))
+    .map(
+      (tool) =>
+        `${tool} is a turn tool the platform provides; remove it from tools and put reply rules under reply or requiredWrites`,
+    )
 }
 
 /**

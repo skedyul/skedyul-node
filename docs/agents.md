@@ -341,6 +341,28 @@ reply:
 
 `ttl` is `10m`, `2h`, or `1d`. A phone in the latest user message that differs from the phone stored on the entry expires it. `ownedFields` and `requiredWrites` stay a separate decision: those are fields the model must set. Reading or mirroring a client record is `entity` plus `match` on the memory entry.
 
+### Reply contract
+
+A turn has one reply, and the platform owns it. `system:message:send`, `system:message:skip`, and `system:scratchpad:*` are turn tools: the platform registers them on every customer-facing turn with its own descriptions. Do not list them in a skill's `tools`; a listed copy is ignored and validation warns (`skillTurnToolWarnings`). Write reply wording in `instructions`.
+
+A skill shapes the reply with conditions. Every loaded skill's conditions must pass before the send goes out:
+
+| Key | Condition |
+|-----|-----------|
+| `requiredWrites` | These fields were written this turn |
+| `reply.needs` | These memory ids are filled |
+| `reply.requires` | These `crm` conditions hold on the turn-start record; otherwise the send is rejected with `reason` |
+
+```yaml
+reply:
+  requires:
+    crm:
+      - { entity: member, field: offer_made, op: notEmpty }
+    reason: No offer has been made yet. Keep qualifying instead of sending next steps.
+```
+
+`reply.requires` uses the same predicate shape as tool `requires`, and its `entity` must be in `entityPolicies`. A rejected send is guidance: the model rewrites or does the missing work, and the run continues.
+
 ### Helpers
 
 ```ts
