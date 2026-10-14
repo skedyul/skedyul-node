@@ -6,6 +6,7 @@ import {
 } from '../src/schemas/agent-schema-v3'
 import {
   normalizeRequiresToPredicates,
+  resolveFieldsToLegacy,
   skillTurnToolWarnings,
   validateSkillYAML,
 } from '../src/skills/types'
@@ -319,5 +320,56 @@ test('validateSkillYAML keeps reply.requires with entities shape', () => {
       engagement_level: { notEmpty: true },
       sentiment: { notEmpty: true },
     },
+  })
+})
+
+test('resolveFieldsToLegacy returns bare owned and required handles', () => {
+  const resolved = resolveFieldsToLegacy({
+    member: {
+      track: ['intent_score', 'sentiment'],
+      own: ['stage', 'notes', 'intent_score'],
+      see: ['membership_status'],
+      set: ['closed_at'],
+    },
+  })
+
+  assert.deepEqual(resolved.ownedFields, [
+    'intent_score',
+    'sentiment',
+    'stage',
+    'notes',
+    'closed_at',
+  ])
+  assert.deepEqual(resolved.requiredWrites, ['intent_score', 'sentiment'])
+  assert.deepEqual(resolved.crmContext, {
+    models: {
+      member: {
+        required: ['intent_score', 'sentiment', 'stage', 'notes', 'membership_status'],
+      },
+    },
+  })
+})
+
+test('resolveFieldsToLegacy dedupes across entities and skips see-only writes', () => {
+  const resolved = resolveFieldsToLegacy({
+    member: { own: ['notes'], see: ['membership_status'] },
+    booking: { own: ['notes', 'status'] },
+  })
+
+  assert.deepEqual(resolved.ownedFields, ['notes', 'status'])
+  assert.equal(resolved.requiredWrites, undefined)
+  assert.deepEqual(Object.keys(resolved.crmContext?.models ?? {}), ['member', 'booking'])
+})
+
+test('resolveFieldsToLegacy returns undefined parts when fields is missing or empty', () => {
+  assert.deepEqual(resolveFieldsToLegacy(undefined), {
+    crmContext: undefined,
+    ownedFields: undefined,
+    requiredWrites: undefined,
+  })
+  assert.deepEqual(resolveFieldsToLegacy({ member: {} }), {
+    crmContext: undefined,
+    ownedFields: undefined,
+    requiredWrites: undefined,
   })
 })
