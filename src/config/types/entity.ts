@@ -72,6 +72,22 @@ export interface EntityFieldDefinition {
   definition?: string
   /** Enum options when the source value is constrained */
   options?: FieldOption[] | string[]
+  /**
+   * AI agent metadata: description for agents and mutability constraints.
+   * Used by CRM install to set field metadata when creating/updating fields.
+   */
+  aiMeta?: {
+    /** Agent-facing description of what the field represents */
+    description?: string
+    /**
+     * Mutability constraint:
+     * - 'always': field can always be modified
+     * - 'restricted': field has some restrictions on modification
+     * - 'create_only': field can only be set at creation time
+     * - 'immutable': field cannot be modified after creation
+     */
+    mutability?: 'always' | 'restricted' | 'create_only' | 'immutable'
+  }
 }
 
 /**
