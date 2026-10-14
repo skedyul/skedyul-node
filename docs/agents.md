@@ -115,18 +115,20 @@ Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for t
 | `responseGate.strictMode` | `false` | Block the send instead of recommending a skip |
 | `responseGate.minAckConfidence` | `0.7` | Confidence required to call a message an acknowledgement (`0`–`1`) |
 
-`behavior.conversation` declares which conversational rules this agent wants. Each rule is `off` (not stated, not checked), `prompt` (stated, never blocks), or `reject` (the send is rejected and the model rewrites it). No level ends the run. Every rule defaults to `prompt` except `oneQuestionPerMessage`, which defaults to `off`.
+`behavior.conversation` declares which conversational rules this agent wants. Each rule is `off` (not stated, not checked), `prompt` (stated, never blocks), or `reject` (the send is rejected and the model rewrites it). No level ends the run. Every rule defaults to `prompt` except `oneQuestionPerMessage` and `namedDelayFollowUp`, which default to `off`.
 
 | Key | What it asks for |
 |-----|------------------|
 | `repeatQuestions` | Do not re-ask something the customer already answered |
 | `exampleCopy` | Do not send skill example wording verbatim |
-| `namedDelayFollowUp` | A named delay or a promised check-in should produce a scheduled send |
+| `namedDelayFollowUp` | Opt-in two-message split for a postponement. Default `off` leaves the turn alone. `prompt` or `reject` makes the harness send the reply now (no `sendAt`) and a different check-in later (`sendAt`). `prompt` asks once for the check-in and still delivers the reply. `reject` asks again and still delivers the reply. `allowSchedule` must be on. |
 | `oneMessagePerTurn` | Keep the turn to one message. Prompt-only; the hard count is `behavior.responses.maxImmediate` |
 | `fillerBan` | Skip rather than send filler. Stated only when `allowSilent` is set |
 | `cancelPendingOnAck` | A bare acknowledgement does not cancel a pending follow-up |
 | `oneQuestionPerMessage` | Ask one thing at a time. `reject` blocks a send with more than one question. Default `off` |
 | `onPolicyRejectExhausted` | `send` (default) releases the last rejected message; `skip` records a skip |
+
+`behavior.scheduling.reply` and `behavior.scheduling.followUp` are optional wording for that split. They are not `prompts.followUp` (that key parses and is not implemented). `reply` is shown only while the immediate message is being written. `followUp` is shown only on the later pass, after that reply has succeeded. Omit both and the model writes from the system prompt and the loaded skill. The harness still keeps the two slots apart, and a scheduled body that repeats the reply is rejected. `scheduling.patterns` can add domain phrases. They do not turn the split on, and they do not hide ordinary postponements such as "on holiday" or "chat in a week".
 
 `acknowledgeTimeGaps` (`false` by default) mentions a long gap since the last message. `timeGapThreshold` is that gap, for example `"3 days"`.
 

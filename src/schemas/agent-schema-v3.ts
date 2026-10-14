@@ -446,8 +446,9 @@ export type ConversationPolicyLevel = z.infer<
  * discovery flow, a booking confirmation bot wants none. Declare them here so
  * the same runtime can serve both.
  *
- * Every key defaults to `prompt` except `oneQuestionPerMessage`, which
- * defaults to `off`. Set `off` for a direct agent that should just answer.
+ * Every key defaults to `prompt` except `oneQuestionPerMessage` and
+ * `namedDelayFollowUp`, which default to `off`. Set `off` for a direct
+ * agent that should just answer.
  */
 export const ConversationBehaviorConfigSchema = z.object({
   /** Do not re-ask something the customer already answered. */
@@ -455,9 +456,13 @@ export const ConversationBehaviorConfigSchema = z.object({
   /** Do not send skill example wording verbatim. */
   exampleCopy: ConversationPolicyLevelSchema.optional(),
   /**
-   * A named delay or a promised check-in should produce a scheduled send.
-   * `prompt` reprompts once and accepts the turn either way; `reject` fails
-   * the turn when no scheduled send follows.
+   * A named delay produces two sends: the reply now, then a different
+   * check-in with sendAt. The harness owns that split. Optional wording for
+   * each message lives on `behavior.scheduling.reply` and
+   * `behavior.scheduling.followUp`. `prompt` reprompts once and still
+   * delivers the reply if the check-in never arrives. `reject` asks again
+   * for the check-in and still delivers the reply. `off` (the default) leaves
+   * the turn alone. Set `prompt` or `reject` to turn the split on.
    */
   namedDelayFollowUp: ConversationPolicyLevelSchema.optional(),
   /**
@@ -535,6 +540,19 @@ export const SchedulingBehaviorConfigSchema = z.object({
    * The agent uses these to know when to add sendAt to messages.
    */
   patterns: z.array(SchedulingPatternSchema).optional(),
+
+  /**
+   * Wording guidance for the immediate reply when `namedDelayFollowUp` is on.
+   * The harness shows this only while that reply is being written.
+   */
+  reply: z.string().optional(),
+
+  /**
+   * Wording guidance for the later check-in when `namedDelayFollowUp` is on.
+   * The harness shows this only after the immediate reply has succeeded.
+   * This is not `prompts.followUp`.
+   */
+  followUp: z.string().optional(),
 
   /**
    * Default settings for scheduled messages.
