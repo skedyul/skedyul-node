@@ -3,7 +3,12 @@ import * as path from 'path'
 import { parse as parseYaml } from 'yaml'
 import { parseArgs } from '../utils'
 import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
-import { SkillYAMLSchema, validateSkillYAML, type SkillYAML } from '../../skills/types'
+import {
+  SkillYAMLSchema,
+  skillTurnToolWarnings,
+  validateSkillYAML,
+  type SkillYAML,
+} from '../../skills/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -183,6 +188,10 @@ async function loadSkillFile(filePath: string): Promise<{ skill: SkillYAML; cont
       .map((e) => `  - ${String(e.path.join('.')) || '(root)'}: ${e.message}`)
       .join('\n')
     throw new Error(`Skill validation failed:\n${errorMessages}`)
+  }
+
+  for (const warning of skillTurnToolWarnings(validation.data)) {
+    console.warn(`Warning: ${warning}`)
   }
 
   return { skill: validation.data, content }

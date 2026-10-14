@@ -20,8 +20,14 @@ export {
   SkillMemorySchema,
   SkillMemoryTtlSchema,
   SkillReplySchema,
+  CrmPredicateOpSchema,
+  EntityCrmPredicateSchema,
+  SkillToolRequiresSchema,
 
   // Types
+  type CrmPredicateOp,
+  type EntityCrmPredicate,
+  type SkillToolRequires,
   type SkillSource,
   type SkillToolRequirement,
   type SkillExample,
@@ -43,6 +49,9 @@ export {
   // Helper functions
   defineSkill,
   validateSkillYAML,
+  validateSkillToolRequires,
+  skillTurnToolWarnings,
+  TURN_TOOL_NAMES,
   formatSkillInstructions,
   formatSkillDiscovery,
 } from './types'

@@ -47,6 +47,113 @@ export const ToolConstraintsSchema = z.object({
 export type ToolConstraints = z.infer<typeof ToolConstraintsSchema>
 
 /**
+ * CRM predicate ops, shared by evaluator preconditions and tool gates.
+ * `eq` and `in` compare a value; `empty` and `notEmpty` take none.
+ */
+export const CrmPredicateOpSchema = z.enum(['eq', 'in', 'empty', 'notEmpty'])
+
+export type CrmPredicateOp = z.infer<typeof CrmPredicateOpSchema>
+
+/**
+ * One CRM condition on a named entity, e.g. member.is_qualified eq true.
+ * `entity` is a handle from the skill's `entityPolicies`.
+ */
+export const EntityCrmPredicateSchema = z.object({
+  entity: z.string().min(1),
+  field: z.string().min(1),
+  op: CrmPredicateOpSchema,
+  value: z.unknown().optional(),
+})
+
+export type EntityCrmPredicate = z.infer<typeof EntityCrmPredicateSchema>
+
+/**
+ * Field constraint in the new entities shape.
+ * - Primitive value (string, number, boolean): exact match (op: eq)
+ * - `{ notEmpty: true }`: field must have a value (op: notEmpty)
+ */
+export const EntityFieldConstraintSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.object({ notEmpty: z.literal(true) }),
+])
+
+export type EntityFieldConstraint = z.infer<typeof EntityFieldConstraintSchema>
+
+/**
+ * New declarative shape for tool/reply requires.
+ * Maps entity handle -> field handle -> constraint.
+ *
+ * Example:
+ * ```yaml
+ * entities:
+ *   member:
+ *     is_qualified: true
+ *     sentiment: { notEmpty: true }
+ * ```
+ */
+export const EntitiesRequiresSchema = z.record(
+  z.string(), // entity handle
+  z.record(z.string(), EntityFieldConstraintSchema), // field -> constraint
+)
+
+export type EntitiesRequires = z.infer<typeof EntitiesRequiresSchema>
+
+/**
+ * Conditions a tool call needs. The harness checks every predicate
+ * against the turn-start CRM context and rejects the call with `reason`
+ * when one fails, so the model is steered instead of the run failing.
+ *
+ * Supports two shapes:
+ * - Legacy `crm`: array of EntityCrmPredicate objects
+ * - New `entities`: declarative map of entity.field constraints
+ */
+export const SkillToolRequiresSchema = z.object({
+  crm: z.array(EntityCrmPredicateSchema).optional(),
+  entities: EntitiesRequiresSchema.optional(),
+  reason: z.string().optional(),
+})
+
+export type SkillToolRequires = z.infer<typeof SkillToolRequiresSchema>
+
+/**
+ * Normalize a SkillToolRequires to crm predicates array.
+ * Converts the new `entities` shape to `crm` predicates for evaluation.
+ */
+export function normalizeRequiresToPredicates(
+  requires: SkillToolRequires | undefined,
+): EntityCrmPredicate[] {
+  if (!requires) return []
+
+  const predicates: EntityCrmPredicate[] = []
+
+  // Add existing crm predicates
+  if (requires.crm) {
+    predicates.push(...requires.crm)
+  }
+
+  // Convert entities shape to predicates
+  if (requires.entities) {
+    for (const [entity, fields] of Object.entries(requires.entities)) {
+      for (const [field, constraint] of Object.entries(fields)) {
+        if (
+          typeof constraint === 'object' &&
+          constraint !== null &&
+          'notEmpty' in constraint
+        ) {
+          predicates.push({ entity, field, op: 'notEmpty' })
+        } else {
+          predicates.push({ entity, field, op: 'eq', value: constraint })
+        }
+      }
+    }
+  }
+
+  return predicates
+}
+
+/**
  * Full tool definition owned by a skill (v2)
  * Skills own their tools with full configuration including descriptions,
  * overrides, sandbox mocks, approval settings, and execution constraints.
@@ -69,6 +176,8 @@ export const SkillToolDefinitionSchema = z.object({
    * it does not itself call reserve.
    */
   needs: z.array(z.string().min(1)).optional(),
+  /** CRM conditions checked before the call runs. */
+  requires: SkillToolRequiresSchema.optional(),
 })
 
 export type SkillToolDefinition = z.infer<typeof SkillToolDefinitionSchema>
@@ -131,6 +240,94 @@ export const CRMContextSchema = z.object({
 export type CRMContext = z.infer<typeof CRMContextSchema>
 
 /**
+ * Field access groups for unified field declaration.
+ * - track: hydrated + writable + MUST write before reply
+ * - own: hydrated + writable
+ * - see: hydrated, read-only
+ * - set: writable but not hydrated
+ */
+export const SkillFieldGroupSchema = z.object({
+  track: z.array(z.string()).optional(),
+  own: z.array(z.string()).optional(),
+  see: z.array(z.string()).optional(),
+  set: z.array(z.string()).optional(),
+})
+
+export type SkillFieldGroup = z.infer<typeof SkillFieldGroupSchema>
+
+/**
+ * Unified fields declaration by entity handle.
+ * Replaces crmContext.models, ownedFields, and requiredWrites.
+ *
+ * Example:
+ * ```yaml
+ * fields:
+ *   member:
+ *     track:
+ *       - intent_score
+ *       - engagement_level
+ *       - sentiment
+ *     own:
+ *       - stage
+ *       - is_qualified
+ *       - readiness
+ *     see:
+ *       - membership_status
+ *     set:
+ *       - closed_at
+ * ```
+ */
+export const SkillFieldsSchema = z.record(
+  z.string(), // entity handle
+  SkillFieldGroupSchema,
+)
+
+export type SkillFields = z.infer<typeof SkillFieldsSchema>
+
+/**
+ * Derive crmContext, ownedFields, requiredWrites from unified fields shape.
+ * Used by harness when fields is present.
+ */
+export function resolveFieldsToLegacy(fields: SkillFields | undefined): {
+  crmContext: CRMContext | undefined
+  ownedFields: string[] | undefined
+  requiredWrites: string[] | undefined
+} {
+  if (!fields) {
+    return { crmContext: undefined, ownedFields: undefined, requiredWrites: undefined }
+  }
+
+  const models: Record<string, { required?: string[]; recommended?: string[] }> = {}
+  const ownedFields: string[] = []
+  const requiredWrites: string[] = []
+
+  for (const [entity, groups] of Object.entries(fields)) {
+    const hydrated = [
+      ...(groups.track ?? []),
+      ...(groups.own ?? []),
+      ...(groups.see ?? []),
+    ]
+    const writable = [
+      ...(groups.track ?? []),
+      ...(groups.own ?? []),
+      ...(groups.set ?? []),
+    ]
+
+    if (hydrated.length > 0) {
+      models[entity] = { required: hydrated }
+    }
+    ownedFields.push(...writable.map((f) => `${entity}.${f}`))
+    requiredWrites.push(...(groups.track ?? []).map((f) => `${entity}.${f}`))
+  }
+
+  return {
+    crmContext: Object.keys(models).length > 0 ? { models } : undefined,
+    ownedFields: ownedFields.length > 0 ? ownedFields : undefined,
+    requiredWrites: requiredWrites.length > 0 ? requiredWrites : undefined,
+  }
+}
+
+/**
  * Entity operation types for entity policies.
  * These map to CRM operations at runtime via AppCrmMap.
  */
@@ -184,11 +381,17 @@ export const SkillMemorySchema = z.object({
 export type SkillMemory = z.infer<typeof SkillMemorySchema>
 
 /**
- * Memory ids a customer-facing reply needs. Omit `reply` when the skill never
- * sends a message, such as an admin booking.
+ * The skill's contract on the turn's one reply. The send itself belongs to
+ * the platform; every loaded skill's contract must pass before it goes out.
+ *
+ * - `needs`: memory ids that must be filled. Omit when the skill never sends
+ *   a message, such as an admin booking.
+ * - `requires`: CRM conditions on an `entityPolicies` entity, checked against
+ *   the turn-start record. A failure rejects the send with `reason`.
  */
 export const SkillReplySchema = z.object({
   needs: z.array(z.string().min(1)).optional(),
+  requires: SkillToolRequiresSchema.optional(),
 })
 
 export type SkillReply = z.infer<typeof SkillReplySchema>
@@ -207,7 +410,7 @@ export const EvaluatorPreconditionsSchema = z.object({
     .array(
       z.object({
         field: z.string(),
-        op: z.enum(['eq', 'in', 'empty', 'notEmpty']),
+        op: CrmPredicateOpSchema,
         value: z.unknown().optional(),
       }),
     )
@@ -261,14 +464,26 @@ export const SkillYAMLSchema = z.object({
   crmContext: CRMContextSchema.optional(),
 
   /**
+   * Unified field declaration per entity. Replaces crmContext, ownedFields,
+   * requiredWrites with a single shape. Groups:
+   * - track: must write every turn (hydrated + writable)
+   * - own: read + write (hydrated + writable)
+   * - see: read-only (hydrated)
+   * - set: write-only (not hydrated)
+   */
+  fields: SkillFieldsSchema.optional(),
+
+  /**
    * Entity field handles this skill is allowed to write while loaded.
    * Writing outside this list is reported as an unowned write.
+   * @deprecated Use fields.{entity}.own or fields.{entity}.set instead.
    */
   ownedFields: z.array(z.string()).optional(),
 
   /**
    * Entity field handles this skill must have written before it replies.
    * Only handles mapped in the install's AppCrmMap are enforced.
+   * @deprecated Use fields.{entity}.track instead.
    */
   requiredWrites: z.array(z.string()).optional(),
 
@@ -304,6 +519,7 @@ export const SkillYAMLV2Schema = z.object({
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
   crmContext: CRMContextSchema.optional(),
+  fields: SkillFieldsSchema.optional(),
   ownedFields: z.array(z.string()).optional(),
   requiredWrites: z.array(z.string()).optional(),
   evaluators: z.array(SkillEvaluatorSchema).optional(),
@@ -399,6 +615,7 @@ export const LoadedSkillSchema = z.object({
   description: z.string().optional(),
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
+  fields: SkillFieldsSchema.optional(),
   memory: z.array(SkillMemorySchema).optional(),
   reply: SkillReplySchema.optional(),
   examples: z.array(SkillExampleSchema).optional(),
@@ -461,10 +678,111 @@ export function defineSkill(skill: SkillYAML): SkillYAML {
  */
 export function validateSkillYAML(skill: unknown): { success: true; data: SkillYAML } | { success: false; error: z.ZodError } {
   const result = SkillYAMLSchema.safeParse(skill)
-  if (result.success) {
-    return { success: true, data: result.data }
+  if (!result.success) {
+    return { success: false, error: result.error }
   }
-  return { success: false, error: result.error }
+  const requiresIssues = validateSkillToolRequires(result.data)
+  if (requiresIssues.length > 0) {
+    return {
+      success: false,
+      error: new z.ZodError(
+        requiresIssues.map((issue) => ({
+          code: 'custom' as const,
+          path: issue.path,
+          message: issue.message,
+          input: undefined,
+        })),
+      ),
+    }
+  }
+  return { success: true, data: result.data }
+}
+
+/**
+ * Every `tools[].requires.crm` and `reply.requires.crm` predicate must name an
+ * entity from the skill's `entityPolicies`, and `eq` / `in` need a value
+ * (`in` an array). Also validates the new `entities` shape.
+ */
+export function validateSkillToolRequires(
+  skill: Pick<SkillYAML, 'tools' | 'entityPolicies' | 'reply'>,
+): { path: (string | number)[]; message: string }[] {
+  const entities = new Set(Object.keys(skill.entityPolicies ?? {}))
+  const issues: { path: (string | number)[]; message: string }[] = []
+
+  const checkCrm = (
+    owner: string,
+    predicates: EntityCrmPredicate[] | undefined,
+    path: (string | number)[],
+  ) => {
+    for (const [index, predicate] of (predicates ?? []).entries()) {
+      const at = [...path, index]
+      if (!entities.has(predicate.entity)) {
+        issues.push({
+          path: [...at, 'entity'],
+          message: `${owner} requires entity "${predicate.entity}", which is not in entityPolicies`,
+        })
+      }
+      if (predicate.op === 'eq' && predicate.value === undefined) {
+        issues.push({ path: [...at, 'value'], message: 'op eq needs a value' })
+      }
+      if (predicate.op === 'in' && !Array.isArray(predicate.value)) {
+        issues.push({ path: [...at, 'value'], message: 'op in needs an array value' })
+      }
+    }
+  }
+
+  const checkEntities = (
+    owner: string,
+    entitiesMap: EntitiesRequires | undefined,
+    path: (string | number)[],
+  ) => {
+    if (!entitiesMap) return
+    for (const [entity, fields] of Object.entries(entitiesMap)) {
+      if (!entities.has(entity)) {
+        issues.push({
+          path: [...path, entity],
+          message: `${owner} requires entity "${entity}", which is not in entityPolicies`,
+        })
+      }
+    }
+  }
+
+  if (isV2SkillTools(skill.tools)) {
+    for (const [toolIndex, tool] of skill.tools.entries()) {
+      checkCrm(tool.tool, tool.requires?.crm, ['tools', toolIndex, 'requires', 'crm'])
+      checkEntities(tool.tool, tool.requires?.entities, ['tools', toolIndex, 'requires', 'entities'])
+    }
+  }
+  checkCrm('reply', skill.reply?.requires?.crm, ['reply', 'requires', 'crm'])
+  checkEntities('reply', skill.reply?.requires?.entities, ['reply', 'requires', 'entities'])
+  return issues
+}
+
+/**
+ * Tools the platform owns on every customer-facing turn. A skill that lists
+ * one changes nothing at runtime: its description never reaches the model.
+ */
+export const TURN_TOOL_NAMES: readonly string[] = [
+  'system:message:send',
+  'system:message:skip',
+  'system:scratchpad:set',
+  'system:scratchpad:get',
+  'system:scratchpad:list',
+]
+
+/**
+ * Warnings for turn tools a skill declares in `tools`. Reply rules belong in
+ * `reply` or `requiredWrites`, and reply wording in `instructions`.
+ */
+export function skillTurnToolWarnings(
+  skill: Pick<SkillYAML, 'tools'>,
+): string[] {
+  return getSkillToolNames(skill.tools)
+    .filter((tool) => TURN_TOOL_NAMES.includes(tool))
+    .map(
+      (tool) =>
+        `${tool} is a turn tool the platform provides; remove it from tools and put reply rules under reply or requiredWrites`,
+    )
 }
 
 /**
