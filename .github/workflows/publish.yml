@@ -118,6 +118,11 @@ jobs:
 
       - name: Publish to NPM
         run: npm publish --access public --provenance
+        env:
+          # Clear NODE_AUTH_TOKEN set by setup-node to force OIDC authentication.
+          # setup-node sets this as an env var that persists across steps, and
+          # npm will use it instead of OIDC if present (even if empty/invalid).
+          NODE_AUTH_TOKEN: ''
 
       - name: Create git tag
         run: |
