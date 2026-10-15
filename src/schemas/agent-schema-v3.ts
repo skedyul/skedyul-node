@@ -15,6 +15,10 @@ export const AGENT_SCHEMA_VERSION_V3 = 'https://skedyul.com/schemas/agent/v3'
 
 /**
  * Persona voice format configuration
+ * @deprecated Use `behavior.message`. `noEmojis`, `noSignOffs`,
+ * `noBulletPoints`, `noHyphens` and `maxQuestionsPerMessage` map to
+ * `emojis: false`, `signOffs: false`, `bullets: strip`, `dashes: strip` and
+ * `maxQuestions`. Still read when `behavior.message` does not set the rule.
  */
 export const PersonaVoiceFormatV3Schema = z.object({
   maxChars: z.number().optional(),
@@ -39,6 +43,8 @@ export type PersonaVoiceV3 = z.infer<typeof PersonaVoiceV3Schema>
 
 /**
  * Persona configuration for agent voice and formatting
+ * @deprecated Use `behavior.persona` (`name`, `voice`) and `behavior.message`.
+ * Still read when `behavior.persona` does not set the key.
  */
 export const PersonaV3Schema = z.object({
   name: z.string(),
@@ -98,6 +104,11 @@ export const AgentToolRefSchema = z.union([
      * results include these fields. Omit to hydrate every field.
      */
     fields: z.array(z.string().min(1)).optional(),
+    /**
+     * Base filter locked onto every call of a list, count or aggregate tool,
+     * e.g. `{ active: { eq: true } }`. The model's own filter is ANDed with it.
+     */
+    where: z.record(z.string(), z.unknown()).optional(),
   }),
 ])
 
@@ -201,6 +212,11 @@ export const RuntimeConfigV3Schema = z.object({
   model: z.string().optional(),
   /** LLM model for persona transformation (e.g., "openai/gpt-5-nano") */
   personaModel: z.string().optional(),
+  /**
+   * Model steps per run, 1-50.
+   * @default 10
+   */
+  maxIterations: z.number().int().min(1).max(50).optional(),
 })
 
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
@@ -305,7 +321,10 @@ export const TimeWindowBehaviorSchema = z.object({
   responseMode: ResponseModeSchema,
   /** Prompt injection for this time context */
   prompt: z.string().optional().describe('Prompt injection for this time context'),
-  /** Window to schedule responses for (when responseMode is ack_and_schedule or schedule_only) */
+  /**
+   * Window to schedule responses for (when responseMode is ack_and_schedule
+   * or schedule_only). Defaults to `behavior.scheduling.defaults.timeWindow`.
+   */
   scheduleFor: z.string().optional().describe('Window name to schedule responses for'),
 })
 
@@ -316,8 +335,14 @@ export type TimeWindowBehavior = z.infer<typeof TimeWindowBehaviorSchema>
  * Defines when the window is active and how the agent behaves during it.
  */
 export const TimeWindowPolicySchema = z.object({
-  /** IANA timezone for the window (e.g., "Australia/Sydney") */
-  timezone: z.string().describe('IANA timezone, e.g., "Australia/Sydney"'),
+  /**
+   * IANA timezone for the window (e.g., "Australia/Sydney"). Omit to use the
+   * agent's `behavior.timezone`. May reference a setting with Liquid.
+   */
+  timezone: z
+    .string()
+    .optional()
+    .describe('IANA timezone, e.g., "Australia/Sydney". Defaults to behavior.timezone'),
   /** Time slots when this window is active */
   windows: z.array(TimeWindowSlotAgentSchema),
   /** Behavior for this window (optional - defaults to immediate response) */
@@ -373,8 +398,8 @@ export const ResponsesBehaviorConfigSchema = z.object({
    * Maximum intermediate messages per agent run.
    * Intermediate = progress updates, acknowledgments before task completion.
    * The final message slot is always reserved separately.
-   * @deprecated Use maxImmediate instead
-   * @default 2
+   * @deprecated Use maxImmediate instead. Read as `maxImmediate` (capped at 1)
+   * when `maxImmediate` is unset.
    */
   maxIntermediate: z.number().optional(),
 
@@ -402,6 +427,8 @@ export const ResponsesBehaviorConfigSchema = z.object({
 
   /**
    * Strip em dashes, smart quotes and bullet leaders from outbound messages.
+   * @deprecated Use `behavior.message`: `bullets: dash`, `dashes: comma` and
+   * `plainPunctuation: true` together are what this switch did.
    * @default false
    */
   humanize: z.boolean().optional(),
@@ -496,6 +523,7 @@ export const ConversationBehaviorConfigSchema = z.object({
   /**
    * Keep the turn to one message. Prompt-only — the hard count comes from
    * `behavior.responses.maxImmediate`.
+   * @deprecated Stated whenever `behavior.responses.maxImmediate` is 1.
    */
   oneMessagePerTurn: ConversationPolicyLevelSchema.optional(),
   /**
@@ -512,6 +540,7 @@ export const ConversationBehaviorConfigSchema = z.object({
    * Ask one thing at a time. `reject` blocks a send that asks more than one
    * question. Defaults to `off` at runtime: an agent that collects several
    * answers in one message is a legitimate design.
+   * @deprecated Use `behavior.message.maxQuestions`, which always rejects.
    */
   oneQuestionPerMessage: ConversationPolicyLevelSchema.optional(),
   /**
@@ -535,7 +564,7 @@ export const SchedulingDelaySchema = z.object({
   amount: z.number(),
   /** Time unit (e.g., "week", "weeks", "day", "days", "month", "months") */
   unit: z.string(),
-  /** Optional time window to constrain the delay */
+  /** Time window to constrain the delay. Defaults to `scheduling.defaults.timeWindow`. */
   timeWindow: z.string().optional(),
 })
 
@@ -576,9 +605,15 @@ export const SchedulingBehaviorConfigSchema = z.object({
     .object({
       /** Cancel scheduled message if user replies before send time (default: true) */
       cancelOnActivity: z.boolean().optional(),
-      /** Whether scheduled messages require approval (default: true) */
+      /**
+       * Whether scheduled messages require approval.
+       * @deprecated Use `policies.messages.schedule.requiresApproval`.
+       */
       requiresApproval: z.boolean().optional(),
-      /** Default time window policy to constrain all scheduled messages */
+      /**
+       * Default time window policy for scheduled messages. Window
+       * `scheduleFor` and pattern `defaultDelay.timeWindow` inherit it.
+       */
       timeWindow: z.string().optional().describe('Time window policy name for scheduled messages'),
     })
     .optional(),
@@ -587,6 +622,69 @@ export const SchedulingBehaviorConfigSchema = z.object({
 export type SchedulingBehaviorConfig = z.infer<
   typeof SchedulingBehaviorConfigSchema
 >
+
+/**
+ * Who the agent is. Both keys may reference settings with Liquid; a name that
+ * renders blank means the agent gives itself no name.
+ */
+export const BehaviorPersonaV3Schema = z.object({
+  /** Name the agent goes by, e.g. `"{{ STUDIO_MANAGER_NAME }}"`. */
+  name: z.string().optional(),
+  /** Voice and style the outbound text is rewritten in. */
+  voice: z.string().optional(),
+})
+
+export type BehaviorPersonaV3 = z.infer<typeof BehaviorPersonaV3Schema>
+
+/**
+ * Rules every outbound message follows. Each rule is stated once in the
+ * prompt and applied to the text before it is sent.
+ */
+export const MessageRulesV3Schema = z.object({
+  /** Longest message in characters. Longer text is cut, keeping the question. */
+  maxChars: z.number().int().positive().optional(),
+  /** Most questions per message. A send that asks more is rejected and rewritten. */
+  maxQuestions: z.number().int().positive().optional(),
+  /**
+   * `false` strips emojis.
+   * @default true
+   */
+  emojis: z.boolean().optional(),
+  /**
+   * `false` strips a trailing sign-off line.
+   * @default true
+   */
+  signOffs: z.boolean().optional(),
+  /**
+   * `keep` leaves bullets, `dash` turns bullet leaders into "- ", `strip`
+   * removes them.
+   * @default "keep"
+   */
+  bullets: z.enum(['keep', 'dash', 'strip']).optional(),
+  /**
+   * `keep` leaves em and en dashes, `comma` turns them into commas, `strip`
+   * removes them.
+   * @default "keep"
+   */
+  dashes: z.enum(['keep', 'comma', 'strip']).optional(),
+  /**
+   * Straight quotes, a three-dot ellipsis and no space before punctuation.
+   * @default false
+   */
+  plainPunctuation: z.boolean().optional(),
+})
+
+export type MessageRulesV3 = z.infer<typeof MessageRulesV3Schema>
+
+/** Mention a long gap since the last message when one has passed. */
+export const TimeGapsV3Schema = z.object({
+  /** @default false */
+  acknowledge: z.boolean().optional(),
+  /** Gap that counts as long, e.g. "3 days" or "7d". */
+  threshold: z.string().optional(),
+})
+
+export type TimeGapsV3 = z.infer<typeof TimeGapsV3Schema>
 
 /**
  * Behavior configuration for agent runtime behavior.
@@ -614,14 +712,40 @@ export const BehaviorConfigV3Schema = z.object({
 
   /**
    * Mention a long gap since the last message when one has passed.
+   * @deprecated Use `behavior.timeGaps.acknowledge`.
    * @default false
    */
   acknowledgeTimeGaps: z.boolean().optional(),
 
   /**
    * Gap that counts as long for `acknowledgeTimeGaps`, e.g. "3 days".
+   * @deprecated Use `behavior.timeGaps.threshold`.
    */
   timeGapThreshold: z.string().optional(),
+
+  /**
+   * IANA timezone for the agent's clock and for windows that omit one.
+   * May reference a setting with Liquid, e.g. `"{{ STUDIO_TIMEZONE }}"`.
+   */
+  timezone: z.string().optional(),
+
+  /** Who the agent is. Rewrites outbound text in this voice. */
+  persona: BehaviorPersonaV3Schema.optional(),
+
+  /** Rules every outbound message follows. */
+  message: MessageRulesV3Schema.optional(),
+
+  /** Mention a long gap since the last message. */
+  timeGaps: TimeGapsV3Schema.optional(),
+
+  /**
+   * Named time window policies. Windows must not overlap. Replaces the
+   * top-level `timeWindows`.
+   */
+  timeWindows: TimeWindowPoliciesSchema.optional(),
+
+  /** Fallback when no window matches. Replaces the top-level `timeWindowDefault`. */
+  timeWindowDefault: TimeWindowDefaultSchema.optional(),
 })
 
 export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
@@ -634,18 +758,30 @@ export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
  * a setting means stays the app's business.
  */
 export const AgentSettingV3Schema = z.object({
-  /** Setting key, resolved against the install's AgentConfig and env. */
+  /**
+   * Setting key, resolved against the install's AgentConfig and env. Liquid
+   * templates reference it by this exact name.
+   */
   key: z.string().min(1),
-  /** Human label shown to the model and in the console. */
+  /** Human label shown in the console and to the grader. */
   label: z.string().optional(),
+  /** Value used when the install leaves the setting blank. */
+  default: z.string().optional(),
   /**
    * Prompt guidance for this setting. `{{value}}` interpolates the install
    * value and `{{workplace}}` the workplace name.
+   * @deprecated Reference the setting with Liquid in the prompt instead.
    */
   guidance: z.string().optional(),
   /**
+   * Guidance printed when the install leaves the setting blank.
+   * @deprecated Use `{% if KEY %}...{% else %}...{% endif %}` in the prompt.
+   */
+  emptyGuidance: z.string().optional(),
+  /**
    * Marks a setting as supplying a platform value rather than prose.
    * `persona_name` overrides the agent's persona name for this install.
+   * @deprecated Set `behavior.persona.name: "{{ KEY }}"`.
    */
   role: z.enum(['persona_name']).optional(),
 })
@@ -683,6 +819,19 @@ export const PromptsConfigV3Schema = z.object({
 export type PromptsConfigV3 = z.infer<typeof PromptsConfigV3Schema>
 
 /**
+ * Event activation for an agent. `subscribes` and `condition` register the
+ * agent's event subscriptions on deploy; the rest is not read for agents yet.
+ */
+export const AgentEventsConfigV3Schema = EventsConfigSchema.extend({
+  emits: EventsConfigSchema.shape.emits.describe('Not implemented'),
+  waits: EventsConfigSchema.shape.waits.describe('Not implemented'),
+  cancels: EventsConfigSchema.shape.cancels.describe('Not implemented'),
+  cancelCondition: EventsConfigSchema.shape.cancelCondition.describe('Not implemented'),
+})
+
+export type AgentEventsConfigV3 = z.infer<typeof AgentEventsConfigV3Schema>
+
+/**
  * Full Agent YAML v3 Schema
  *
  * This schema removes stages and uses skills instead.
@@ -700,7 +849,10 @@ export const AgentYAMLV3Schema = z.object({
   version: z.string().optional(),
   description: z.string().optional(),
 
-  // Persona - Who the agent is
+  /**
+   * Persona - Who the agent is.
+   * @deprecated Use `behavior.persona` and `behavior.message`.
+   */
   persona: PersonaV3Schema.optional(),
 
   // Skills - What the agent knows how to do (skills own their tools)
@@ -711,17 +863,18 @@ export const AgentYAMLV3Schema = z.object({
   tools: z.array(AgentToolRefSchema).optional(),
 
   /**
-   * Settings - Install-scoped values the agent asks for by key.
-   * Rendered into the prompt with the label and guidance declared here.
+   * Settings - Install-scoped values the agent can reference by key.
+   * Templates reference them with Liquid, e.g. `{{ STUDIO_MANAGER_NAME }}`.
+   * Agents whose rows still carry `guidance`/`emptyGuidance`/`role` and use
+   * no Liquid references keep the older auto-printed settings section.
    */
   settings: z.array(AgentSettingV3Schema).optional(),
 
   /**
-   * Events - When the agent activates
-   * @deprecated Not yet implemented - this is a planned feature for event-driven agents.
-   * Fields are accepted but not used at runtime.
+   * Events - When the agent activates. `subscribes` registers the agent's
+   * event subscriptions on deploy.
    */
-  events: EventsConfigSchema.optional().describe('Not implemented'),
+  events: AgentEventsConfigV3Schema.optional(),
 
   /**
    * Memory - How the agent remembers
@@ -746,12 +899,16 @@ export const AgentYAMLV3Schema = z.object({
   // responses: Controls message sending via explicit tool calls
   behavior: BehaviorConfigV3Schema.optional(),
 
-  // Time Windows - Named time window policies for scheduling constraints
-  // Windows must be mutually exclusive (non-overlapping)
-  // Each window can define its own behavior (response mode, prompt, etc.)
+  /**
+   * Named time window policies for scheduling constraints.
+   * @deprecated Use `behavior.timeWindows`. Read when that is unset.
+   */
   timeWindows: TimeWindowPoliciesSchema.optional(),
 
-  // Time Window Default - Fallback behavior when no window matches
+  /**
+   * Fallback behavior when no window matches.
+   * @deprecated Use `behavior.timeWindowDefault`. Read when that is unset.
+   */
   timeWindowDefault: TimeWindowDefaultSchema.optional(),
 
   // Sandbox - Testing configuration

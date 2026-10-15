@@ -38,6 +38,29 @@ test('SkillYAMLSchema keeps memory, tool needs, and reply.needs', () => {
   assert.deepEqual(parsed.reply?.needs, ['client'])
 })
 
+test('SkillYAMLSchema keeps the settings a skill declares', () => {
+  const parsed = SkillYAMLSchema.parse({
+    handle: 'sales',
+    name: 'Sales',
+    instructions: 'A win is {{ WIN_CRITERIA }}.',
+    settings: [
+      { key: 'WIN_CRITERIA', label: 'Win criteria', default: 'Bought a pack' },
+    ],
+  })
+  assert.deepEqual(parsed.settings, [
+    { key: 'WIN_CRITERIA', label: 'Win criteria', default: 'Bought a pack' },
+  ])
+  assert.equal(
+    SkillYAMLSchema.safeParse({
+      handle: 'sales',
+      name: 'Sales',
+      instructions: 'x',
+      settings: [{ label: 'No key' }],
+    }).success,
+    false,
+  )
+})
+
 test('SkillYAMLSchema rejects a memory ttl that is not a duration', () => {
   const result = SkillYAMLSchema.safeParse({
     handle: 'booking',

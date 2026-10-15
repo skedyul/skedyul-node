@@ -20,6 +20,7 @@ export {
   SkillMemorySchema,
   SkillMemoryTtlSchema,
   SkillReplySchema,
+  SkillSettingSchema,
   CrmPredicateOpSchema,
   EntityCrmPredicateSchema,
   SkillToolRequiresSchema,
@@ -45,6 +46,7 @@ export {
   type EntityPolicies,
   type SkillMemory,
   type SkillReply,
+  type SkillSetting,
 
   // Helper functions
   defineSkill,
