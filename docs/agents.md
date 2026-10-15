@@ -63,10 +63,13 @@ handle: booking
 name: Booking Agent
 description: Schedules appointments for patients
 
-persona:
-  name: Alex
-  voice:
-    style: Warm, concise, professional
+behavior:
+  persona:
+    name: Alex
+    voice: Warm, concise, professional
+  message:
+    maxChars: 320
+    emojis: false
 
 skills:
   - scheduling
@@ -88,21 +91,79 @@ runtime:
 
 | Section | Description |
 |---------|-------------|
-| `persona` | Agent name and voice style/format constraints |
 | `skills` | Skill references — skills own the tool definitions. A workplace skill is a bare handle (`booking`). A skill from an installed app is `@app-handle/skills/skill-handle` (for example `@acme/skills/booking`). Set `alwaysLoad: true` to pre-seed that skill before the first model step; otherwise the agent calls `system:skill:load`. |
-| `tools` | Bootstrap tools always available (e.g. `system:skill:load`). A tool may be a name or `{ tool, description?, fields? }`. `fields` is the CRM list projection: those field handles are hydrated. Omit `fields` to hydrate every field. |
+| `tools` | Bootstrap tools always available (e.g. `system:skill:load`). A tool may be a name or `{ tool, description?, fields?, where? }`. `fields` is the CRM list projection: those field handles are hydrated. Omit `fields` to hydrate every field. `where` is a base filter locked onto every list, count or aggregate call, for example `{ active: { eq: true } }`; the model's own filter is ANDed with it. |
 | `prompts` | `system` and `titleEnrichment`. `recovery` and `followUp` parse and are marked not implemented. |
-| `behavior` | Response limits, the acknowledgement gate, conversation policy, and scheduling patterns |
-| `settings` | Install-scoped values the agent asks for by key (`guidance`, `role: persona_name`) |
-| `policies` | Message/tool approval requirements |
-| `runtime` | `model` and `personaModel` LLM selection |
+| `behavior` | How the agent talks: timezone, persona, message rules, response limits, conversation policy, scheduling, time windows and time gaps. See [Behavior](#behavior) |
+| `settings` | Install-scoped values that templates reference with Liquid. See [Settings](#settings) |
+| `policies` | Message/tool approval requirements. The only home for approvals |
+| `runtime` | `model` and `personaModel` LLM selection, and `maxIterations` (model steps per run, `1`–`50`, default `10`) |
 | `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, `guidance`, and `signals`. See [Routing](#routing) |
-| `timeWindows` | Named availability policies |
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
 
 Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
 
 ### Behavior
+
+Everything about how the agent talks lives under `behavior`, each rule declared once:
+
+```yaml
+behavior:
+  timezone: "{{ STUDIO_TIMEZONE }}"
+  persona:
+    name: "{{ STUDIO_MANAGER_NAME }}"
+    voice: A mate on the front desk. Short, warm, plain.
+  message:
+    maxChars: 480
+    maxQuestions: 1
+    emojis: false
+    signOffs: false
+    bullets: strip
+    dashes: comma
+    plainPunctuation: true
+  responses: { maxImmediate: 1, requireFinal: true }
+  conversation: { exampleCopy: reject }
+  timeGaps: { acknowledge: true, threshold: 7d }
+  scheduling: { defaults: { timeWindow: business_hours } }
+  timeWindows: { ... }
+  timeWindowDefault: { responseMode: immediate }
+```
+
+`behavior.timezone` is the agent's clock and the timezone for any window that omits one. `behavior.persona` sets the name and voice the outbound text is rewritten in; a name that renders blank means the agent gives itself no name.
+
+`behavior.message` holds the rules every outbound message follows. Each rule is stated once in the prompt and applied to the text before it is sent:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `maxChars` | none | Longest message. Longer text is cut, keeping the question |
+| `maxQuestions` | none | Most questions per message. A send that asks more is rejected and rewritten |
+| `emojis` | `true` | `false` strips emojis |
+| `signOffs` | `true` | `false` strips a trailing sign-off line |
+| `bullets` | `keep` | `dash` turns bullet leaders into "- ", `strip` removes them |
+| `dashes` | `keep` | `comma` turns em and en dashes into commas, `strip` removes them |
+| `plainPunctuation` | `false` | Straight quotes, three-dot ellipsis, no space before punctuation |
+
+`behavior.timeGaps.acknowledge` (`false` by default) mentions a long gap since the last message. `threshold` is that gap, for example `"3 days"`.
+
+`behavior.scheduling.defaults.timeWindow` is the one default window for scheduled sends. A window's `behavior.scheduleFor`, `timeWindowDefault.scheduleFor` and a pattern's `defaultDelay.timeWindow` inherit it unless they name another window.
+
+#### Older keys
+
+Older agents spread these rules across other keys. They still work: new keys win, and the deploy output warns when an old and a new key disagree.
+
+| Old key | Use instead |
+|---------|-------------|
+| `persona.name`, `persona.voice.style` | `behavior.persona.name`, `behavior.persona.voice` |
+| `persona.voice.format.maxChars` | `behavior.message.maxChars` |
+| `persona.voice.format.maxQuestionsPerMessage`, `behavior.conversation.oneQuestionPerMessage` | `behavior.message.maxQuestions` |
+| `persona.voice.format.noEmojis` / `noSignOffs` | `emojis: false` / `signOffs: false` |
+| `persona.voice.format.noBulletPoints` / `noHyphens` | `bullets: strip` / `dashes: strip` |
+| `behavior.responses.humanize` | `bullets: dash`, `dashes: comma`, `plainPunctuation: true` |
+| `behavior.responses.maxIntermediate` | `behavior.responses.maxImmediate` |
+| `behavior.conversation.oneMessagePerTurn` | Stated whenever `responses.maxImmediate` is `1` |
+| `behavior.acknowledgeTimeGaps`, `behavior.timeGapThreshold` | `behavior.timeGaps.acknowledge`, `.threshold` |
+| `behavior.scheduling.defaults.requiresApproval` | `policies.messages.schedule.requiresApproval` |
+| top-level `timeWindows`, `timeWindowDefault` | `behavior.timeWindows`, `behavior.timeWindowDefault` |
 
 `behavior.responses` limits how the agent sends:
 
@@ -111,38 +172,53 @@ Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for t
 | `maxImmediate` / `maxScheduled` / `requireFinal` | | Budgets and whether a final message is required |
 | `allowSilent` | `false` | The agent may call `system:message:skip` |
 | `allowSchedule` | `false` | The agent may schedule a future send |
-| `humanize` | `false` | Strip em dashes, smart quotes, and bullet leaders from outbound text |
 | `responseGate.enabled` | on when `allowSilent` is set | Treat a bare acknowledgement as a reason to skip |
 | `responseGate.strictMode` | `false` | Block the send instead of recommending a skip |
 | `responseGate.minAckConfidence` | `0.7` | Confidence required to call a message an acknowledgement (`0`–`1`) |
 
-`behavior.conversation` declares which conversational rules this agent wants. Each rule is `off` (not stated, not checked), `prompt` (stated, never blocks), or `reject` (the send is rejected and the model rewrites it). No level ends the run. Every rule defaults to `prompt` except `oneQuestionPerMessage`, which defaults to `off`.
+`behavior.conversation` declares which cross-turn rules this agent wants. Each rule is `off` (not stated, not checked), `prompt` (stated, never blocks), or `reject` (the send is rejected and the model rewrites it). No level ends the run. Every rule defaults to `prompt`.
 
 | Key | What it asks for |
 |-----|------------------|
 | `repeatQuestions` | Do not re-ask something the customer already answered |
 | `exampleCopy` | Do not send skill example wording verbatim |
 | `namedDelayFollowUp` | A named delay or a promised check-in should produce a scheduled send |
-| `oneMessagePerTurn` | Keep the turn to one message. Prompt-only; the hard count is `behavior.responses.maxImmediate` |
 | `fillerBan` | Skip rather than send filler. Stated only when `allowSilent` is set |
 | `cancelPendingOnAck` | A bare acknowledgement does not cancel a pending follow-up |
-| `oneQuestionPerMessage` | Ask one thing at a time. `reject` blocks a send with more than one question. Default `off` |
 | `onPolicyRejectExhausted` | `send` (default) releases the last rejected message; `skip` records a skip |
-
-`acknowledgeTimeGaps` (`false` by default) mentions a long gap since the last message. `timeGapThreshold` is that gap, for example `"3 days"`.
 
 `behavior.responses.messageSplitting` is accepted and marked not implemented.
 
 ### Settings
 
-`settings` lists install-scoped values the agent asks for. The platform prints the label and value; it does not interpret the key.
+`settings` declares install-scoped values. A setting never prints itself: templates reference it with [Liquid](https://liquidjs.com/) by its exact key.
+
+```yaml
+settings:
+  - key: STUDIO_MANAGER_NAME
+    label: Agent name
+  - key: STUDIO_TIMEZONE
+    label: Studio timezone
+    default: Australia/Sydney
+prompts:
+  system: |
+    {% if STUDIO_MANAGER_NAME %}You are {{ STUDIO_MANAGER_NAME }}.{% else %}Do not give yourself a name.{% endif %}
+    This club is {{ STUDIO_NAME | default: workplace.name }}.
+```
 
 | Field | Meaning |
 |-------|---------|
-| `key` | Resolved against the install's agent config and env |
-| `label` | Shown to the model and in the console |
-| `guidance` | Prompt text. `{{value}}` is the install value, `{{workplace}}` is the workplace name |
-| `role` | `persona_name` uses this value as the agent's name for the install |
+| `key` | Resolved against the install's agent config and env. Templates use this exact name |
+| `label` | Shown in the console and to the grader |
+| `default` | Value used when the install leaves the setting blank |
+
+Each declared key holds the install value after `default`; a blank value is `nil`, so `{% if %}` and `| default:` behave as expected. `workplace.name` is the workplace name. No other variables exist, and files cannot be included.
+
+Rendered fields: `prompts.system`, `behavior.persona.name`, `behavior.persona.voice`, `behavior.timezone`, each window's `timezone` and `behavior.prompt`, `timeWindowDefault.prompt`, `routing.guidance`, `skills[].description` and `tools[].description`. In skill files: `instructions`, `description`, `tools[].description` and `requires.reason`.
+
+On deploy, a template that fails to parse or names an undeclared variable is an error, and a declared setting nothing references is a warning.
+
+`guidance`, `emptyGuidance` and `role: persona_name` on a setting row are deprecated. An agent that still uses them and has no Liquid setting references keeps the older behavior, where every setting prints under "Workplace settings". Mixing them with Liquid references is a deploy error.
 
 ### Routing
 
@@ -196,7 +272,7 @@ These keys still parse so existing YAML validates. Each is marked `Not implement
 
 | Key | Use instead |
 |-----|-------------|
-| `events` | Thread events and workflow bindings |
+| `events.emits`, `events.waits`, `events.cancels`, `events.cancelCondition` | Thread events and workflow bindings. `events.subscribes` and `events.condition` register the agent's event subscriptions |
 | `memory` | No replacement |
 | `prompts.recovery`, `prompts.followUp` | `prompts.system` |
 | `behavior.responses.messageSplitting` | `behavior.responses.maxImmediate` |
@@ -599,7 +675,7 @@ schedule:
       timezone: Australia/Melbourne
 ```
 
-Agent v3 `timeWindows` define named policies referenced in `behavior.scheduling`. Re-exported Zod schemas: `TimeWindowBehaviorSchema`, `TimeWindowPoliciesSchema`.
+Agent v3 `behavior.timeWindows` define named policies referenced in `behavior.scheduling`. A window without `timezone` uses `behavior.timezone`. Re-exported Zod schemas: `TimeWindowBehaviorSchema`, `TimeWindowPoliciesSchema`.
 
 ---
 

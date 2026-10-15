@@ -24,6 +24,15 @@ const IMPLEMENTED = [
   'behavior.conversation.oneMessagePerTurn',
   'behavior.conversation.oneQuestionPerMessage',
   'behavior.conversation.repeatQuestions',
+  'behavior.message.bullets',
+  'behavior.message.dashes',
+  'behavior.message.emojis',
+  'behavior.message.maxChars',
+  'behavior.message.maxQuestions',
+  'behavior.message.plainPunctuation',
+  'behavior.message.signOffs',
+  'behavior.persona.name',
+  'behavior.persona.voice',
   'behavior.responses.allowSchedule',
   'behavior.responses.allowSilent',
   'behavior.responses.humanize',
@@ -44,7 +53,16 @@ const IMPLEMENTED = [
   'behavior.scheduling.patterns[].examples[]',
   'behavior.scheduling.patterns[].trigger',
   'behavior.timeGapThreshold',
+  'behavior.timeGaps.acknowledge',
+  'behavior.timeGaps.threshold',
+  'behavior.timeWindowDefault.prompt',
+  'behavior.timeWindowDefault.responseMode',
+  'behavior.timeWindowDefault.scheduleFor',
+  'behavior.timeWindows',
+  'behavior.timezone',
   'description',
+  'events.condition',
+  'events.subscribes[]',
   'handle',
   'name',
   'persona.name',
@@ -68,6 +86,7 @@ const IMPLEMENTED = [
   'routing.model',
   'routing.signals[].entity',
   'routing.signals[].field',
+  'runtime.maxIterations',
   'runtime.model',
   'runtime.personaModel',
   'sandbox.context.contexts[].data',
@@ -94,6 +113,8 @@ const IMPLEMENTED = [
   'sandbox.mockContext.sender.kind',
   'sandbox.mockContext.sender.permissions[]',
   'sandbox.mockContext.sender.role',
+  'settings[].default',
+  'settings[].emptyGuidance',
   'settings[].guidance',
   'settings[].key',
   'settings[].label',
@@ -113,12 +134,16 @@ const IMPLEMENTED = [
   'tools[].description',
   'tools[].fields[]',
   'tools[].tool',
+  'tools[].where',
   'version',
 ]
 
 const NOT_IMPLEMENTED = [
   'behavior.responses.messageSplitting',
-  'events',
+  'events.cancelCondition',
+  'events.cancels',
+  'events.emits',
+  'events.waits',
   'memory',
   'prompts.followUp',
   'prompts.recovery',
@@ -255,4 +280,62 @@ test('settings carry the prose and the persona role for an install value', () =>
   if (!result.success) return
   assert.equal(result.data.settings?.[0]?.role, 'persona_name')
   assert.match(result.data.settings?.[1]?.guidance ?? '', /\{\{workplace\}\}/)
+})
+
+test('behavior holds persona, message rules, time gaps and time windows', () => {
+  const result = AgentYAMLV3Schema.safeParse({
+    handle: 'sales',
+    name: 'Sales',
+    settings: [
+      { key: 'STUDIO_MANAGER_NAME', label: 'Agent name' },
+      { key: 'STUDIO_TIMEZONE', label: 'Studio timezone', default: 'Australia/Sydney' },
+    ],
+    behavior: {
+      timezone: '{{ STUDIO_TIMEZONE }}',
+      persona: { name: '{{ STUDIO_MANAGER_NAME }}', voice: 'A mate on the front desk.' },
+      message: {
+        maxChars: 480,
+        maxQuestions: 1,
+        emojis: false,
+        signOffs: false,
+        bullets: 'strip',
+        dashes: 'comma',
+        plainPunctuation: true,
+      },
+      timeGaps: { acknowledge: true, threshold: '7d' },
+      timeWindows: {
+        after_hours: {
+          windows: [{ startTime: 20, endTime: 8, days: ['monday'] }],
+          behavior: { responseMode: 'schedule_only' },
+        },
+      },
+      timeWindowDefault: { responseMode: 'immediate' },
+    },
+    runtime: { maxIterations: 12 },
+    tools: [{ tool: 'package:list', where: { active: { eq: true } } }],
+  })
+
+  assert.equal(result.success, true)
+  if (!result.success) return
+  const behavior = result.data.behavior
+  assert.equal(behavior?.persona?.name, '{{ STUDIO_MANAGER_NAME }}')
+  assert.equal(behavior?.message?.bullets, 'strip')
+  assert.equal(behavior?.timeGaps?.threshold, '7d')
+  assert.equal(behavior?.timeWindows?.after_hours?.timezone, undefined)
+  assert.equal(result.data.settings?.[1]?.default, 'Australia/Sydney')
+  assert.equal(result.data.runtime?.maxIterations, 12)
+  const tool = result.data.tools?.[0]
+  assert.deepEqual(typeof tool === 'object' ? tool.where : undefined, {
+    active: { eq: true },
+  })
+})
+
+test('message rules reject a value the runtime cannot apply', () => {
+  const result = AgentYAMLV3Schema.safeParse({
+    handle: 'sales',
+    name: 'Sales',
+    behavior: { message: { dashes: 'hyphen' } },
+  })
+
+  assert.equal(result.success, false)
 })
