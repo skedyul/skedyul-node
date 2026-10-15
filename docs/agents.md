@@ -218,6 +218,20 @@ Rendered fields: `prompts.system`, `behavior.persona.name`, `behavior.persona.vo
 
 On deploy, a template that fails to parse or names an undeclared variable is an error, and a declared setting nothing references is a warning.
 
+A skill file can declare its own `settings` rows (`key`, `label`, `default`) for values only that skill uses, such as a sales skill's win and loss criteria. They load with the agent's settings, so the install page and playground overrides set them the same way, and `default` fills a blank install value. Only that skill's text can reference them; the agent prompt and other skills cannot. Every skill can reference the agent's settings, so studio-wide values such as the studio name or timezone stay on the agent. When the agent and a skill declare the same key, the agent's row is used.
+
+```yaml
+# skills/sales.skill.yml
+settings:
+  - key: WIN_CRITERIA
+    label: Win criteria
+    default: They bought a trial pack or membership.
+instructions: |
+  You sell for {{ STUDIO_NAME }}. Mark the lead won when: {{ WIN_CRITERIA }}
+```
+
+Skill settings render only for an agent that uses Liquid setting references.
+
 `guidance`, `emptyGuidance` and `role: persona_name` on a setting row are deprecated. An agent that still uses them and has no Liquid setting references keeps the older behavior, where every setting prints under "Workplace settings". Mixing them with Liquid references is a deploy error.
 
 ### Routing

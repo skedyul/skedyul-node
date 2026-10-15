@@ -441,6 +441,25 @@ export const SkillEvaluatorSchema = z.object({
 
 export type SkillEvaluator = z.infer<typeof SkillEvaluatorSchema>
 
+/**
+ * An install-scoped value this skill reads by key, e.g. `WIN_CRITERIA`.
+ *
+ * It loads with the agent's settings, so the install page and playground
+ * set it like any other setting. The skill's own text references it with
+ * Liquid (`{{ WIN_CRITERIA }}`); the agent prompt and other skills cannot.
+ * The skill can also reference every setting the agent declares.
+ */
+export const SkillSettingSchema = z.object({
+  /** Setting key, resolved against the install's AgentConfig and env. */
+  key: z.string().min(1),
+  /** Human label shown in the console and to the grader. */
+  label: z.string().optional(),
+  /** Value used when the install leaves the setting blank. */
+  default: z.string().optional(),
+})
+
+export type SkillSetting = z.infer<typeof SkillSettingSchema>
+
 export const SkillYAMLSchema = z.object({
   // Schema version
   $schema: z.string().optional(),
@@ -501,6 +520,9 @@ export const SkillYAMLSchema = z.object({
   /** Memory ids required before system:message:send. */
   reply: SkillReplySchema.optional(),
 
+  /** Install-scoped settings only this skill references. */
+  settings: z.array(SkillSettingSchema).optional(),
+
   // Few-shot examples
   examples: z.array(SkillExampleSchema).optional(),
 })
@@ -527,6 +549,7 @@ export const SkillYAMLV2Schema = z.object({
   evaluators: z.array(SkillEvaluatorSchema).optional(),
   memory: z.array(SkillMemorySchema).optional(),
   reply: SkillReplySchema.optional(),
+  settings: z.array(SkillSettingSchema).optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })
 
