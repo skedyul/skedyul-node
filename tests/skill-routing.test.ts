@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  validateAgentRouting,
   validateAgentYAMLV3,
 } from '../src/schemas/agent-schema-v3'
 import {
@@ -27,11 +26,8 @@ test('validateAgentYAMLV3 keeps routing', () => {
     routing: {
       enabled: true,
       fallback: ['sales-qualification'],
-      signals: [
-        { entity: 'member', field: 'membership_status' },
-        { entity: 'member', field: 'is_qualified' },
-      ],
-      guidance: 'is_qualified says whether an offer is allowed yet.',
+      guidance:
+        'Determine the customer from membership status: {{ state.crm.member.membership_status }}.',
       model: 'openai/gpt-5-nano',
     },
   })
@@ -41,11 +37,8 @@ test('validateAgentYAMLV3 keeps routing', () => {
   assert.deepEqual(result.data.routing, {
     enabled: true,
     fallback: ['sales-qualification'],
-    signals: [
-      { entity: 'member', field: 'membership_status' },
-      { entity: 'member', field: 'is_qualified' },
-    ],
-    guidance: 'is_qualified says whether an offer is allowed yet.',
+    guidance:
+      'Determine the customer from membership status: {{ state.crm.member.membership_status }}.',
     model: 'openai/gpt-5-nano',
   })
 })
@@ -72,23 +65,22 @@ test('validateAgentYAMLV3 rejects routing.enabled with no skills', () => {
   assert.equal(result.success, false)
 })
 
-test('validateAgentRouting checks signal entities when skill entities are known', () => {
-  const issues = validateAgentRouting(
-    {
-      ...baseAgent,
-      routing: {
-        enabled: true,
-        signals: [
-          { entity: 'member', field: 'is_qualified' },
-          { entity: 'lead', field: 'stage' },
-        ],
-      },
+test('validateAgentYAMLV3 strips leftover routing.signals', () => {
+  const result = validateAgentYAMLV3({
+    ...baseAgent,
+    routing: {
+      enabled: true,
+      signals: [{ entity: 'member', field: 'is_qualified' }],
+      guidance: 'Pick from membership status and the message.',
     },
-    new Set(['member']),
+  })
+  assert.equal(result.success, true)
+  if (!result.success) return
+  assert.equal('signals' in (result.data.routing ?? {}), false)
+  assert.equal(
+    result.data.routing?.guidance,
+    'Pick from membership status and the message.',
   )
-
-  assert.equal(issues.length, 1)
-  assert.deepEqual(issues[0]?.path, ['routing', 'signals', 1, 'entity'])
 })
 
 test('validateSkillYAML keeps math evaluate arguments and constants', () => {

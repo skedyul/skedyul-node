@@ -14,7 +14,7 @@ import {
   normalizeRequiresToPathPredicates,
   resolveSkillCrmFields,
 } from '../src/skills/types'
-import { validateAgentYAMLV3, validateAgentRouting } from '../src/schemas/agent-schema-v3'
+import { validateAgentYAMLV3 } from '../src/schemas/agent-schema-v3'
 
 test('parseSkillStatePath accepts crm, memory, and scratchpad paths', () => {
   assert.deepEqual(parseSkillStatePath('state.crm.member.intent_score'), {
@@ -243,7 +243,7 @@ test('normalizeRequiresToPathPredicates converts crm, entities, and path', () =>
   ])
 })
 
-test('validateAgentYAMLV3 keeps path-form routing signals', () => {
+test('validateAgentYAMLV3 keeps Liquid routing guidance', () => {
   const result = validateAgentYAMLV3({
     $schema: 'https://skedyul.com/schemas/agent/v3',
     handle: 'sales',
@@ -251,39 +251,16 @@ test('validateAgentYAMLV3 keeps path-form routing signals', () => {
     skills: [{ skill: 'sales-qualification', description: 'Discover.' }],
     routing: {
       enabled: true,
-      signals: [
-        'state.crm.member.is_qualified',
-        'state.memory.scores.engagement_score',
-        { entity: 'member', field: 'stage' },
-      ],
+      guidance:
+        'Determine the customer from membership status: {{ state.crm.member.membership_status }}.',
     },
   })
   assert.equal(result.success, true)
   if (!result.success) return
-  assert.deepEqual(result.data.routing?.signals, [
-    'state.crm.member.is_qualified',
-    'state.memory.scores.engagement_score',
-    { entity: 'member', field: 'stage' },
-  ])
-})
-
-test('validateAgentRouting skips entityPolicies for memory signals', () => {
-  const issues = validateAgentRouting(
-    {
-      skills: [{ skill: 'sales', description: 'Sell.' }],
-      routing: {
-        enabled: true,
-        signals: [
-          'state.crm.member.is_qualified',
-          'state.memory.scores.engagement_score',
-          'state.crm.lead.stage',
-        ],
-      },
-    },
-    new Set(['member']),
+  assert.equal(
+    result.data.routing?.guidance,
+    'Determine the customer from membership status: {{ state.crm.member.membership_status }}.',
   )
-  assert.equal(issues.length, 1)
-  assert.match(issues[0]?.message ?? '', /lead/)
 })
 
 test('skillStateLiquidContext and lookupSkillStateValue read nested stores', () => {

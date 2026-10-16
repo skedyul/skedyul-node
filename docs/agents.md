@@ -98,7 +98,7 @@ runtime:
 | `settings` | Install-scoped values that templates reference with Liquid. See [Settings](#settings) |
 | `policies` | Message/tool approval requirements. The only home for approvals |
 | `runtime` | `model` and `personaModel` LLM selection, and `maxIterations` (model steps per run, `1`–`50`, default `10`) |
-| `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, `guidance`, and `signals`. See [Routing](#routing) |
+| `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, Liquid `guidance`, and the conversation. See [Routing](#routing) |
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
 
 Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
@@ -236,32 +236,28 @@ Skill settings render only for an agent that uses Liquid setting references.
 
 ### Routing
 
-With `routing.enabled`, a router model step runs once per turn, before the main model. It reads the skill descriptions, `guidance`, the `signals` values, the recent messages, and the Current Context. It returns `{ skills, reason }` limited to the declared skill handles. The harness loads those skills before the main model runs, and `system:skill:load` is not offered.
+With `routing.enabled`, a router model step runs once per turn, before the main model. It reads the skill descriptions, Liquid `guidance` (with live `state.*` values injected), and the recent messages. It returns `{ skills, reason }` limited to the declared skill handles. The harness loads those skills before the main model runs, and `system:skill:load` is not offered.
 
 ```yaml
 routing:
   enabled: true
-  fallback: [sales-qualification]
-  signals:
-    - state.crm.member.membership_status
-    - state.crm.member.is_qualified
-    - state.memory.scores.engagement_score
+  fallback: [sales]
   guidance: >-
-    membership_status says who they are; is_qualified says whether an offer
-    is allowed yet. Decide from both before the message text.
+    Determine the customer from membership status:
+    {{ state.crm.member.membership_status | default: "empty" }}.
+    Use that plus this conversation to pick skills.
 ```
 
-`{ entity: member, field: is_qualified }` still parses as `state.crm.member.is_qualified`.
+`routing.guidance` renders at router time so `{{ state.crm… }}` is the current person, not a value baked at deploy. A leftover `signals:` list is ignored.
 
 | Field | Meaning |
 |-------|---------|
 | `enabled` | Turn on the router step |
-| `signals` | State paths shown to the router first, as `path: value`. A missing value prints `unset` |
-| `guidance` | How to weigh the signals and descriptions. Router prompt only |
+| `guidance` | How to pick skills. Router prompt only. Liquid can inject `state.*` |
 | `fallback` | Skills loaded when the router returns nothing or fails. Must be declared in `skills` |
 | `model` | Router model. Defaults to `runtime.model` |
 
-`signals` and `guidance` never reach the main prompt. Write the routing judgement into each `skills[].description`.
+`guidance` never reaches the main prompt. Write the routing judgement into `guidance` and each `skills[].description`.
 
 ### Validation
 
@@ -271,7 +267,7 @@ import { validateAgentYAMLV3, AgentYAMLV3Schema } from 'skedyul/schemas/agent-sc
 const result = validateAgentYAMLV3(yamlObject)
 ```
 
-`validateAgentYAMLV3` also checks `routing`: `fallback` may only name declared skills. `validateAgentRouting(agent, skillEntities)` additionally checks that each signal entity appears in some skill's `entityPolicies`, for callers that have the skill files.
+`validateAgentYAMLV3` also checks `routing`: `fallback` may only name declared skills. `validateAgentRouting(agent)` is that same check for callers that already have a parsed agent.
 
 ### CLI
 
