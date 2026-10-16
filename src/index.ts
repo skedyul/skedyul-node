@@ -354,6 +354,8 @@ export {
   SkillMemorySchema,
   SkillReplySchema,
   SkillSettingSchema,
+  SkillToolArgumentSchema,
+  SkillToolDefinitionSchema,
   // Helper functions
   defineSkill,
   validateSkillYAML,
@@ -361,6 +363,8 @@ export {
 } from './skills'
 
 export type {
+  SkillToolArgument,
+  SkillToolDefinition,
   SkillSource,
   SkillToolRequirement,
   SkillExample,

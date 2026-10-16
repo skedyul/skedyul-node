@@ -24,8 +24,12 @@ export {
   CrmPredicateOpSchema,
   EntityCrmPredicateSchema,
   SkillToolRequiresSchema,
+  SkillToolArgumentSchema,
+  SkillToolDefinitionSchema,
 
   // Types
+  type SkillToolArgument,
+  type SkillToolDefinition,
   type CrmPredicateOp,
   type EntityCrmPredicate,
   type SkillToolRequires,
