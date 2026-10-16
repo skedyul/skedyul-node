@@ -91,6 +91,45 @@ test('validateAgentRouting checks signal entities when skill entities are known'
   assert.deepEqual(issues[0]?.path, ['routing', 'signals', 1, 'entity'])
 })
 
+test('validateSkillYAML keeps math evaluate arguments and constants', () => {
+  const result = validateSkillYAML({
+    handle: 'sales',
+    name: 'Sales',
+    instructions: 'Score then offer.',
+    entityPolicies: { member: ['update'] },
+    tools: [
+      {
+        tool: 'system:math:evaluate',
+        arguments: {
+          readiness_score: { type: 'number', minimum: 0, maximum: 1 },
+          clearance: { type: 'boolean', default: true },
+        },
+        constants: {
+          transparency_weight: 0.6,
+          qualified_at: 0.7,
+        },
+        overrides: {
+          expression: 'readiness_score * transparency_weight',
+          applyOn: 'app:acme:member:update',
+        },
+      },
+    ],
+  })
+
+  assert.equal(result.success, true)
+  if (!result.success) return
+  const tools = Array.isArray(result.data.tools) ? result.data.tools : []
+  assert.deepEqual(tools[0]?.arguments, {
+    readiness_score: { type: 'number', minimum: 0, maximum: 1 },
+    clearance: { type: 'boolean', default: true },
+  })
+  assert.deepEqual(tools[0]?.constants, {
+    transparency_weight: 0.6,
+    qualified_at: 0.7,
+  })
+  assert.equal(tools[0]?.overrides?.expression, 'readiness_score * transparency_weight')
+})
+
 test('validateSkillYAML keeps tool requires', () => {
   const result = validateSkillYAML({
     handle: 'closing',

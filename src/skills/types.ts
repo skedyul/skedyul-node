@@ -154,6 +154,20 @@ export function normalizeRequiresToPredicates(
 }
 
 /**
+ * One named argument on a skill tool (JSON Schema property).
+ * Becomes the model-facing input schema for tools such as system:math:evaluate.
+ */
+export const SkillToolArgumentSchema = z.object({
+  type: z.enum(['number', 'boolean', 'string', 'integer']),
+  description: z.string().optional(),
+  default: z.union([z.number(), z.boolean(), z.string()]).optional(),
+  minimum: z.number().optional(),
+  maximum: z.number().optional(),
+})
+
+export type SkillToolArgument = z.infer<typeof SkillToolArgumentSchema>
+
+/**
  * Full tool definition owned by a skill (v2)
  * Skills own their tools with full configuration including descriptions,
  * overrides, sandbox mocks, approval settings, and execution constraints.
@@ -161,6 +175,16 @@ export function normalizeRequiresToPredicates(
 export const SkillToolDefinitionSchema = z.object({
   tool: z.string(),
   description: z.string().optional(),
+  /**
+   * Named arguments the model fills. For system:math:evaluate this is the
+   * JSON Schema the playground shows (not a free-form scope bag).
+   */
+  arguments: z.record(z.string(), SkillToolArgumentSchema).optional(),
+  /**
+   * Numbers the model never sees. Merged into math.evaluate scope so formulas
+   * have no magic numbers. A colliding argument name loses to the constant.
+   */
+  constants: z.record(z.string(), z.union([z.number(), z.boolean()])).optional(),
   overrides: z.record(z.string(), z.unknown()).optional(),
   sandbox: SkillToolSandboxSchema.optional(),
   requiresApproval: z.boolean().optional(),

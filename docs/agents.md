@@ -367,8 +367,10 @@ requiredWrites:
 |-------|-------------|
 | `tool` | Tool name |
 | `description` | Override description for the agent |
+| `arguments` | Named JSON Schema properties the model fills. For `system:math:evaluate` this is the input schema (type, description, default, minimum, maximum). |
+| `constants` | Numbers or booleans the model never sees. Merged into `math.evaluate` scope; a colliding argument name loses to the constant. |
 | `fields` | CRM list field handles to hydrate (for example `name`, `kind`). Omit to hydrate every field. |
-| `overrides` | Default input overrides |
+| `overrides` | Default input overrides. For `system:math:evaluate`: `expression` (mathjs formula), optional `applyOn` (entity update tool to assign results onto), optional `assign` (field → `$value` or a mathjs expression using `value` and constants). |
 | `sandbox.mock` | Mock response for sandbox testing |
 | `requiresApproval` | Require human approval before execution |
 | `constraints` | `maxCallsPerRun`, `idempotent`, `restricted`, `tags` |
@@ -382,7 +384,40 @@ tools:
       crm:
         - { entity: member, field: is_qualified, op: eq, value: true }
       reason: Not qualified yet. Keep discovering; do not name packs or prices.
+  - tool: system:math:evaluate
+    description: Compute intent_score (Q) from this turn's pillar scores.
+    arguments:
+      readiness_score:
+        type: number
+        minimum: 0
+        maximum: 1
+      transparency_score:
+        type: number
+        minimum: 0
+        maximum: 1
+      engagement_score:
+        type: number
+        minimum: 0
+        maximum: 1
+      clearance:
+        type: boolean
+        default: true
+    constants:
+      transparency_weight: 0.6
+      engagement_weight: 0.4
+      qualified_at: 0.70
+    overrides:
+      expression: >-
+        round(min(max((clearance == false ? 0 : 1) * readiness_score
+        * (transparency_weight * transparency_score + engagement_weight * engagement_score),
+        0), 1), 2)
+      applyOn: app:acme:member:update
+      assign:
+        intent_score: $value
+        is_qualified: "$value >= qualified_at"
 ```
+
+`system:math:evaluate` runs `math.evaluate` in the harness (no LLM). The model fills `arguments`; `constants` are merged into scope and win on name collisions. `overrides.expression` is the formula. When `applyOn` names an update tool, a write that includes those argument fields gets `assign` merged in before the CRM save.
 
 `op` is `eq`, `in` (array `value`), `empty`, or `notEmpty`. The condition reads the CRM record at turn start, after the CRM map rename.
 
