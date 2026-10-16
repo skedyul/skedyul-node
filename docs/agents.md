@@ -212,7 +212,7 @@ prompts:
 | `label` | Shown in the console and to the grader |
 | `default` | Value used when the install leaves the setting blank |
 
-Each declared key holds the install value after `default`; a blank value is `nil`, so `{% if %}` and `| default:` behave as expected. `workplace.name` is the workplace name. No other variables exist, and files cannot be included.
+Each declared key holds the install value after `default`; a blank value is `nil`, so `{% if %}` and `| default:` behave as expected. `workplace.name` is the workplace name. Skill and agent text can also read `state.*` paths (`{{ state.memory.scores.engagement_score }}`); unset renders empty, same as a missing setting. Files cannot be included.
 
 Rendered fields: `prompts.system`, `behavior.persona.name`, `behavior.persona.voice`, `behavior.timezone`, each window's `timezone` and `behavior.prompt`, `timeWindowDefault.prompt`, `routing.guidance`, `skills[].description` and `tools[].description`. In skill files: `instructions`, `description`, `tools[].description` and `requires.reason`.
 
@@ -243,17 +243,20 @@ routing:
   enabled: true
   fallback: [sales-qualification]
   signals:
-    - { entity: member, field: membership_status }
-    - { entity: member, field: is_qualified }
+    - state.crm.member.membership_status
+    - state.crm.member.is_qualified
+    - state.memory.scores.engagement_score
   guidance: >-
     membership_status says who they are; is_qualified says whether an offer
     is allowed yet. Decide from both before the message text.
 ```
 
+`{ entity: member, field: is_qualified }` still parses as `state.crm.member.is_qualified`.
+
 | Field | Meaning |
 |-------|---------|
 | `enabled` | Turn on the router step |
-| `signals` | CRM fields shown to the router first, as `entity.field: value`. A missing value prints `unset` |
+| `signals` | State paths shown to the router first, as `path: value`. A missing value prints `unset` |
 | `guidance` | How to weigh the signals and descriptions. Router prompt only |
 | `fallback` | Skills loaded when the router returns nothing or fails. Must be declared in `skills` |
 | `model` | Router model. Defaults to `runtime.model` |
@@ -344,22 +347,24 @@ tools:
       maxCallsPerRun: 1
       idempotent: false
 
-crmContext:
-  patient:
-    required: [name, phone]
-    recommended: [email, date_of_birth]
+state:
+  crm:
+    patient:
+      track:
+        - appointment_time
+      see:
+        - name
+        - phone
+  scratchpad:
+    own:
+      - plan
 
 examples:
   - input: "I need an appointment next Tuesday"
     output: "I can check Tuesday availability. Morning or afternoon?"
-
-ownedFields:
-  - appointment_time
-requiredWrites:
-  - appointment_time
 ```
 
-`ownedFields` are entity field handles this skill may write while loaded. `requiredWrites` are handles it must have written before it replies. Only handles mapped in the install's CRM map are enforced.
+`state` is the parent for durable skill state. `state.crm` is the person record (filter/sort). `state.memory` is harness-owned thread bags (previous values; the model cannot forge the keys). `state.scratchpad` is model working notes. Verbs: `track` = pull + push, required every turn; `own` = pull + push; `see` = pull only; `set` = push only. Top-level `fields` is a deprecated alias of `state.crm`. `ownedFields` / `requiredWrites` remain as further aliases of `own`/`set` and `track`.
 
 ### Skill tool definition (v2)
 
@@ -370,19 +375,28 @@ requiredWrites:
 | `arguments` | Named JSON Schema properties the model fills. For `system:math:evaluate` this is the input schema (type, description, default, minimum, maximum). |
 | `constants` | Numbers or booleans the model never sees. Merged into `math.evaluate` scope; a colliding argument name loses to the constant. |
 | `fields` | CRM list field handles to hydrate (for example `name`, `kind`). Omit to hydrate every field. |
-| `overrides` | Default input overrides. For `system:math:evaluate`: `expression` (mathjs formula), optional `applyOn` (entity update tool to assign results onto), optional `assign` (field → `$value` or a mathjs expression using `value` and constants). |
+| `overrides` | Default input overrides. For `system:math:evaluate`: `expression` (mathjs formula), `assign` (full state path → `$value` or a mathjs expression using `value` and constants). Deprecated: `applyOn` plus short field names. |
 | `sandbox.mock` | Mock response for sandbox testing |
 | `requiresApproval` | Require human approval before execution |
 | `constraints` | `maxCallsPerRun`, `idempotent`, `restricted`, `tags` |
 | `needs` | Memory ids that must already be filled before this tool runs |
-| `requires` | `crm` conditions on an `entityPolicies` entity, plus a `reason`. A failed condition rejects the call with `reason` |
+| `requires` | `path` predicates on a state path (`state.crm…` / `state.memory…`), or legacy `crm` / `entities`, plus a `reason`. A failed condition rejects the call with `reason` |
 
 ```yaml
+state:
+  crm:
+    member:
+      track: [intent_score]
+      own: [is_qualified]
+  memory:
+    scores:
+      ttl: 14d
+      track: [engagement_score, transparency_score, readiness_score, intent_score]
 tools:
   - tool: app:acme:package:list
     requires:
-      crm:
-        - { entity: member, field: is_qualified, op: eq, value: true }
+      path:
+        - { path: state.crm.member.is_qualified, op: eq, value: true }
       reason: Not qualified yet. Keep discovering; do not name packs or prices.
   - tool: system:math:evaluate
     description: Compute intent_score (Q) from this turn's pillar scores.
@@ -405,21 +419,21 @@ tools:
     constants:
       transparency_weight: 0.6
       engagement_weight: 0.4
-      qualified_at: 0.70
+      qualified_threshold: 0.70
     overrides:
       expression: >-
         round(min(max((clearance == false ? 0 : 1) * readiness_score
         * (transparency_weight * transparency_score + engagement_weight * engagement_score),
         0), 1), 2)
-      applyOn: app:acme:member:update
       assign:
-        intent_score: $value
-        is_qualified: "$value >= qualified_at"
+        state.memory.scores.intent_score: $value
+        state.crm.member.intent_score: $value
+        state.crm.member.is_qualified: "$value >= qualified_threshold"
 ```
 
-`system:math:evaluate` runs `math.evaluate` in the harness (no LLM). The model fills `arguments`; `constants` are merged into scope and win on name collisions. `overrides.expression` is the formula. When `applyOn` names an update tool, a write that includes those argument fields gets `assign` merged in before the CRM save.
+`system:math:evaluate` runs `math.evaluate` in the harness (no LLM). The model fills `arguments` (short names); `constants` are merged into scope and win on name collisions. `overrides.expression` is the formula. `assign` keys are full state paths: memory paths write on evaluate success; CRM paths merge into this turn's one entity update. Dual-write is listing both destinations. Omitting a pillar argument holds the previous memory value (0 on the first turn). Deprecated: short-key `assign` plus `overrides.applyOn`.
 
-`op` is `eq`, `in` (array `value`), `empty`, or `notEmpty`. The condition reads the CRM record at turn start, after the CRM map rename.
+`op` is `eq`, `in` (array `value`), `empty`, or `notEmpty`. `{ entity, field }` still means `state.crm.<entity>.<field>`.
 
 ### Memory
 

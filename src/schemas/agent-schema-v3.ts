@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 import { EventsConfigSchema } from '../events/types'
 import { SkillRefSchema, type SkillRef } from '../skills/types'
+import { normalizeRoutingSignal } from '../skills/state'
 import { SandboxConfigSchema } from '../context/types'
 
 /**
@@ -222,13 +223,19 @@ export const RuntimeConfigV3Schema = z.object({
 export type RuntimeConfigV3 = z.infer<typeof RuntimeConfigV3Schema>
 
 /**
- * One CRM field the skill router reads before choosing skills. `entity` is a
- * handle from a skill's `entityPolicies`; `field` is a field handle on it.
+ * One value the skill router reads before choosing skills.
+ *
+ * Preferred: a dotted state path (`state.crm.member.is_qualified`,
+ * `state.memory.scores.engagement_score`).
+ * Legacy: `{ entity, field }` meaning `state.crm.<entity>.<field>`.
  */
-export const RoutingSignalSchema = z.object({
-  entity: z.string().min(1),
-  field: z.string().min(1),
-})
+export const RoutingSignalSchema = z.union([
+  z.string().min(1),
+  z.object({
+    entity: z.string().min(1),
+    field: z.string().min(1),
+  }),
+])
 
 export type RoutingSignal = z.infer<typeof RoutingSignalSchema>
 
@@ -242,7 +249,7 @@ export type RoutingSignal = z.infer<typeof RoutingSignalSchema>
  */
 export const RoutingConfigV3Schema = z.object({
   enabled: z.boolean().optional(),
-  /** CRM fields printed to the router as `entity.field: value`. */
+  /** State paths printed to the router as `path: value`. */
   signals: z.array(RoutingSignalSchema).optional(),
   /** How to weigh the signals and descriptions. Router prompt only. */
   guidance: z.string().optional(),
@@ -965,8 +972,9 @@ function skillRefHandle(ref: SkillRef): string {
  * and an enabled router needs at least one skill to choose from.
  *
  * `skillEntities`, when given, is the set of entity handles that appear in
- * any declared skill's `entityPolicies`; each signal's entity must be in it.
- * Callers that cannot resolve skill files omit it.
+ * any declared skill's `entityPolicies`; each CRM signal's entity must be in
+ * it. Memory and scratchpad paths skip that check. Callers that cannot
+ * resolve skill files omit it.
  */
 export function validateAgentRouting(
   agent: Pick<AgentYAMLV3, 'routing' | 'skills'>,
@@ -993,14 +1001,23 @@ export function validateAgentRouting(
     }
   }
 
-  if (skillEntities) {
-    for (const [index, signal] of (routing.signals ?? []).entries()) {
-      if (!skillEntities.has(signal.entity)) {
-        issues.push({
-          path: ['routing', 'signals', index, 'entity'],
-          message: `routing signal entity "${signal.entity}" is not in any skill's entityPolicies`,
-        })
-      }
+  for (const [index, signal] of (routing.signals ?? []).entries()) {
+    const parsed = normalizeRoutingSignal(signal)
+    if (!parsed) {
+      issues.push({
+        path: ['routing', 'signals', index],
+        message: 'routing signal is not a state path or { entity, field }',
+      })
+      continue
+    }
+    if (skillEntities && parsed.store === 'crm' && !skillEntities.has(parsed.scope)) {
+      issues.push({
+        path:
+          typeof signal === 'string'
+            ? ['routing', 'signals', index]
+            : ['routing', 'signals', index, 'entity'],
+        message: `routing signal entity "${parsed.scope}" is not in any skill's entityPolicies`,
+      })
     }
   }
 

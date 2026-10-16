@@ -84,6 +84,7 @@ const IMPLEMENTED = [
   'routing.fallback[]',
   'routing.guidance',
   'routing.model',
+  'routing.signals[]',
   'routing.signals[].entity',
   'routing.signals[].field',
   'runtime.maxIterations',
