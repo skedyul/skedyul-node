@@ -453,6 +453,12 @@ For entity tools wired via `defineEntity({ tools: { calendarWindowPull } })`,
 reuse the shared schemas from `skedyul` — same pattern as
 `MessageSendInput` for `capabilities.messaging.send`:
 
+- **Input:** `MessageSendInputSchema` / `MessageSendInput`
+- **Output:** `MessageSendOutputSchema` / `MessageSendOutput`
+- **Group sends:** optional `group.id`, `group.externalGroupId`, and `group.name`. 1:1 sends use `subscription.identifierValue` or `recipient.address`.
+
+The platform calls the tool named by `capabilities.messaging.send`. Handlers should read that payload and not expect a guessed tool name.
+
 - **Input:** `CalendarWindowPullInputSchema` / `CalendarWindowPullInput`
 - **Output:** `CalendarWindowPullOutputSchema` / `CalendarWindowPullOutput`
 

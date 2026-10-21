@@ -313,17 +313,44 @@ export interface CreateMessageType {
 export interface ReceiveMessageContact {
   id?: string
   identifierValue?: string
+  displayName?: string
+  avatarUrl?: string | null
+  email?: string
+}
+
+export interface ReceiveMessageGroup {
+  externalGroupId?: string
+  groupName?: string
+  /** Staff room. Customer groups omit this. */
+  internal?: boolean
+}
+
+export interface ReceiveMessageReferral {
+  sourceId?: string
+  adId?: string
+  url?: string
 }
 
 export interface ReceiveMessageInput {
   /** Communication channel ID */
   communicationChannelId: string
-  /** Sender's identifier (e.g., phone number, email) */
+  /** Sender's identifier (e.g., phone number, email, provider user id) */
   from: string
+  /** Receiver identifier. Defaults to the channel identifier when omitted. */
+  to?: string
   /** Message payload */
   message: CreateMessageType
   /** Optional contact metadata to associate the message */
   contact?: ReceiveMessageContact
+  /**
+   * Group chat (WhatsApp group, Slack channel). When externalGroupId is set,
+   * the platform routes the message to that group thread instead of a 1:1.
+   */
+  group?: ReceiveMessageGroup
+  /** Click-to-message ad referral stored on the message. */
+  referral?: ReceiveMessageReferral
+  /** Provider thread id, such as a Slack thread_ts. */
+  threadExternalId?: string
   /** Optional remote/external message ID (provider message id) */
   remoteId?: string
   /**
@@ -455,8 +482,12 @@ export const communicationChannel = {
     const { data } = await callCore<{ messageId: string }>('communicationChannel.receiveMessage', {
       communicationChannelId: input.communicationChannelId,
       from: input.from,
+      ...(input.to ? { to: input.to } : {}),
       message: input.message,
       contact: input.contact,
+      ...(input.group ? { group: input.group } : {}),
+      ...(input.referral ? { referral: input.referral } : {}),
+      ...(input.threadExternalId ? { threadExternalId: input.threadExternalId } : {}),
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
       ...(input.expectedAttachmentCount != null
         ? { expectedAttachmentCount: input.expectedAttachmentCount }

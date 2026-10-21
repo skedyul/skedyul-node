@@ -232,7 +232,11 @@ console.log(`Message ID: ${result.messageId}`)
 | `message.title` | `string` | Optional title |
 | `message.contentRaw` | `string` | Optional raw content |
 | `message.attachments` | `array` | Optional file attachments (stashed until inbox creates the message) |
-| `contact` | `object` | Optional contact association |
+| `contact` | `object` | Optional contact association (`displayName`, `avatarUrl`, `email`) |
+| `to` | `string` | Optional receiver identifier. Defaults to the channel identifier. |
+| `group` | `object` | Optional group route. `externalGroupId` opens or continues that group thread. `groupName` sets the title. `internal: true` marks a staff room. |
+| `referral` | `object` | Optional click-to-message ad (`sourceId`, `adId`, `url`) stored on the message. |
+| `threadExternalId` | `string` | Optional provider thread id (Slack `thread_ts`). |
 | `remoteId` | `string` | Optional external message ID |
 | `expectedAttachmentCount` | `number` | Optional. Number of files that will be linked via `attachFilesToMessage` after this call. When set, `thread.message.received` is held until that many attachments land (or a 15s timeout) so workflows see the files. |
 
