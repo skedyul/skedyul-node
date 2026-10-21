@@ -1299,8 +1299,7 @@ export const MessageSendMessageSchema = z.object({
 })
 
 export const MessageSendGroupSchema = z.object({
-  id: z.string().optional(),
-  externalGroupId: z.string().optional(),
+  identifierValue: z.string(),
   name: z.string().optional(),
 })
 

@@ -455,7 +455,7 @@ reuse the shared schemas from `skedyul` — same pattern as
 
 - **Input:** `MessageSendInputSchema` / `MessageSendInput`
 - **Output:** `MessageSendOutputSchema` / `MessageSendOutput`
-- **Group sends:** optional `group.id`, `group.externalGroupId`, and `group.name`. 1:1 sends use `subscription.identifierValue` or `recipient.address`.
+- **Group sends:** `group.identifierValue` and optional `group.name`. 1:1 sends use `subscription.identifierValue`.
 
 The platform calls the tool named by `capabilities.messaging.send`. Handlers should read that payload and not expect a guessed tool name.
 

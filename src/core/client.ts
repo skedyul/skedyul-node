@@ -312,15 +312,14 @@ export interface CreateMessageType {
 
 export interface ReceiveMessageContact {
   id?: string
-  identifierValue?: string
   displayName?: string
   avatarUrl?: string | null
-  email?: string
 }
 
 export interface ReceiveMessageGroup {
-  externalGroupId?: string
-  groupName?: string
+  /** Room address on this channel (WhatsApp group id, Slack channel id). */
+  identifierValue?: string
+  name?: string
   /** Staff room. Customer groups omit this. */
   internal?: boolean
 }
@@ -343,7 +342,7 @@ export interface ReceiveMessageInput {
   /** Optional contact metadata to associate the message */
   contact?: ReceiveMessageContact
   /**
-   * Group chat (WhatsApp group, Slack channel). When externalGroupId is set,
+   * Group chat (WhatsApp group, Slack channel). When identifierValue is set,
    * the platform routes the message to that group thread instead of a 1:1.
    */
   group?: ReceiveMessageGroup
