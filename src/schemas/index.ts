@@ -98,3 +98,5 @@ export {
   type RoutingConfigV3,
   type AgentRoutingIssue,
 } from './agent-schema-v3'
+
+export { PublicListingSchema, type PublicListing } from './public-listing'

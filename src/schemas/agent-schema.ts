@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { PublicListingSchema } from './public-listing'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Agent Schema - Serializable format for agent definitions
@@ -606,6 +607,8 @@ const InlineAgentDefinitionZ = z.object({
   name: z.string().min(1, 'Name is required'),
   /** Description of what the agent does */
   description: z.string(),
+  /** Copy for a public website. Not the system prompt or persona. */
+  public: PublicListingSchema.optional(),
   /** System prompt that defines the agent behavior and tool selection logic */
   system: z.string(),
   /** Optional persona name for response generation (e.g., "Brett") */
@@ -739,6 +742,8 @@ const AgentBaseZ = z.object({
   name: z.string().min(1, 'Name is required'),
   /** Description of what the agent does */
   description: z.string(),
+  /** Copy for a public website. Not the system prompt or persona. */
+  public: PublicListingSchema.optional(),
   /** Whether the agent is enabled (default: true) */
   isEnabled: z.boolean().optional(),
 })
