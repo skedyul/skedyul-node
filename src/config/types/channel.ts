@@ -89,6 +89,11 @@ export interface ChannelField {
 export interface ChannelDefinition extends BaseDefinition {
   /** Lucide icon name */
   icon?: string
+  /**
+   * Product logo. An https URL or an SVG data URI.
+   * Surfaces prefer this over the Lucide icon and the app icon.
+   */
+  iconUrl?: string
   /** Field definitions for channel. One field must have identifier: true. */
   fields: ChannelField[]
   /** Capabilities keyed by type (messaging, voice, video) */

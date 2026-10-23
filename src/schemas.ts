@@ -380,6 +380,8 @@ export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
   icon: z.string().optional(),
+  /** Product logo. An https URL or an SVG data URI. */
+  iconUrl: z.string().optional(),
   /** Array of field definitions for this channel. One field must have identifier: true. */
   fields: z.array(ChannelFieldDefinitionSchema),
   // Capabilities keyed by standard type (messaging, voice, video) - all optional
