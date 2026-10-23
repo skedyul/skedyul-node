@@ -80,6 +80,8 @@ const IMPLEMENTED = [
   'prompts.system',
   'prompts.titleEnrichment.system',
   'prompts.titleEnrichment.user',
+  'public.details',
+  'public.summary',
   'routing.enabled',
   'routing.fallback[]',
   'routing.guidance',

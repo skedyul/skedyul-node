@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 import { EventsConfigSchema } from '../events/types'
 import { SkillRefSchema, type SkillRef } from '../skills/types'
+import { PublicListingSchema } from './public-listing'
 import { SandboxConfigSchema } from '../context/types'
 
 /**
@@ -836,6 +837,8 @@ export const AgentYAMLV3Schema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  /** Copy for a public website. Not the persona or prompts. */
+  public: PublicListingSchema.optional(),
 
   /**
    * Persona - Who the agent is.
