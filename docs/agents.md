@@ -100,8 +100,41 @@ runtime:
 | `runtime` | `model` and `personaModel` LLM selection, and `maxIterations` (model steps per run, `1`–`50`, default `10`) |
 | `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, Liquid `guidance`, and the conversation. See [Routing](#routing) |
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
+| `consultations` | Named staff threads the agent can ask when a tool did not return the fact. See [Consultations](#consultations) |
 
 Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
+
+### Consultations
+
+`consultations` names shared staff threads. The platform adds `system:consultation:decide`, `system:consultation:ask`, `system:consultation:reply`, and `system:consultation:resolve` only when this list is non-empty. Agents with no rooms send to the customer the way they do today.
+
+```yaml
+consultations:
+  - handle: front-desk
+    threadId: thr_front_desk
+    when: A time, price, or exception that no tool result contains.
+    never: A fact a tool already returned, including a schedule lookup.
+```
+
+| Field | Meaning |
+|-------|---------|
+| `handle` | Name the model passes to `ask`, `continue`, `reply`, and `resolve` |
+| `threadId` | The shared INTERNAL staff thread. Many customer threads consult the same room |
+| `when` | The missing-fact case. This string is the tool description |
+| `never` | The case the tools already cover. This string is the tool description |
+
+Each ask creates an escalation child thread. The question is posted on that child, and both the customer thread and the staff thread show it as a subthread. The customer channel stays silent until the agent sends a separate customer sentence. A staff reply in the child resumes the agent on the customer thread. `resolve` sets the child to `RESOLVED`.
+
+`decide` must run before a customer send:
+
+| Action | Effect |
+|--------|--------|
+| `answer` | The fact is already in a tool result or the conversation. Customer send unlocks |
+| `clarify` | The request is ambiguous. One customer question unlocks. No staff post |
+| `ask` | Post to the named room and end the turn with no customer message |
+| `continue` | An open child for that handle already covers this. Allowed only then |
+
+A tool result with `needsHuman: true` rejects `answer` for that turn.
 
 ### Behavior
 

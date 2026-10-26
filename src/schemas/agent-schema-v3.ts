@@ -821,6 +821,19 @@ export const AgentEventsConfigV3Schema = EventsConfigSchema.extend({
 export type AgentEventsConfigV3 = z.infer<typeof AgentEventsConfigV3Schema>
 
 /**
+ * A shared staff thread the agent can consult when a fact is not in any tool.
+ * `when` and `never` are the decide/ask tool descriptions.
+ */
+export const ConsultationRoomV3Schema = z.object({
+  handle: z.string().min(1),
+  threadId: z.string().min(1),
+  when: z.string().min(1),
+  never: z.string().min(1),
+})
+
+export type ConsultationRoomV3 = z.infer<typeof ConsultationRoomV3Schema>
+
+/**
  * Full Agent YAML v3 Schema
  *
  * This schema removes stages and uses skills instead.
@@ -904,6 +917,12 @@ export const AgentYAMLV3Schema = z.object({
 
   // Sandbox - Testing configuration
   sandbox: SandboxConfigSchema.optional(),
+
+  /**
+   * Named staff threads the agent consults when a fact is missing.
+   * Each ask is an escalation child rendered on both timelines.
+   */
+  consultations: z.array(ConsultationRoomV3Schema).optional(),
 })
 
 export type AgentYAMLV3 = z.infer<typeof AgentYAMLV3Schema>
