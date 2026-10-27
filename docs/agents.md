@@ -100,28 +100,36 @@ runtime:
 | `runtime` | `model` and `personaModel` LLM selection, and `maxIterations` (model steps per run, `1`–`50`, default `10`) |
 | `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, Liquid `guidance`, and the conversation. See [Routing](#routing) |
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
-| `consultations` | Named staff threads the agent can ask when a tool did not return the fact. See [Consultations](#consultations) |
+| `guidance` | Fallback desk the agent asks when it does not know how to proceed. See [Guidance](#guidance) |
+| `consultations` | Legacy list of staff threads. Prefer `guidance`. |
 
 Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
 
-### Consultations
+### Guidance
 
-`consultations` names shared staff threads. The platform adds `system:consultation:decide`, `system:consultation:ask`, `system:consultation:reply`, and `system:consultation:resolve` only when this list is non-empty. Agents with no rooms send to the customer the way they do today.
+`guidance` names the desk the agent asks when it does not know how to proceed. The platform adds `system:consultation:decide`, `system:consultation:ask`, `system:consultation:reply`, and `system:consultation:resolve` only when this block has at least one team. Agents with no teams send to the customer the way they do today.
 
 ```yaml
-consultations:
-  - handle: front-desk
-    threadId: thr_front_desk
-    when: A time, price, or exception that no tool result contains.
-    never: A fact a tool already returned, including a schedule lookup.
+guidance:
+  prompt: >-
+    Ask the desk when you do not know how to proceed from the tools and the
+    conversation. Do not guess. Do not ask about a fact a tool already
+    returned, or a question you can ask the customer yourself.
+  teams:
+    management:
+      threadId: thd_placeholder_management
+    front-desk:
+      when: >-
+        The customer wants a call or a visit and there is no confirmed time.
+      threadId: thd_placeholder_front_desk
 ```
 
 | Field | Meaning |
 |-------|---------|
-| `handle` | Name the model passes to `ask`, `continue`, `reply`, and `resolve` |
-| `threadId` | The shared INTERNAL staff thread. Many customer threads consult the same room |
-| `when` | The missing-fact case. This string is the tool description |
-| `never` | The case the tools already cover. This string is the tool description |
+| `prompt` | Shared instruction, printed once. What to ask, and what not to ask |
+| `teams` | Map of handles. The key is the name passed to ask, continue, reply, and resolve |
+| `threadId` | The shared INTERNAL staff thread. Many customer threads consult the same team |
+| `when` | Optional. The team that omits it is the fallback. At most one team may omit it. A team that sets it is used only for that case |
 
 Each ask creates an escalation child thread. The question is posted on that child, and both the customer thread and the staff thread show it as a subthread. The customer channel stays silent until the agent sends a separate customer sentence. A staff reply in the child resumes the agent on the customer thread. `resolve` sets the child to `RESOLVED`.
 
@@ -131,10 +139,12 @@ Each ask creates an escalation child thread. The question is posted on that chil
 |--------|--------|
 | `answer` | The fact is already in a tool result or the conversation. Customer send unlocks |
 | `clarify` | The request is ambiguous. One customer question unlocks. No staff post |
-| `ask` | Post to the named room and end the turn with no customer message |
+| `ask` | Post to the fallback team, or to the team whose `when` matches, and end the turn with no customer message |
 | `continue` | An open child for that handle already covers this. Allowed only then |
 
 A tool result with `needsHuman: true` rejects `answer` for that turn.
+
+A `consultations` list on an older agent version still loads. New agents use `guidance`.
 
 ### Behavior
 

@@ -976,7 +976,7 @@ export default defineConfig({
 })
 ```
 
-For skills-based Agent YAML v3 (workplace-deployed agents), see [Agents, skills & workflows](./agents.md). Staff consultations are declared on that agent YAML under `consultations`, not in `defineConfig`.
+For skills-based Agent YAML v3 (workplace-deployed agents), see [Agents, skills & workflows](./agents.md). Staff guidance is declared on that agent YAML under `guidance`, not in `defineConfig`.
 
 ---
 

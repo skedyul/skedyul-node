@@ -822,7 +822,7 @@ export type AgentEventsConfigV3 = z.infer<typeof AgentEventsConfigV3Schema>
 
 /**
  * A shared staff thread the agent can consult when a fact is not in any tool.
- * `when` and `never` are the decide/ask tool descriptions.
+ * Kept so an already-saved consultations list still parses.
  */
 export const ConsultationRoomV3Schema = z.object({
   handle: z.string().min(1),
@@ -832,6 +832,38 @@ export const ConsultationRoomV3Schema = z.object({
 })
 
 export type ConsultationRoomV3 = z.infer<typeof ConsultationRoomV3Schema>
+
+/**
+ * One guidance team. Omit when to make this team the fallback.
+ */
+export const GuidanceTeamV3Schema = z.object({
+  threadId: z.string().min(1),
+  when: z.string().min(1).optional(),
+})
+
+export type GuidanceTeamV3 = z.infer<typeof GuidanceTeamV3Schema>
+
+/**
+ * Ask the desk when the agent does not know how to proceed.
+ * The team that omits when is the fallback. At most one team may omit it.
+ */
+export const GuidanceConfigV3Schema = z
+  .object({
+    prompt: z.string().min(1),
+    teams: z.record(z.string().min(1), GuidanceTeamV3Schema),
+  })
+  .superRefine((guidance, ctx) => {
+    const missing = Object.entries(guidance.teams).filter(([, team]) => !team.when?.trim())
+    if (missing.length > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At most one guidance team may omit when. That team is the fallback.',
+        path: ['teams'],
+      })
+    }
+  })
+
+export type GuidanceConfigV3 = z.infer<typeof GuidanceConfigV3Schema>
 
 /**
  * Full Agent YAML v3 Schema
@@ -920,9 +952,15 @@ export const AgentYAMLV3Schema = z.object({
 
   /**
    * Named staff threads the agent consults when a fact is missing.
-   * Each ask is an escalation child rendered on both timelines.
+   * Prefer guidance. Kept so an already-saved list still parses.
    */
   consultations: z.array(ConsultationRoomV3Schema).optional(),
+
+  /**
+   * Ask a team when the agent does not know how to proceed.
+   * The team that omits when is the fallback.
+   */
+  guidance: GuidanceConfigV3Schema.optional(),
 })
 
 export type AgentYAMLV3 = z.infer<typeof AgentYAMLV3Schema>
