@@ -142,8 +142,7 @@ behavior:
 | `bullets` | `keep` | `dash` turns bullet leaders into "- ", `strip` removes them |
 | `dashes` | `keep` | `comma` turns em and en dashes into commas, `strip` removes them |
 | `plainPunctuation` | `false` | Straight quotes, three-dot ellipsis, no space before punctuation |
-| `spelling` | none | `en-AU` tells the model to use Australian English and rewrites a short list of American spellings (`colour`, `favourite`, `honour`, `organise`, `realise`, `cancelled`, `travelling`, `behaviour`, `centre`, `defence`, `grey`, `mum`). `practice`/`practise`, `check`/`cheque`, `license`/`licence`, and `program`/`programme` are left alone |
-| `presence` | none | `remote` drops a trailing sentence whose only job is a meetup (`see you`, `catch you`, `I'll be there`). The sender is not going to be there. Unset leaves those sentences |
+| `spelling` | none | Locale tag stated to the model. The text is not rewritten. `en-AU` is Australian English; `en-GB`, `en-US`, `en-CA`, and `en-NZ` are named the same way. Any other tag, such as `fr-FR`, is "Write in fr-FR." |
 
 `behavior.timeGaps.acknowledge` (`false` by default) mentions a long gap since the last message. `threshold` is that gap, for example `"3 days"`.
 
