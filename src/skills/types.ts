@@ -570,6 +570,41 @@ export const SkillSettingSchema = z.object({
 
 export type SkillSetting = z.infer<typeof SkillSettingSchema>
 
+/**
+ * Forces a saved variable onto a tool argument when that tool runs.
+ * `tool` is the tool name the skill declares, such as
+ * `app:petbooqz:calendar_slots_availability_list`.
+ */
+export const SkillVariableBindSchema = z.object({
+  tool: z.string().min(1),
+  input: z.string().min(1),
+})
+
+export type SkillVariableBind = z.infer<typeof SkillVariableBindSchema>
+
+/**
+ * A prompt forwarded onto the agent that loads this skill.
+ * The skill declares the question. The agent (or the app install, when the
+ * skill is app-owned) stores the answer.
+ */
+export const SkillVariableSchema = z.object({
+  key: z.string().min(1),
+  /** Question shown on the variables form. */
+  prompt: z.string().min(1),
+  /** Help text under the prompt. */
+  description: z.string().optional(),
+  required: z.boolean().optional(),
+  /** Force the saved value onto this tool argument at execution time. */
+  bind: SkillVariableBindSchema.optional(),
+  /**
+   * `instructions` appends the saved value to the skill instructions when
+   * the instructions do not already reference `{{key}}`.
+   */
+  inject: z.enum(['instructions']).optional(),
+})
+
+export type SkillVariable = z.infer<typeof SkillVariableSchema>
+
 export const SkillYAMLSchema = z.object({
   // Schema version
   $schema: z.string().optional(),
@@ -638,6 +673,12 @@ export const SkillYAMLSchema = z.object({
   /** Install-scoped settings only this skill references. */
   settings: z.array(SkillSettingSchema).optional(),
 
+  /**
+   * Prompts forwarded onto the agent that loads this skill.
+   * Answers are not stored on the skill.
+   */
+  variables: z.array(SkillVariableSchema).optional(),
+
   // Few-shot examples
   examples: z.array(SkillExampleSchema).optional(),
 })
@@ -668,6 +709,7 @@ export const SkillYAMLV2Schema = z.object({
   memory: z.array(SkillMemorySchema).optional(),
   reply: SkillReplySchema.optional(),
   settings: z.array(SkillSettingSchema).optional(),
+  variables: z.array(SkillVariableSchema).optional(),
   examples: z.array(SkillExampleSchema).optional(),
 })
 
