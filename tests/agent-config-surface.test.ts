@@ -30,7 +30,9 @@ const IMPLEMENTED = [
   'behavior.message.maxChars',
   'behavior.message.maxQuestions',
   'behavior.message.plainPunctuation',
+  'behavior.message.presence',
   'behavior.message.signOffs',
+  'behavior.message.spelling',
   'behavior.persona.name',
   'behavior.persona.voice',
   'behavior.responses.allowSchedule',
@@ -80,6 +82,8 @@ const IMPLEMENTED = [
   'prompts.system',
   'prompts.titleEnrichment.system',
   'prompts.titleEnrichment.user',
+  'public.details',
+  'public.summary',
   'routing.enabled',
   'routing.fallback[]',
   'routing.guidance',
@@ -326,6 +330,26 @@ test('behavior holds persona, message rules, time gaps and time windows', () => 
   assert.deepEqual(typeof tool === 'object' ? tool.where : undefined, {
     active: { eq: true },
   })
+})
+
+test('message spelling and presence accept only the values the harness applies', () => {
+  const result = AgentYAMLV3Schema.safeParse({
+    handle: 'sales',
+    name: 'Sales',
+    behavior: { message: { spelling: 'en-AU', presence: 'remote' } },
+  })
+
+  assert.equal(result.success, true)
+  if (!result.success) return
+  assert.equal(result.data.behavior?.message?.spelling, 'en-AU')
+  assert.equal(result.data.behavior?.message?.presence, 'remote')
+
+  const rejected = AgentYAMLV3Schema.safeParse({
+    handle: 'sales',
+    name: 'Sales',
+    behavior: { message: { spelling: 'en-US', presence: 'in-person' } },
+  })
+  assert.equal(rejected.success, false)
 })
 
 test('message rules reject a value the runtime cannot apply', () => {

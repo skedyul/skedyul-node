@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 import { EventsConfigSchema } from '../events/types'
 import { SkillRefSchema, type SkillRef } from '../skills/types'
+import { PublicListingSchema } from './public-listing'
 import { SandboxConfigSchema } from '../context/types'
 
 /**
@@ -660,6 +661,16 @@ export const MessageRulesV3Schema = z.object({
    * @default false
    */
   plainPunctuation: z.boolean().optional(),
+  /**
+   * `en-AU` rewrites a short list of American spellings to Australian
+   * English. Unset leaves the model's spelling alone.
+   */
+  spelling: z.enum(['en-AU']).optional(),
+  /**
+   * `remote` drops a trailing sentence whose only job is a meetup
+   * (`see you`, `catch you`, `I'll be there`). Unset leaves those sentences.
+   */
+  presence: z.enum(['remote']).optional(),
 })
 
 export type MessageRulesV3 = z.infer<typeof MessageRulesV3Schema>
@@ -836,6 +847,8 @@ export const AgentYAMLV3Schema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  /** Copy for a public website. Not the persona or prompts. */
+  public: PublicListingSchema.optional(),
 
   /**
    * Persona - Who the agent is.

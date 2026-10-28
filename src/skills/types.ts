@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { PublicListingSchema } from '../schemas/public-listing'
 import {
   SkillFieldsSchema,
   SkillStateSchema,
@@ -578,6 +579,8 @@ export const SkillYAMLSchema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  /** Copy for a public website. Not the instructions. */
+  public: PublicListingSchema.optional(),
 
   // Instructions injected into agent system prompt
   instructions: z.string(),
@@ -651,6 +654,8 @@ export const SkillYAMLV2Schema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  /** Copy for a public website. Not the instructions. */
+  public: PublicListingSchema.optional(),
   instructions: z.string(),
   entityPolicies: EntityPoliciesSchema.optional(),
   tools: z.array(SkillToolDefinitionSchema).optional(),
