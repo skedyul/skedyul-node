@@ -354,6 +354,8 @@ export {
   SkillMemorySchema,
   SkillReplySchema,
   SkillSettingSchema,
+  SkillVariableSchema,
+  SkillVariableBindSchema,
   SkillToolArgumentSchema,
   SkillToolDefinitionSchema,
   // Helper functions
@@ -378,6 +380,8 @@ export type {
   SkillMemory,
   SkillReply,
   SkillSetting,
+  SkillVariable,
+  SkillVariableBind,
 } from './skills'
 
 // ─────────────────────────────────────────────────────────────────

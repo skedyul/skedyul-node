@@ -1128,6 +1128,27 @@ export const ProvisionSkillDefinitionSchema = z.object({
   }).optional(),
   /** Few-shot examples for the skill */
   examples: z.array(SkillExampleSchema).optional(),
+  /**
+   * Prompts forwarded onto the agent, or onto the app install when the skill
+   * is app-owned. Answers are not stored on the skill.
+   */
+  variables: z
+    .array(
+      z.object({
+        key: z.string(),
+        prompt: z.string(),
+        description: z.string().optional(),
+        required: z.boolean().optional(),
+        bind: z
+          .object({
+            tool: z.string(),
+            input: z.string(),
+          })
+          .optional(),
+        inject: z.enum(['instructions']).optional(),
+      }),
+    )
+    .optional(),
 })
 
 export const ProvisionConfigSchema = z.object({

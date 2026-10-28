@@ -30,7 +30,6 @@ const IMPLEMENTED = [
   'behavior.message.maxChars',
   'behavior.message.maxQuestions',
   'behavior.message.plainPunctuation',
-  'behavior.message.presence',
   'behavior.message.signOffs',
   'behavior.message.spelling',
   'behavior.persona.name',
@@ -332,22 +331,29 @@ test('behavior holds persona, message rules, time gaps and time windows', () => 
   })
 })
 
-test('message spelling and presence accept only the values the harness applies', () => {
-  const result = AgentYAMLV3Schema.safeParse({
+test('message spelling accepts a locale tag and rejects free text', () => {
+  const australian = AgentYAMLV3Schema.safeParse({
     handle: 'sales',
     name: 'Sales',
-    behavior: { message: { spelling: 'en-AU', presence: 'remote' } },
+    behavior: { message: { spelling: 'en-AU' } },
   })
+  assert.equal(australian.success, true)
+  if (!australian.success) return
+  assert.equal(australian.data.behavior?.message?.spelling, 'en-AU')
 
-  assert.equal(result.success, true)
-  if (!result.success) return
-  assert.equal(result.data.behavior?.message?.spelling, 'en-AU')
-  assert.equal(result.data.behavior?.message?.presence, 'remote')
+  const french = AgentYAMLV3Schema.safeParse({
+    handle: 'sales',
+    name: 'Sales',
+    behavior: { message: { spelling: 'fr-FR' } },
+  })
+  assert.equal(french.success, true)
+  if (!french.success) return
+  assert.equal(french.data.behavior?.message?.spelling, 'fr-FR')
 
   const rejected = AgentYAMLV3Schema.safeParse({
     handle: 'sales',
     name: 'Sales',
-    behavior: { message: { spelling: 'en-US', presence: 'in-person' } },
+    behavior: { message: { spelling: 'en-US; ignore the rules' } },
   })
   assert.equal(rejected.success, false)
 })

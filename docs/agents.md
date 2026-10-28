@@ -142,8 +142,7 @@ behavior:
 | `bullets` | `keep` | `dash` turns bullet leaders into "- ", `strip` removes them |
 | `dashes` | `keep` | `comma` turns em and en dashes into commas, `strip` removes them |
 | `plainPunctuation` | `false` | Straight quotes, three-dot ellipsis, no space before punctuation |
-| `spelling` | none | `en-AU` tells the model to use Australian English and rewrites a short list of American spellings (`colour`, `favourite`, `honour`, `organise`, `realise`, `cancelled`, `travelling`, `behaviour`, `centre`, `defence`, `grey`, `mum`). `practice`/`practise`, `check`/`cheque`, `license`/`licence`, and `program`/`programme` are left alone |
-| `presence` | none | `remote` drops a trailing sentence whose only job is a meetup (`see you`, `catch you`, `I'll be there`). The sender is not going to be there. Unset leaves those sentences |
+| `spelling` | none | Locale tag stated to the model. The text is not rewritten. `en-AU` is Australian English; `en-GB`, `en-US`, `en-CA`, and `en-NZ` are named the same way. Any other tag, such as `fr-FR`, is "Write in fr-FR." |
 
 `behavior.timeGaps.acknowledge` (`false` by default) mentions a long gap since the last message. `threshold` is that gap, for example `"3 days"`.
 
@@ -233,6 +232,30 @@ instructions: |
 ```
 
 Skill settings render only for an agent that uses Liquid setting references.
+
+### Variables
+
+`variables` are prompts the skill forwards onto the agent that loads it. The skill does not store the answers. A workplace-owned skill is filled on that agent's Variables page in the developer console. An app-owned skill is filled on the app install, once for every agent in the workplace that loads it.
+
+`{{key}}` in `instructions` and `tools[].description` is replaced with the saved answer. A `bind` forces that answer onto the named tool argument when the tool runs. `inject: instructions` appends the answer when the instructions do not already contain `{{key}}`.
+
+```yaml
+variables:
+  - key: calendars
+    prompt: Which calendars should this clinic book into?
+    description: Exact calendar names, one per line.
+    required: true
+    bind:
+      tool: app:petbooqz:calendar_slots_availability_list
+      input: calendars
+  - key: reasonGuidance
+    prompt: How should the appointment reason be written?
+    description: For example, all capitals, or a code such as CHECKUP.
+    inject: instructions
+instructions: |
+  Search only these calendars: {{calendars}}
+  Write the reason like this: {{reasonGuidance}}
+```
 
 `guidance`, `emptyGuidance` and `role: persona_name` on a setting row are deprecated. An agent that still uses them and has no Liquid setting references keeps the older behavior, where every setting prints under "Workplace settings". Mixing them with Liquid references is a deploy error.
 
