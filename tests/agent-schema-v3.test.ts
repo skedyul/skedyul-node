@@ -55,17 +55,23 @@ test('validateAgentYAMLV3 preserves behavior.responses maxImmediate and maxSched
   })
 })
 
-test('validateAgentYAMLV3 accepts a guidance fallback and one team when', () => {
+test('validateAgentYAMLV3 accepts collaboration and defaults a missing blocking flag', () => {
   const result = validateAgentYAMLV3({
     handle: 'sales',
     name: 'Sales',
-    guidance: {
-      prompt: 'Ask the desk when you do not know how to proceed.',
-      teams: {
-        management: { threadId: 'thd_management' },
-        'front-desk': {
-          when: 'The customer wants a call or a visit and there is no confirmed time.',
-          threadId: 'thd_front_desk',
+    collaboration: {
+      threadId: '{{ MANAGEMENT_THREAD_ID }}',
+      fallback: {
+        prompt: 'You still do not know what to do. Ask the team, then tell the member.',
+      },
+      scenarios: {
+        phone_call: {
+          prompt: 'The member wants a call. Ask the team before offering a time.',
+          blocking: true,
+        },
+        successful_conversion: {
+          prompt: 'A prospect converted. Tell the team they are coming in.',
+          blocking: false,
         },
       },
     },
@@ -73,25 +79,49 @@ test('validateAgentYAMLV3 accepts a guidance fallback and one team when', () => 
 
   assert.equal(result.success, true)
   if (!result.success) return
-  assert.equal(result.data.guidance?.teams.management?.when, undefined)
-  assert.equal(
-    result.data.guidance?.teams['front-desk']?.when,
-    'The customer wants a call or a visit and there is no confirmed time.',
-  )
+  assert.equal(result.data.collaboration?.fallback.blocking, undefined)
+  assert.equal(result.data.collaboration?.scenarios?.phone_call?.blocking, true)
+  assert.equal(result.data.collaboration?.scenarios?.successful_conversion?.blocking, false)
 })
 
-test('validateAgentYAMLV3 rejects two guidance teams that omit when', () => {
+test('validateAgentYAMLV3 rejects a non-boolean blocking flag', () => {
   const result = validateAgentYAMLV3({
     handle: 'sales',
     name: 'Sales',
-    guidance: {
-      prompt: 'Ask the desk when you do not know how to proceed.',
-      teams: {
-        management: { threadId: 'thd_management' },
-        owners: { threadId: 'thd_owners' },
-      },
+    collaboration: {
+      threadId: 'thd_management',
+      fallback: { prompt: 'Ask the team.', blocking: 'staff' },
     },
   })
 
   assert.equal(result.success, false)
+})
+
+test('validateAgentYAMLV3 rejects guidance and consultations', () => {
+  const guidance = validateAgentYAMLV3({
+    handle: 'sales',
+    name: 'Sales',
+    guidance: {
+      prompt: 'Ask the desk.',
+      teams: { management: { threadId: 'thd_management' } },
+    },
+  })
+  const consultations = validateAgentYAMLV3({
+    handle: 'sales',
+    name: 'Sales',
+    consultations: [
+      {
+        handle: 'front-desk',
+        threadId: 'thd_front',
+        when: 'A call.',
+        never: 'A price.',
+      },
+    ],
+  })
+
+  assert.equal(guidance.success, false)
+  assert.equal(consultations.success, false)
+  if (guidance.success || consultations.success) return
+  assert.match(guidance.error.issues[0]?.message ?? '', /collaboration/)
+  assert.match(consultations.error.issues[0]?.message ?? '', /collaboration/)
 })

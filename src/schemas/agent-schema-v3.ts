@@ -821,49 +821,31 @@ export const AgentEventsConfigV3Schema = EventsConfigSchema.extend({
 export type AgentEventsConfigV3 = z.infer<typeof AgentEventsConfigV3Schema>
 
 /**
- * A shared staff thread the agent can consult when a fact is not in any tool.
- * Kept so an already-saved consultations list still parses.
+ * One collaboration situation. `blocking` defaults to true when omitted.
+ * A scenario may set `threadId` when that situation uses a different staff chat.
  */
-export const ConsultationRoomV3Schema = z.object({
-  handle: z.string().min(1),
-  threadId: z.string().min(1),
-  when: z.string().min(1),
-  never: z.string().min(1),
+export const CollaborationSituationV3Schema = z.object({
+  prompt: z.string().min(1),
+  blocking: z.boolean().optional(),
+  threadId: z.string().min(1).optional(),
 })
 
-export type ConsultationRoomV3 = z.infer<typeof ConsultationRoomV3Schema>
+export type CollaborationSituationV3 = z.infer<typeof CollaborationSituationV3Schema>
 
 /**
- * One guidance team. Omit when to make this team the fallback.
+ * Staff collaboration. Every situation opens a case on one staff chat.
+ * `blocking: true` holds the member channel until a human reply.
+ * `blocking: false` lets that channel continue.
  */
-export const GuidanceTeamV3Schema = z.object({
+export const CollaborationConfigV3Schema = z.object({
   threadId: z.string().min(1),
-  when: z.string().min(1).optional(),
+  fallback: CollaborationSituationV3Schema.omit({ threadId: true }),
+  scenarios: z
+    .record(z.string().min(1), CollaborationSituationV3Schema)
+    .optional(),
 })
 
-export type GuidanceTeamV3 = z.infer<typeof GuidanceTeamV3Schema>
-
-/**
- * Ask the desk when the agent does not know how to proceed.
- * The team that omits when is the fallback. At most one team may omit it.
- */
-export const GuidanceConfigV3Schema = z
-  .object({
-    prompt: z.string().min(1),
-    teams: z.record(z.string().min(1), GuidanceTeamV3Schema),
-  })
-  .superRefine((guidance, ctx) => {
-    const missing = Object.entries(guidance.teams).filter(([, team]) => !team.when?.trim())
-    if (missing.length > 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'At most one guidance team may omit when. That team is the fallback.',
-        path: ['teams'],
-      })
-    }
-  })
-
-export type GuidanceConfigV3 = z.infer<typeof GuidanceConfigV3Schema>
+export type CollaborationConfigV3 = z.infer<typeof CollaborationConfigV3Schema>
 
 /**
  * Full Agent YAML v3 Schema
@@ -951,16 +933,10 @@ export const AgentYAMLV3Schema = z.object({
   sandbox: SandboxConfigSchema.optional(),
 
   /**
-   * Named staff threads the agent consults when a fact is missing.
-   * Prefer guidance. Kept so an already-saved list still parses.
+   * Staff collaboration. Fallback plus named scenarios. Each opens a case.
+   * `blocking` holds or releases the member channel.
    */
-  consultations: z.array(ConsultationRoomV3Schema).optional(),
-
-  /**
-   * Ask a team when the agent does not know how to proceed.
-   * The team that omits when is the fallback.
-   */
-  guidance: GuidanceConfigV3Schema.optional(),
+  collaboration: CollaborationConfigV3Schema.optional(),
 })
 
 export type AgentYAMLV3 = z.infer<typeof AgentYAMLV3Schema>
@@ -978,6 +954,23 @@ export function defineAgentV3(agent: AgentYAMLV3): AgentYAMLV3 {
 export function validateAgentYAMLV3(
   agent: unknown,
 ): { success: true; data: AgentYAMLV3 } | { success: false; error: z.ZodError } {
+  if (agent && typeof agent === 'object' && !Array.isArray(agent)) {
+    const record = agent as Record<string, unknown>
+    const retired = (['guidance', 'consultations'] as const).filter((key) => key in record)
+    if (retired.length > 0) {
+      return {
+        success: false,
+        error: new z.ZodError(
+          retired.map((key) => ({
+            code: 'custom' as const,
+            path: [key],
+            message: `\`${key}\` is not a collaboration block. Use \`collaboration\` with fallback, scenarios, and blocking.`,
+            input: record[key],
+          })),
+        ),
+      }
+    }
+  }
   const result = AgentYAMLV3Schema.safeParse(agent)
   if (!result.success) {
     return { success: false, error: result.error }

@@ -100,51 +100,63 @@ runtime:
 | `runtime` | `model` and `personaModel` LLM selection, and `maxIterations` (model steps per run, `1`–`50`, default `10`) |
 | `routing` | Harness skill routing: a router step picks the turn's skills from `skills[].description`, Liquid `guidance`, and the conversation. See [Routing](#routing) |
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
-| `guidance` | Fallback desk the agent asks when it does not know how to proceed. See [Guidance](#guidance) |
-| `consultations` | Legacy list of staff threads. Prefer `guidance`. |
+| `collaboration` | Staff chat for situations the agent cannot finish alone. See [Collaboration](#collaboration) |
 
 Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
 
-### Guidance
+### Collaboration
 
-`guidance` names the desk the agent asks when it does not know how to proceed. The platform adds `system:consultation:decide`, `system:consultation:ask`, `system:consultation:reply`, and `system:consultation:resolve` only when this block has at least one team. Agents with no teams send to the customer the way they do today.
+`collaboration` names the staff chat and the situations that open a case. The platform adds `system:collaboration:decide`, `system:collaboration:ask`, `system:collaboration:reply`, and `system:collaboration:resolve` only when this block is present. Agents with no `collaboration` block send to the member the way they do today.
 
 ```yaml
-guidance:
-  prompt: >-
-    Ask the desk when you do not know how to proceed from the tools and the
-    conversation. Do not guess. Do not ask about a fact a tool already
-    returned, or a question you can ask the customer yourself.
-  teams:
-    management:
-      threadId: thd_placeholder_management
-    front-desk:
-      when: >-
-        The customer wants a call or a visit and there is no confirmed time.
-      threadId: thd_placeholder_front_desk
+settings:
+  - key: MANAGEMENT_THREAD_ID
+    label: Management thread
+    default: thd_placeholder_front_desk
+
+collaboration:
+  threadId: "{{ MANAGEMENT_THREAD_ID }}"
+  fallback:
+    prompt: >-
+      You have checked the business information, package listings, and agent
+      knowledge, and you still do not know what to do or say. Prepare a
+      question for this situation. After staff answer, forward that feedback
+      to the member.
+    blocking: true
+  scenarios:
+    phone_call:
+      prompt: >-
+        The member has requested a phone call. Ask management to reject it
+        or to offer a time they can take it. Do not ask the member for a
+        time, and do not promise one, until staff have answered.
+      blocking: true
+    successful_conversion:
+      prompt: >-
+        A prospect has just converted. Give management a brief report of any
+        goals, injuries, or limitations, and say that the member will be
+        coming in.
+      blocking: false
 ```
 
 | Field | Meaning |
 |-------|---------|
-| `prompt` | Shared instruction, printed once. What to ask, and what not to ask |
-| `teams` | Map of handles. The key is the name passed to ask, continue, reply, and resolve |
-| `threadId` | The shared INTERNAL staff thread. Many customer threads consult the same team |
-| `when` | Optional. The team that omits it is the fallback. At most one team may omit it. A team that sets it is used only for that case |
+| `threadId` | The one staff thread. A workplace setting, rendered like any other Liquid template. A scenario sets `threadId` only when that situation uses a different chat |
+| `fallback` | Used when no scenario fits. `prompt` is what the model is trying to finish. `blocking` defaults to `true` |
+| `scenarios` | Map of situation keys. The key is the `scenario` passed to decide, ask, reply, and resolve |
+| `blocking` | `true` holds the member channel until a human replies. `false` lets that channel continue. Both open a case |
 
-Each ask creates an escalation child thread. The question is posted on that child, and both the customer thread and the staff thread show it as a subthread. The customer channel stays silent until the agent sends a separate customer sentence. A staff reply in the child resumes the agent on the customer thread. `resolve` sets the child to `RESOLVED`.
+`ask` opens a case of kind `CASE`. The brief is posted on that case, and both the member thread and the staff thread show it as a subthread. `blocking: true` does not message the member on that turn. `blocking: false` may. The case stays open either way, so a later staff reply still has a case to land on.
 
-`decide` must run before a customer send:
+`decide` runs before a member message:
 
 | Action | Effect |
 |--------|--------|
-| `answer` | The fact is already in a tool result or the conversation. Customer send unlocks |
-| `clarify` | The request is ambiguous. One customer question unlocks. No staff post |
-| `ask` | Post to the fallback team, or to the team whose `when` matches, and end the turn with no customer message |
-| `continue` | An open child for that handle already covers this. Allowed only then |
+| `answer` | A fact a tool returned this turn. Rejected when the scenario is blocking, and when no fact tool succeeded |
+| `clarify` | One member question, and only when no scenario was selected |
+| `ask` | Open a case for the scenario, or the fallback when `scenario` is omitted. A blocking ask ends the turn with no member message |
+| `continue` | An open case for that scenario already covers this |
 
-A tool result with `needsHuman: true` rejects `answer` for that turn.
-
-A `consultations` list on an older agent version still loads. New agents use `guidance`.
+A tool result with `needsHuman: true` rejects `answer` for that turn. `resolve` closes the case after a staff reply. A blocking case needs a member sentence first. A non-blocking case may close on a thanks, because the member was already told when the brief was posted.
 
 ### Behavior
 
@@ -257,7 +269,7 @@ prompts:
 
 Each declared key holds the install value after `default`; a blank value is `nil`, so `{% if %}` and `| default:` behave as expected. `workplace.name` is the workplace name. Skill and agent text can also read `state.*` paths (`{{ state.memory.scores.engagement_score }}`); unset renders empty, same as a missing setting. Files cannot be included.
 
-Rendered fields: `prompts.system`, `behavior.persona.name`, `behavior.persona.voice`, `behavior.timezone`, each window's `timezone` and `behavior.prompt`, `timeWindowDefault.prompt`, `routing.guidance`, `skills[].description` and `tools[].description`. In skill files: `instructions`, `description`, `tools[].description` and `requires.reason`.
+Rendered fields: `prompts.system`, `behavior.persona.name`, `behavior.persona.voice`, `behavior.timezone`, each window's `timezone` and `behavior.prompt`, `timeWindowDefault.prompt`, `routing.guidance`, `collaboration.threadId`, `collaboration.fallback.prompt`, `collaboration.scenarios.*.prompt`, `collaboration.scenarios.*.threadId`, `skills[].description` and `tools[].description`. In skill files: `instructions`, `description`, `tools[].description` and `requires.reason`.
 
 On deploy, a template that fails to parse or names an undeclared variable is an error, and a declared setting nothing references is a warning.
 
