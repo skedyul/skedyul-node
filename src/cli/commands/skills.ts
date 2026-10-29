@@ -4,6 +4,11 @@ import { parse as parseYaml } from 'yaml'
 import { parseArgs } from '../utils'
 import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
 import { SkillYAMLSchema, validateSkillYAML, type SkillYAML } from '../../skills/types'
+import {
+  exportSkillYamlToFiles,
+  parseYamlMapping,
+  writeDocumentFiles,
+} from '../utils/exportDocumentTree'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -77,7 +82,8 @@ Usage:
 Commands:
   list              List all skills in a workplace
   get <handle>      Get details of a specific skill
-  deploy            Deploy a skill from a YAML file (creates or updates)
+  deploy            Deploy a workplace skill from a YAML file (creates or updates)
+  export            Split a skill YAML file into skills/<handle>/ for an app repo
   publish           Publish a draft version
   versions          List versions of a skill
   delete            Delete a skill
@@ -95,6 +101,11 @@ Deploy Options:
   --workplace, -w   Workplace subdomain (required)
   --draft           Deploy as draft (not published)
   --label           Version label (e.g., "experiment-shorter-prompts")
+  --json            Output as JSON
+
+Export Options:
+  --file, -f        Path to a skill YAML blob
+  --dir             App projectDirectory (writes skills/<handle>/)
   --json            Output as JSON
 
 Publish Options:
@@ -115,6 +126,7 @@ Examples:
   skedyul skills get sales-qualification -w crux
   skedyul skills deploy -f ./skills/sales-qualification.skill.yml -w crux
   skedyul skills deploy -f ./skills/sales-v2.skill.yml -w crux --draft
+  skedyul skills export -f ./sales.skill.yml --dir ./integrations/bft
   skedyul skills publish sales-qualification -w crux -v 2
   skedyul skills versions sales-qualification -w crux
   skedyul skills delete sales-qualification -w crux
@@ -346,6 +358,45 @@ async function handleGet(args: string[]): Promise<void> {
       }
     }
     console.log('')
+  } catch (error) {
+    if (jsonOutput) {
+      console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
+    } else {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    process.exit(1)
+  }
+}
+
+async function handleExport(args: string[]): Promise<void> {
+  const { flags } = parseArgs(args)
+  const filePath = (flags.file || flags.f) as string | undefined
+  const dir = flags.dir as string | undefined
+  const jsonOutput = Boolean(flags.json)
+
+  if (!filePath) {
+    console.error('Error: --file (-f) is required')
+    console.error('Usage: skedyul skills export --file ./skill.yml --dir ./app')
+    process.exit(1)
+  }
+  if (!dir) {
+    console.error('Error: --dir is required')
+    console.error('Usage: skedyul skills export --file ./skill.yml --dir ./app')
+    process.exit(1)
+  }
+
+  try {
+    const content = fs.readFileSync(path.resolve(filePath), 'utf-8')
+    const files = exportSkillYamlToFiles(parseYamlMapping(content))
+    const written = writeDocumentFiles(path.resolve(dir), files)
+    if (jsonOutput) {
+      console.log(JSON.stringify({ success: true, dir, files: written }))
+    } else {
+      console.log(`Wrote ${written.length} file(s) under ${path.resolve(dir)}`)
+      for (const rel of written) {
+        console.log(`  ${rel}`)
+      }
+    }
   } catch (error) {
     if (jsonOutput) {
       console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
@@ -664,6 +715,9 @@ export async function skillsCommand(args: string[]): Promise<void> {
       break
     case 'deploy':
       await handleDeploy(commandArgs)
+      break
+    case 'export':
+      await handleExport(commandArgs)
       break
     case 'publish':
       await handlePublish(commandArgs)

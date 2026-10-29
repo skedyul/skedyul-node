@@ -14,6 +14,11 @@ import {
   validateAgentYAMLV3,
   type AgentYAMLV3,
 } from '../../schemas/agent-schema-v3'
+import {
+  exportAgentYamlToFiles,
+  parseYamlMapping,
+  writeDocumentFiles,
+} from '../utils/exportDocumentTree'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -121,7 +126,8 @@ Usage:
 Commands:
   list              List all agents in a workplace
   get <handle>      Get details of a specific agent
-  deploy            Deploy an agent from a YAML/JSON file (creates or updates)
+  deploy            Deploy a workplace agent from a YAML/JSON file (creates or updates)
+  export            Split an agent YAML file into agents/<handle>/ for an app repo
   publish           Publish a draft version
   versions          List versions of an agent
   ab                Set A/B testing traffic weights
@@ -143,6 +149,13 @@ Deploy Options:
 
   Supports both legacy (multi-stage) and v3 (skills-based) agent formats.
   V3 agents use skills, events, and memory instead of stages.
+  App agents (@app/handle) cannot be deployed here — export --dir into the
+  app repo and provision the AppVersion.
+
+Export Options:
+  --file, -f        Path to an agent YAML blob
+  --dir             App projectDirectory (writes agents/<handle>/)
+  --json            Output as JSON
 
 Publish Options:
   --workplace, -w   Workplace subdomain (required)
@@ -172,8 +185,11 @@ Examples:
   # Get details of a specific agent
   skedyul agents get sales-agent --workplace gym-demo
 
-  # Deploy a v3 skills-based agent
+  # Deploy a v3 skills-based workplace agent
   skedyul agents deploy --file ./sales-agent.agent.yml --workplace gym-demo
+
+  # Split a YAML blob into the app repo tree
+  skedyul agents export --file ./bft-agent.agent.yml --dir ./integrations/bft
 
   # Deploy as draft (not published)
   skedyul agents deploy --file ./sales-agent.agent.yml --workplace gym-demo --draft
@@ -517,6 +533,49 @@ async function handleUpdate(args: string[]): Promise<void> {
   // Redirect to deploy command
   console.log('Note: "update" is deprecated. Use "deploy" instead.')
   await handleDeploy(args)
+}
+
+async function handleExport(args: string[]): Promise<void> {
+  const { flags } = parseArgs(args)
+  const filePath = (flags.file || flags.f) as string | undefined
+  const dir = flags.dir as string | undefined
+  const jsonOutput = Boolean(flags.json)
+
+  if (!filePath) {
+    console.error('Error: --file (-f) is required')
+    console.error('Usage: skedyul agents export --file ./agent.yml --dir ./app')
+    process.exit(1)
+  }
+  if (!dir) {
+    console.error('Error: --dir is required')
+    console.error('Usage: skedyul agents export --file ./agent.yml --dir ./app')
+    process.exit(1)
+  }
+
+  try {
+    const content = fs.readFileSync(path.resolve(filePath), 'utf-8')
+    const parsed = parseYamlMapping(content)
+    const scenarios = Array.isArray(parsed.scenarios)
+      ? (parsed.scenarios as Array<Record<string, unknown>>)
+      : []
+    const files = exportAgentYamlToFiles(parsed, scenarios)
+    const written = writeDocumentFiles(path.resolve(dir), files)
+    if (jsonOutput) {
+      console.log(JSON.stringify({ success: true, dir, files: written }))
+    } else {
+      console.log(`Wrote ${written.length} file(s) under ${path.resolve(dir)}`)
+      for (const rel of written) {
+        console.log(`  ${rel}`)
+      }
+    }
+  } catch (error) {
+    if (jsonOutput) {
+      console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
+    } else {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    process.exit(1)
+  }
 }
 
 async function handleDeploy(args: string[]): Promise<void> {
@@ -1021,6 +1080,9 @@ export async function agentsCommand(args: string[]): Promise<void> {
       break
     case 'deploy':
       await handleDeploy(subArgs)
+      break
+    case 'export':
+      await handleExport(subArgs)
       break
     case 'publish':
       await handlePublish(subArgs)
