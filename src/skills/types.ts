@@ -614,6 +614,11 @@ export const SkillYAMLSchema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  /**
+   * Gateway model id for steps whose instructions come from this skill.
+   * Example: google/gemini-3.5-flash. Omit to keep the agent model.
+   */
+  model: z.string().min(1).optional(),
   /** Copy for a public website. Not the instructions. */
   public: PublicListingSchema.optional(),
 
@@ -695,6 +700,11 @@ export const SkillYAMLV2Schema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  /**
+   * Gateway model id for steps whose instructions come from this skill.
+   * Example: google/gemini-3.5-flash. Omit to keep the agent model.
+   */
+  model: z.string().min(1).optional(),
   /** Copy for a public website. Not the instructions. */
   public: PublicListingSchema.optional(),
   instructions: z.string(),
