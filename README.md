@@ -12,7 +12,7 @@ The official Node.js SDK for building [Skedyul](https://skedyul.com) integration
 | **Webhooks** | HTTP handlers for SMS, email, OAuth callbacks, and third-party events |
 | **Lifecycle hooks** | Install, provision, uninstall, OAuth, and token refresh |
 | **CRM models** | App-owned (internal) and user-mapped (shared) data models |
-| **Agents (v3)** | Skills-based autonomous agents deployed per workplace |
+| **Agents (v3)** | Workplace YAML via `skedyul agents deploy`, or app-owned `agents/` + `skills/` trees provisioned with the AppVersion |
 | **Skills & workflows** | YAML-defined capabilities and event-driven automation |
 | **Core API client** | Typed client for workplaces, channels, instances, files, cron, AI, calls, and more |
 | **CLI** | Local dev server, tunneling, deploy, CRM schema sync, agent testing |
@@ -183,7 +183,7 @@ Full documentation lives in [`docs/`](./docs/README.md).
 
 | Guide | Description |
 |-------|-------------|
-| [Agents, skills & workflows](./docs/agents.md) | Agent YAML v3, skills, workflow YAML, compiler, context |
+| [Agents, skills & workflows](./docs/agents.md) | Workplace and app-owned agent YAML, skills trees, workflow YAML, compiler |
 | [CRM schema](./docs/crm-schema.md) | Workplace-level schema migrations (`defineSchema`) |
 | [Rate-limit queues](./docs/rate-limit-queues.md) | `queuedFetch` for external API throttling |
 | [Server runtime](./docs/server.md) | HTTP endpoints, dedicated vs serverless, MCP protocol |
@@ -233,6 +233,8 @@ skedyul dev deploy --workplace <subdomain>
 # Agents, skills, workflows
 skedyul agents deploy --file ./agents/booking.yaml --workplace <subdomain>
 skedyul skills deploy --file ./skills/scheduling.yaml --workplace <subdomain>
+skedyul agents export --file ./bft-agent.agent.yml --dir ./integrations/bft
+skedyul skills export --file ./booking.skill.yml --dir ./integrations/petbooqz
 skedyul workflows deploy --file ./workflows/reminder.yaml --workplace <subdomain>
 
 # Testing

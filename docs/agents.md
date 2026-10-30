@@ -7,9 +7,22 @@ Skedyul supports two agent configuration models plus YAML-based skills and event
 | Model | Where defined | Deployed via | Use case |
 |-------|---------------|--------------|----------|
 | **Provision agents** | `skedyul.config.ts` → `defineAgent()` | App version deploy | Simple multi-tenant agents bound to app tools |
-| **Agent YAML v3** | `agents/*.yaml` | `skedyul agents deploy` | Skills-based autonomous agents per workplace |
-| **Skills** | `skills/*.yaml` | `skedyul skills deploy` | Reusable capability bundles that own tools. Pass `--app <appId>` for an app-owned skill. |
+| **App agent YAML v3** | `agents/<handle>/` + `skills/<handle>/` in the integration app repo | GitHub AppVersion provision (or Dev tarball) | Large app-owned agents; git diffs, no MCP YAML upload |
+| **Workplace agent YAML v3** | `agents/*.yaml` | `skedyul agents deploy` | Skills-based autonomous agents per workplace |
+| **Workplace skills** | `skills/*.yaml` | `skedyul skills deploy` | Reusable workplace capability bundles. Pass `--app <appId>` only while the platform still accepts app-scoped YAML. |
 | **Workflow YAML v2** | `workflows/*.yaml` | `skedyul workflows deploy` | Event-driven automation with steps |
+
+App-owned v3 agents and skills live under the app `projectDirectory`:
+
+```
+skills/<handle>/skill.yml
+skills/<handle>/instructions.md
+skills/<handle>/examples/<name>.yml
+agents/<handle>/agent.yml
+agents/<handle>/scenarios/<name>.yml
+```
+
+Skill refs on app agents stay `@app/skills/handle`. Invalid trees fail CHECK / RELEASE the same way a bad `skedyul.config.ts` does. `skills_deploy` / `agents_deploy` with app scope is rejected — use `skedyul skills export --file … --dir <app>` / `skedyul agents export --file … --dir <app>` to split a YAML blob into that layout, then commit and provision.
 
 ---
 
