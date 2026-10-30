@@ -2,6 +2,16 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SkillYAMLSchema } from '../src/skills/types'
 
+test('SkillYAMLSchema keeps an optional model id', () => {
+  const parsed = SkillYAMLSchema.parse({
+    handle: 'sales',
+    name: 'Sales',
+    instructions: 'Qualify the lead.',
+    model: 'google/gemini-3.5-flash',
+  })
+  assert.equal(parsed.model, 'google/gemini-3.5-flash')
+})
+
 test('SkillYAMLSchema keeps memory, tool needs, and reply.needs', () => {
   const parsed = SkillYAMLSchema.parse({
     handle: 'booking',
