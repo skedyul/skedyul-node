@@ -71,7 +71,7 @@ function parseConfigFromSource(configPath: string): SkedyulAppConfig | null {
         const pkgContent = fs.readFileSync(pkgPath, 'utf-8')
         const pkg = JSON.parse(pkgContent) as { name?: string }
         if (pkg.name) {
-          // Extract handle from package name like "@skedyul-integrations/petbooqz" -> "petbooqz"
+          // Extract handle from package name like "@skedyul-integrations/acme" -> "acme"
           const nameParts = pkg.name.split('/')
           handle = nameParts[nameParts.length - 1]
         }

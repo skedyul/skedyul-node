@@ -310,8 +310,10 @@ See [Agents, skills & workflows](./agents.md).
 skedyul skills list --workplace <subdomain>
 skedyul skills get <handle> --workplace <subdomain>
 skedyul skills deploy --file ./skills/scheduling.yaml --workplace <subdomain>
+skedyul skills deploy --file ./skills/closing.yaml --workplace <subdomain> --app <appId>
 skedyul skills export --file ./scheduling.skill.yml --dir ./integrations/bft
 skedyul skills publish --version <versionId> --workplace <subdomain>
+skedyul skills publish <handle> --version <version> --workplace <subdomain> --app <appId>
 skedyul skills versions <handle> --workplace <subdomain>
 skedyul skills delete <handle> --workplace <subdomain>
 ```
@@ -321,9 +323,10 @@ skedyul skills delete <handle> --workplace <subdomain>
 | `--workplace, -w` | Workplace subdomain |
 | `--file, -f` | Skill YAML file |
 | `--dir` | App `projectDirectory` for `export` (writes `skills/<handle>/`) |
+| `--app`, `--app-id` | App id for an app-owned skill. Required when that handle already belongs to an app. Writes the app skill. Omitting it is rejected and does not create a workplace skill. Prefer `export --dir` and AppVersion provision once the platform rejects app-scoped YAML. |
 | `--draft` | Create as draft |
 | `--label` | Version label |
-| `--version, -v` | Version ID (required for publish) |
+| `--version, -v` | Version number (required for publish) |
 | `--json` | JSON output |
 
 ---

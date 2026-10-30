@@ -93,6 +93,34 @@ export type OAuthCallbackHandler = (
 ) => Promise<OAuthCallbackResult>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Refresh Token Handler Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Context for the refresh_token hook.
+ *
+ * `env` is the merged provision and install environment, including the
+ * workplace API token (`SKEDYUL_API_TOKEN`). The hook refreshes the provider
+ * token and returns new install env. It does not write the database.
+ */
+export interface RefreshTokenContext {
+  env: Record<string, string>
+  /** Invocation context for log traceability */
+  invocation?: InvocationContext
+  /** Context-aware logger that automatically includes invocation context */
+  log: ContextLogger
+}
+
+/** Same envelope as the OAuth callback env. Omit keys the provider did not rotate. */
+export interface RefreshTokenResult {
+  env?: Record<string, string>
+}
+
+export type RefreshTokenHandler = (
+  ctx: RefreshTokenContext,
+) => Promise<RefreshTokenResult>
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Provision Handler Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -168,6 +196,17 @@ type BaseServerHooks = {
     | {
         handler: ProvisionHandler
         /** Timeout in milliseconds. Defaults to 300000 (5 minutes) if not specified. */
+        timeout?: number
+      }
+  /**
+   * Refresh an expired access token. The platform calls this once per
+   * installation, persists `env`, then retries the original call.
+   */
+  refresh_token?:
+    | RefreshTokenHandler
+    | {
+        handler: RefreshTokenHandler
+        /** Timeout in milliseconds. Defaults to 30000 (30 seconds) if not specified. */
         timeout?: number
       }
   /** Called during app uninstallation to clean up external resources */

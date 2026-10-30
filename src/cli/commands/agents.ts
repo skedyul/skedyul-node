@@ -15,6 +15,10 @@ import {
   type AgentYAMLV3,
 } from '../../schemas/agent-schema-v3'
 import {
+  inspectPlaygroundSession,
+  sendPlaygroundTurn,
+} from '../api/playground'
+import {
   exportAgentYamlToFiles,
   parseYamlMapping,
   writeDocumentFiles,
@@ -132,6 +136,7 @@ Commands:
   versions          List versions of an agent
   ab                Set A/B testing traffic weights
   rollback          Rollback to a previous version
+  test              Run a playground turn (same path as the web playground)
 
 List Options:
   --workplace, -w   Workplace subdomain (required)
@@ -142,13 +147,15 @@ Get Options:
   --json            Output as JSON
 
 Deploy Options:
-  --file, -f        Path to agent definition file (.agent.yml or .agent.json)
+  --file, -f        Path to agent definition file (.agent.yml, .agent.json, or .agent-pack.yaml)
   --workplace, -w   Workplace subdomain (required)
   --draft           Deploy as draft (not published)
+  --upload          Force multipart upload (for large files >500KB)
   --json            Output as JSON
 
-  Supports both legacy (multi-stage) and v3 (skills-based) agent formats.
-  V3 agents use skills, events, and memory instead of stages.
+  Supports v3 (skills-based) agents and agent-pack bundles.
+  Agent-pack files (.agent-pack.yaml) include embedded skills, evaluators, and scenarios.
+  Files larger than 500KB automatically use multipart upload.
   App agents (@app/handle) cannot be deployed here — export --dir into the
   app repo and provision the AppVersion.
 
@@ -178,6 +185,16 @@ Rollback Options:
   --to              Version number to rollback to
   --json            Output as JSON
 
+Test Options:
+  --workplace, -w   Workplace subdomain (required)
+  --agent, -a       Agent handle (required to start a session)
+  --thread, -t      Continue an existing playground thread
+  --message, -m     User turn to send (omit to inspect the thread)
+  --now             ISO clock the agent should treat as now
+  --contact         Contact ID to impersonate
+  --installation    App installation ID (APP agents)
+  --json            Output as JSON
+
 Examples:
   # List all agents in a workplace
   skedyul agents list --workplace gym-demo
@@ -205,6 +222,15 @@ Examples:
 
   # Rollback to previous version
   skedyul agents rollback sales-agent --workplace gym-demo --to 1
+
+  # Playground turn (TESTING thread + runThreadAgentWorkflow)
+  skedyul agents test --agent sales-agent --workplace gym-demo --message "Hey"
+
+  # Continue the thread and pin studio now
+  skedyul agents test --thread th_xxx --workplace gym-demo --message "I'm sick" --now 2026-09-11T22:00:00+10:00
+
+  # Inspect scheduled messages
+  skedyul agents test --thread th_xxx --workplace gym-demo
 `)
 }
 
@@ -578,6 +604,9 @@ async function handleExport(args: string[]): Promise<void> {
   }
 }
 
+// Threshold for using multipart upload (500KB)
+const MULTIPART_THRESHOLD = 500 * 1024
+
 async function handleDeploy(args: string[]): Promise<void> {
   const { flags } = parseArgs(args)
 
@@ -585,6 +614,7 @@ async function handleDeploy(args: string[]): Promise<void> {
   const workplace = (flags.workplace || flags.w) as string | undefined
   const isDraft = Boolean(flags.draft)
   const jsonOutput = Boolean(flags.json)
+  const forceUpload = Boolean(flags.upload)
 
   if (!filePath) {
     console.error('Error: --file (-f) is required')
@@ -601,11 +631,28 @@ async function handleDeploy(args: string[]): Promise<void> {
   let agent: AgentSchema | AgentYAMLV3
   let content: string
   let isV3: boolean
+  let isAgentPack = false
   try {
-    const result = await loadAgentFile(filePath)
-    agent = result.agent
-    content = result.content
-    isV3 = result.isV3
+    // Check if it's an agent-pack file
+    const absolutePath = path.resolve(filePath)
+    content = fs.readFileSync(absolutePath, 'utf-8')
+    const rawContent = parseYaml(content) as Record<string, unknown>
+    isAgentPack = rawContent?.kind === 'skedyul.agent-pack'
+
+    if (isAgentPack) {
+      // For agent-pack, extract agent for display purposes
+      const agentObj = rawContent.agent as Record<string, unknown> | undefined
+      if (!agentObj) {
+        throw new Error('Agent-pack missing "agent" field')
+      }
+      agent = agentObj as unknown as AgentYAMLV3
+      isV3 = true
+    } else {
+      const result = await loadAgentFile(filePath)
+      agent = result.agent
+      content = result.content
+      isV3 = result.isV3
+    }
   } catch (error) {
     if (jsonOutput) {
       console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
@@ -629,40 +676,49 @@ async function handleDeploy(args: string[]): Promise<void> {
     process.exit(1)
   }
 
+  const fileSize = Buffer.byteLength(content, 'utf8')
+  const useMultipart = forceUpload || fileSize > MULTIPART_THRESHOLD || isAgentPack
+
   if (!jsonOutput) {
     let agentType: string
-    if (isV3) {
+    if (isAgentPack) {
+      agentType = 'agent-pack (bundled)'
+    } else if (isV3) {
       agentType = 'v3 (skills-based)'
     } else {
       agentType = isMultiStageAgent(agent as AgentSchema) ? 'multi-stage' : 'single-stage'
     }
     console.log('')
     console.log(`Deploying ${agentType} agent "${agent.name}" to ${workplace}${isDraft ? ' (draft)' : ''}`)
+    if (useMultipart) {
+      console.log(`  Using multipart upload (${(fileSize / 1024).toFixed(1)} KB)`)
+    }
     console.log('')
   }
 
   try {
-    const response = await fetch(`${serverUrl}/api/cli/agents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
+    let result: DeployResponse & { deployedSkills?: Array<{ handle: string; version: number }> }
+
+    if (useMultipart) {
+      result = await deployAgentMultipart({
+        serverUrl,
+        token,
         workplaceId: workplaceToken.workplaceId,
         subdomain: workplaceToken.workplaceSubdomain,
-        action: 'deploy',
-        yamlContent: content,
+        filePath,
+        content,
         publish: !isDraft,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+      })
+    } else {
+      result = await deployAgentJson({
+        serverUrl,
+        token,
+        workplaceId: workplaceToken.workplaceId,
+        subdomain: workplaceToken.workplaceSubdomain,
+        content,
+        publish: !isDraft,
+      })
     }
-
-    const result = await response.json() as DeployResponse
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to deploy agent')
@@ -695,6 +751,14 @@ async function handleDeploy(args: string[]): Promise<void> {
         console.log(`  Tools:     ${result.agent.tools.length} bound`)
       }
     }
+
+    if (result.deployedSkills?.length) {
+      console.log(`  Skills:    ${result.deployedSkills.length} deployed`)
+      for (const skill of result.deployedSkills) {
+        console.log(`    - ${skill.handle} v${skill.version}`)
+      }
+    }
+
     console.log('')
   } catch (error) {
     if (jsonOutput) {
@@ -704,6 +768,74 @@ async function handleDeploy(args: string[]): Promise<void> {
     }
     process.exit(1)
   }
+}
+
+async function deployAgentJson(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  subdomain: string
+  content: string
+  publish: boolean
+}): Promise<DeployResponse> {
+  const response = await fetch(`${params.serverUrl}/api/cli/agents`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: JSON.stringify({
+      workplaceId: params.workplaceId,
+      subdomain: params.subdomain,
+      action: 'deploy',
+      yamlContent: params.content,
+      publish: params.publish,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json() as Promise<DeployResponse>
+}
+
+async function deployAgentMultipart(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  subdomain: string
+  filePath: string
+  content: string
+  publish: boolean
+}): Promise<DeployResponse & { deployedSkills?: Array<{ handle: string; version: number }> }> {
+  const formData = new FormData()
+
+  const blob = new Blob([params.content], { type: 'text/yaml' })
+  const fileName = path.basename(params.filePath)
+  formData.append('file', blob, fileName)
+
+  formData.append('metadata', JSON.stringify({
+    workplaceId: params.workplaceId,
+    subdomain: params.subdomain,
+    publish: params.publish,
+  }))
+
+  const response = await fetch(`${params.serverUrl}/api/cli/agents/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json()
 }
 
 async function handlePublish(args: string[]): Promise<void> {
@@ -1055,6 +1187,140 @@ async function handleRollback(args: string[]): Promise<void> {
 // Main Command
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function handleTest(args: string[]): Promise<void> {
+  const { flags } = parseArgs(args)
+
+  const workplace = (flags.workplace || flags.w) as string | undefined
+  const handle = (flags.agent || flags.a) as string | undefined
+  const threadId = (flags.thread || flags.t) as string | undefined
+  const message = (flags.message || flags.m) as string | undefined
+  const currentTime = flags.now as string | undefined
+  const contactId = flags.contact as string | undefined
+  const appInstallationId = flags.installation as string | undefined
+  const jsonOutput = Boolean(flags.json)
+
+  if (!workplace) {
+    console.error('Error: --workplace (-w) is required')
+    console.error(
+      'Usage: skedyul agents test --workplace gym-demo --agent sales-agent --message "Hey"',
+    )
+    process.exit(1)
+  }
+
+  if (!threadId && !handle) {
+    console.error('Error: --agent (-a) is required when starting a session')
+    console.error(
+      'Usage: skedyul agents test --workplace gym-demo --agent sales-agent --message "Hey"',
+    )
+    process.exit(1)
+  }
+
+  if (!message && !threadId) {
+    console.error('Error: --message (-m) is required when starting a session')
+    process.exit(1)
+  }
+
+  const { token, serverUrl } = ensureAuth()
+  const ctx = { token, serverUrl }
+
+  try {
+    if (!message) {
+      const result = await inspectPlaygroundSession(ctx, workplace, threadId!)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to inspect playground session')
+      }
+      if (jsonOutput) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      console.log('')
+      console.log(`Playground ${result.threadId}`)
+      if (result.agentHandle || result.agentName) {
+        console.log(`Agent     ${result.agentHandle ?? result.agentName}`)
+      }
+      console.log('')
+      for (const row of result.messages) {
+        const who = row.role === 'user' ? 'USER ' : 'AGENT'
+        console.log(`${who}  ${row.content}`)
+      }
+      if (result.scheduledMessages.length === 0) {
+        console.log('')
+        console.log('SCHED  (none)')
+      } else {
+        console.log('')
+        for (const row of result.scheduledMessages) {
+          console.log(`SCHED  ${row.status} ${row.scheduledAt} ${row.content}`)
+        }
+      }
+      for (const row of result.sendCalls) {
+        if (row.sendAt != null) {
+          console.log(`SENDAT ${String(row.sendAt)} ${row.content ?? ''}`)
+        }
+      }
+      if (result.schedulingCheck) {
+        console.log(
+          `CHECK  ${result.schedulingCheck.passed ? 'pass' : 'fail'} ${result.schedulingCheck.reason}`,
+        )
+      }
+      console.log('')
+      return
+    }
+
+    const result = await sendPlaygroundTurn(ctx, workplace, {
+      handle,
+      threadId,
+      message,
+      currentTime,
+      contactId,
+      appInstallationId,
+    })
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to run playground turn')
+    }
+    if (jsonOutput) {
+      console.log(JSON.stringify(result, null, 2))
+      return
+    }
+    console.log('')
+    console.log(`THREAD ${result.threadId}`)
+    console.log(`STATUS ${result.status}`)
+    if (result.currentTime) {
+      console.log(`NOW    ${result.currentTime}`)
+    }
+    if (result.agentResponse) {
+      console.log(`AGENT  ${result.agentResponse}`)
+    } else {
+      console.log('AGENT  (no immediate SMS)')
+    }
+    if (result.scheduledMessages.length === 0) {
+      console.log('SCHED  (none)')
+    } else {
+      for (const row of result.scheduledMessages) {
+        console.log(`SCHED  ${row.status} ${row.scheduledAt} ${row.content}`)
+      }
+    }
+    if (result.schedulingCheck) {
+      console.log(
+        `CHECK  ${result.schedulingCheck.passed ? 'pass' : 'fail'} ${result.schedulingCheck.reason}`,
+      )
+    }
+    console.log('')
+  } catch (error) {
+    if (jsonOutput) {
+      console.log(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+    } else {
+      console.error(
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+    process.exit(1)
+  }
+}
+
 export async function agentsCommand(args: string[]): Promise<void> {
   const subcommand = args[0]
 
@@ -1095,6 +1361,9 @@ export async function agentsCommand(args: string[]): Promise<void> {
       break
     case 'rollback':
       await handleRollback(subArgs)
+      break
+    case 'test':
+      await handleTest(subArgs)
       break
     default:
       console.error(`Error: Unknown subcommand: ${subcommand}`)

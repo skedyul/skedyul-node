@@ -1,4 +1,10 @@
 import { z } from 'zod/v4'
+import {
+  EntityPoliciesSchema,
+  SkillExampleSchema,
+  SkillToolDefinitionSchema,
+  CRMModelFieldRequirementsSchema,
+} from './skills/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Env Variable Schemas
@@ -214,6 +220,19 @@ export const EntityFieldDefinitionSchema = z.object({
       ]),
     )
     .optional(),
+  /**
+   * AI metadata for agent tool schemas and field behavior.
+   * - description: agent-facing description (richer than UI helptext)
+   * - mutability: how freely the agent may write this field
+   */
+  aiMeta: z
+    .object({
+      description: z.string().optional(),
+      mutability: z
+        .enum(['always', 'restricted', 'create_only', 'immutable'])
+        .optional(),
+    })
+    .optional(),
 })
 
 export const EntityRelationshipDefinitionSchema = z.object({
@@ -239,6 +258,23 @@ export const EntityRuntimeToolsSchema = z.object({
   calendarWindowPull: z.string().min(1).optional(),
 })
 
+export const EntitySaveInteractionSchema = z.object({
+  handle: z.string(),
+  when: z.object({
+    onCreate: z.boolean().optional(),
+    onUpdate: z.boolean().optional(),
+    fieldsChanged: z.array(z.string()).optional(),
+    relationshipsChanged: z.array(z.string()).optional(),
+  }),
+  dialog: z.object({
+    title: z.string(),
+    message: z.string(),
+    severity: z.enum(['warning', 'info']).optional(),
+    fields: z.array(z.string()),
+    defaults: z.record(z.string(), z.string()).optional(),
+  }),
+})
+
 export const EntityDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
@@ -249,6 +285,7 @@ export const EntityDefinitionSchema = z.object({
   relationships: z.array(EntityRelationshipDefinitionSchema).optional(),
   crmMapDefaults: EntityCrmMapDefaultsSchema.optional(),
   tools: EntityRuntimeToolsSchema.optional(),
+  saveInteractions: z.array(EntitySaveInteractionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -343,6 +380,8 @@ export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
   icon: z.string().optional(),
+  /** Product logo. An https URL or an SVG data URI. */
+  iconUrl: z.string().optional(),
   /** Array of field definitions for this channel. One field must have identifier: true. */
   fields: z.array(ChannelFieldDefinitionSchema),
   // Capabilities keyed by standard type (messaging, voice, video) - all optional
@@ -1065,6 +1104,53 @@ export const BatchOperationDefinitionSchema = z.object({
   icon: z.string().optional(),
 })
 
+/**
+ * Skill definition for app provisioning.
+ * Skills are capabilities that agents can use, with entity policies
+ * defining which CRM operations the skill needs access to.
+ */
+export const ProvisionSkillDefinitionSchema = z.object({
+  /** Unique identifier for the skill */
+  handle: z.string(),
+  /** Display name */
+  name: z.string(),
+  /** Short description for skill discovery */
+  description: z.string().optional(),
+  /** Full instructions injected into agent context when skill is loaded */
+  instructions: z.string(),
+  /** Entity policies - declares which entity operations this skill needs */
+  entityPolicies: EntityPoliciesSchema.optional(),
+  /** Additional tools (MCP, system) not covered by entity policies */
+  tools: z.array(SkillToolDefinitionSchema).optional(),
+  /** CRM context - specifies which model fields to include in schema */
+  crmContext: z.object({
+    models: z.record(z.string(), CRMModelFieldRequirementsSchema),
+  }).optional(),
+  /** Few-shot examples for the skill */
+  examples: z.array(SkillExampleSchema).optional(),
+  /**
+   * Prompts forwarded onto the agent, or onto the app install when the skill
+   * is app-owned. Answers are not stored on the skill.
+   */
+  variables: z
+    .array(
+      z.object({
+        key: z.string(),
+        prompt: z.string(),
+        description: z.string().optional(),
+        required: z.boolean().optional(),
+        bind: z
+          .object({
+            tool: z.string(),
+            input: z.string(),
+          })
+          .optional(),
+        inject: z.enum(['instructions']).optional(),
+      }),
+    )
+    .optional(),
+})
+
 export const ProvisionConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
   /** INTERNAL model definitions for data shared across installs */
@@ -1082,6 +1168,8 @@ export const ProvisionConfigSchema = z.object({
   setup: z.array(SetupStepDefinitionSchema).optional(),
   /** Batch operations for imports, syncs, and long-running tasks */
   batchOperations: z.array(BatchOperationDefinitionSchema).optional(),
+  /** Skills provided by this app */
+  skills: z.array(ProvisionSkillDefinitionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1151,6 +1239,7 @@ export type EntityRelationshipDefinition = z.infer<
 >
 export type EntityCrmMapDefaults = z.infer<typeof EntityCrmMapDefaultsSchema>
 export type EntityRuntimeTools = z.infer<typeof EntityRuntimeToolsSchema>
+export type EntitySaveInteraction = z.infer<typeof EntitySaveInteractionSchema>
 export type EntityDefinition = z.infer<typeof EntityDefinitionSchema>
 export type ChannelCapabilityType = z.infer<typeof ChannelCapabilityTypeSchema>
 export type ChannelCapability = z.infer<typeof ChannelCapabilitySchema>
@@ -1162,6 +1251,7 @@ export type WebhookHandlerDefinition = z.infer<typeof WebhookHandlerDefinitionSc
 export type Webhooks = z.infer<typeof WebhooksSchema>
 export type InstallConfig = z.infer<typeof InstallConfigSchema>
 export type ProvisionConfig = z.infer<typeof ProvisionConfigSchema>
+export type ProvisionSkillDefinition = z.infer<typeof ProvisionSkillDefinitionSchema>
 export type SetupStepKind = z.infer<typeof SetupStepKindSchema>
 export type SetupStepDefinition = z.infer<typeof SetupStepDefinitionSchema>
 export type BatchPagination = z.infer<typeof BatchPaginationSchema>
@@ -1231,11 +1321,17 @@ export const MessageSendMessageSchema = z.object({
   attachments: z.array(MessageSendAttachmentSchema).optional(),
 })
 
+export const MessageSendGroupSchema = z.object({
+  identifierValue: z.string(),
+  name: z.string().optional(),
+})
+
 export const MessageSendInputSchema = z.object({
   channel: MessageSendChannelSchema,
   subscription: MessageSendSubscriptionSchema.optional(),
   contact: MessageSendContactSchema.optional(),
   recipient: MessageSendRecipientSchema.optional(),
+  group: MessageSendGroupSchema.optional(),
   message: MessageSendMessageSchema,
 })
 
@@ -1248,6 +1344,7 @@ export type MessageSendChannel = z.infer<typeof MessageSendChannelSchema>
 export type MessageSendSubscription = z.infer<typeof MessageSendSubscriptionSchema>
 export type MessageSendContact = z.infer<typeof MessageSendContactSchema>
 export type MessageSendRecipient = z.infer<typeof MessageSendRecipientSchema>
+export type MessageSendGroup = z.infer<typeof MessageSendGroupSchema>
 export type MessageSendAttachment = z.infer<typeof MessageSendAttachmentSchema>
 export type MessageSendMessage = z.infer<typeof MessageSendMessageSchema>
 export type MessageSendInput = z.infer<typeof MessageSendInputSchema>

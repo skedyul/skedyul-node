@@ -24,6 +24,7 @@ export {
   InvalidConfigurationError,
   ConnectionError,
   AppAuthInvalidError,
+  TokenRefreshRequiredError,
 } from './errors'
 export type { InstallErrorCode } from './errors'
 // Re-export zod so integrations use the same instance
@@ -344,9 +345,19 @@ export {
   SkillToolRequirementSchema,
   SkillExampleSchema,
   SkillYAMLSchema,
+  SkillEvaluatorSchema,
   SkillRefSchema,
   SkillMetadataSchema,
   ResolvedSkillSchema,
+  EntityOperationSchema,
+  EntityPoliciesSchema,
+  SkillMemorySchema,
+  SkillReplySchema,
+  SkillSettingSchema,
+  SkillVariableSchema,
+  SkillVariableBindSchema,
+  SkillToolArgumentSchema,
+  SkillToolDefinitionSchema,
   // Helper functions
   defineSkill,
   validateSkillYAML,
@@ -354,13 +365,23 @@ export {
 } from './skills'
 
 export type {
+  SkillToolArgument,
+  SkillToolDefinition,
   SkillSource,
   SkillToolRequirement,
   SkillExample,
   SkillYAML,
+  SkillEvaluator,
   SkillRef,
   SkillMetadata,
   ResolvedSkill,
+  EntityOperation,
+  EntityPolicies,
+  SkillMemory,
+  SkillReply,
+  SkillSetting,
+  SkillVariable,
+  SkillVariableBind,
 } from './skills'
 
 // ─────────────────────────────────────────────────────────────────

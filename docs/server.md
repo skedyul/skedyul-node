@@ -100,6 +100,7 @@ Dedicated mode uses the MCP SDK `StreamableHTTPServerTransport` for streaming `t
 | `POST` | `/provision` | Provision lifecycle hook |
 | `POST` | `/setup/revalidate` | Setup revalidate lifecycle hook |
 | `POST` | `/oauth_callback` | OAuth callback hook |
+| `POST` | `/refresh_token` | Refresh-token hook |
 | `POST` | `/batch-operation` | Batch operation setup/iterate (platform-invoked) |
 | `POST` | `/webhooks/{handle}` | Dynamic webhook handler |
 | `OPTIONS` | `*` | CORS preflight |
@@ -211,6 +212,7 @@ const mcpServer = server.create({
     provision: provisionHandler,
     uninstall: uninstallHandler,
     oauth_callback: oauthCallbackHandler,
+    refresh_token: refreshTokenHandler,
   },
 })
 ```

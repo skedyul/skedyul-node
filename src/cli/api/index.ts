@@ -44,6 +44,21 @@ export {
   getWorkflowRun,
 } from './workflows'
 
+export { playground } from './playground'
+export type {
+  PlaygroundSendResult,
+  PlaygroundInspectResult,
+  PlaygroundCreateResult,
+  PlaygroundTurnInput,
+  PlaygroundScheduledMessage,
+  PlaygroundSchedulingCheck,
+} from './playground'
+export {
+  sendPlaygroundTurn,
+  inspectPlaygroundSession,
+  createPlaygroundSession,
+} from './playground'
+
 export { apps } from './apps'
 export type {
   LinkAppInput,

@@ -424,6 +424,7 @@ export default defineConfig({
     provision: provisionHandler,
     uninstall: uninstallHandler,
     oauth_callback: oauthCallbackHandler,
+    refresh_token: refreshTokenHandler,
   },
 })
 ```
@@ -755,6 +756,8 @@ export default defineChannel({
 |-------|---------|
 | `string` | Tool handle for bulk send only |
 | `{ send, get_status }` | Bulk send tool + status-poll tool (`MessageBulkStatus*` schemas). Send must return `externalChunkId`; status tool accepts that id and returns per-recipient rows. |
+
+The platform invokes exactly `capabilities.messaging.send`. It does not derive a tool name from the channel handle. 1:1 sends include `subscription.identifierValue`. Group sends include `group.identifierValue` (optional `name`) on `MessageSendInput`. A channel with no `capabilities.messaging.send` is not delivered externally.
 
 When `get_status` returns `{ complete: true, mock: true, messages: [] }`, the platform treats all recipients as sent (provider skipped real delivery).
 

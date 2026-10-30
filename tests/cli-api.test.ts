@@ -8,6 +8,8 @@ import {
   listModels,
   listWorkplaces,
   pushSchema,
+  sendPlaygroundTurn,
+  inspectPlaygroundSession,
   validateWorkflow,
   validateWorkflowContent,
   type CliContext,
@@ -239,4 +241,57 @@ test('getDeployment GETs /app-deploy with log query params', async () => {
   assert.equal(calls[0].method, 'GET')
   assert.equal(result.status, 'FAILED')
   assert.equal(result.errors?.[0]?.message, 'Dockerfile not found')
+})
+
+test('sendPlaygroundTurn posts a playground send action', async () => {
+  const calls = mockFetchSequence([
+    { json: workplaceToken },
+    {
+      json: {
+        success: true,
+        threadId: 'th_1',
+        status: 'COMPLETED',
+        agentResponse: 'Hey!',
+        scheduledMessages: [],
+      },
+    },
+  ])
+  const result = await sendPlaygroundTurn(ctx, 'gym-demo', {
+    handle: 'gavin',
+    message: 'Hey',
+    currentTime: '2026-09-11T10:00:00+10:00',
+  })
+  const body = calls[1].body as {
+    action: string
+    handle: string
+    content: string
+    currentTime: string
+  }
+  assert.equal(calls[1].url, 'https://admin.skedyul.it/api/cli/playground')
+  assert.equal(body.action, 'send')
+  assert.equal(body.handle, 'gavin')
+  assert.equal(body.content, 'Hey')
+  assert.equal(body.currentTime, '2026-09-11T10:00:00+10:00')
+  assert.equal(result.threadId, 'th_1')
+})
+
+test('inspectPlaygroundSession GETs /playground', async () => {
+  const calls = mockFetchSequence([
+    { json: workplaceToken },
+    {
+      json: {
+        success: true,
+        threadId: 'th_1',
+        title: 'Playground',
+        messages: [],
+        scheduledMessages: [],
+        sendCalls: [],
+      },
+    },
+  ])
+  const result = await inspectPlaygroundSession(ctx, 'gym-demo', 'th_1')
+  assert.ok(calls[1].url.includes('/api/cli/playground?'))
+  assert.ok(calls[1].url.includes('threadId=th_1'))
+  assert.equal(calls[1].method, 'GET')
+  assert.equal(result.threadId, 'th_1')
 })

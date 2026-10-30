@@ -23,6 +23,7 @@ import { coreApiService } from '../../core/service'
 import { runWithConfig } from '../../core/client'
 import { runWithRateLimitExecutionContext } from '../../ratelimit/context'
 import { RateLimitExceededError } from '../../ratelimit/errors'
+import { AppAuthInvalidError, TokenRefreshRequiredError } from '../../errors'
 import { handleCoreMethod } from '../core-api-handler'
 import { serializeConfig } from '../config-serializer'
 import { getZodSchema, normalizeBilling } from '../utils/schema'
@@ -47,6 +48,7 @@ import {
   handleProvision,
   handleSetupRevalidate,
   handleOAuthCallback,
+  handleRefreshToken,
   parseWebhookRequest,
   executeWebhookHandler,
   isMethodAllowed,
@@ -344,6 +346,22 @@ export async function handleOAuthCallbackRoute(
   }
 
   const result = await handleOAuthCallback(parseResult.data, ctx.config.hooks)
+  return { status: result.status, body: result.body }
+}
+
+/**
+ * Handle POST /refresh_token
+ */
+export async function handleRefreshTokenRoute(
+  req: UnifiedRequest,
+  ctx: RouteContext,
+): Promise<UnifiedResponse> {
+  const parseResult = parseJsonBody(req)
+  if (!parseResult.success) {
+    return parseResult.error
+  }
+
+  const result = await handleRefreshToken(parseResult.data, ctx.config.hooks)
   return { status: result.status, body: result.body }
 }
 
@@ -1049,6 +1067,23 @@ export async function handleBatchOperationRoute(
         },
         { allowed: true, afterMs: err.retryAfterMs },
       )
+    }
+
+    if (err instanceof TokenRefreshRequiredError) {
+      return softFailureResponse({
+        code: err.code,
+        message: err.message,
+        category: 'auth',
+        ...(err.tokenKey ? { details: { tokenKey: err.tokenKey } } : {}),
+      })
+    }
+
+    if (err instanceof AppAuthInvalidError) {
+      return softFailureResponse({
+        code: err.code,
+        message: err.message,
+        category: 'auth',
+      })
     }
 
     log.error('Batch operation failed', err)

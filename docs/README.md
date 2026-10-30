@@ -17,7 +17,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 | [Configuration](./configuration.md) | `SkedyulConfig`, provision/install, models, channels, pages, env, queues, sequencers, signals |
 | [Tools](./tools.md) | MCP tool handlers, schemas, execution context, billing |
 | [Webhooks](./webhooks.md) | Webhook definitions, CALLBACK vs WEBHOOK, lifecycle hooks on channels |
-| [Lifecycle hooks](./lifecycle-hooks.md) | Install, provision, uninstall, OAuth callback |
+| [Lifecycle hooks](./lifecycle-hooks.md) | Install, provision, uninstall, OAuth callback, token refresh |
 | [Server runtime](./server.md) | `server.create()`, HTTP endpoints, dedicated vs serverless |
 | [Rate-limit queues](./rate-limit-queues.md) | `queuedFetch`, queue scopes, retry via `requeue()` |
 | [Sequencer](./sequencer.md) | `sequencer.allow/acquire/release`, stale-event dropping, short-lived locks |
@@ -28,7 +28,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 |-----|----------------|
 | [Authentication](./authentication.md) | Token types (`sk_app_*`, `sk_wkp_*`, `sk_prv_*`), `configure`, `runWithConfig` |
 | [Core API](./core-api.md) | `workplace`, `communicationChannel`, `instance`, `token`, `file`, `webhook`, `cron`, `event`, `ai`, `call`, `report`, `setup` |
-| [Errors](./errors.md) | `InstallError` hierarchy, `AppAuthInvalidError` |
+| [Errors](./errors.md) | `InstallError` hierarchy, `AppAuthInvalidError`, `TOKEN_REFRESH_REQUIRED` |
 
 ### Agents & automation
 

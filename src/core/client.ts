@@ -312,18 +312,56 @@ export interface CreateMessageType {
 
 export interface ReceiveMessageContact {
   id?: string
+  displayName?: string
+  avatarUrl?: string | null
+}
+
+export interface ReceiveMessageParticipant {
+  /** Person address on this channel (Slack user id, WhatsApp id, PSID). */
+  identifierValue: string
+  displayName?: string
+  avatarUrl?: string | null
+}
+
+export interface ReceiveMessageGroup {
+  /** Room address on this channel (WhatsApp group id, Slack channel id). */
   identifierValue?: string
+  name?: string
+  /** Staff room. Customer groups omit this. */
+  internal?: boolean
+  /**
+   * People this event knows about. A later message may name fewer people;
+   * that does not remove anyone already on the thread.
+   */
+  participants?: ReceiveMessageParticipant[]
+}
+
+export interface ReceiveMessageReferral {
+  sourceId?: string
+  adId?: string
+  url?: string
 }
 
 export interface ReceiveMessageInput {
   /** Communication channel ID */
   communicationChannelId: string
-  /** Sender's identifier (e.g., phone number, email) */
+  /** Sender's identifier (e.g., phone number, email, provider user id) */
   from: string
+  /** Receiver identifier. Defaults to the channel identifier when omitted. */
+  to?: string
   /** Message payload */
   message: CreateMessageType
   /** Optional contact metadata to associate the message */
   contact?: ReceiveMessageContact
+  /**
+   * Group chat (WhatsApp group, Slack channel). When identifierValue is set,
+   * the platform routes the message to that group thread instead of a 1:1.
+   */
+  group?: ReceiveMessageGroup
+  /** Click-to-message ad referral stored on the message. */
+  referral?: ReceiveMessageReferral
+  /** Provider thread id, such as a Slack thread_ts. */
+  threadExternalId?: string
   /** Optional remote/external message ID (provider message id) */
   remoteId?: string
   /**
@@ -455,8 +493,12 @@ export const communicationChannel = {
     const { data } = await callCore<{ messageId: string }>('communicationChannel.receiveMessage', {
       communicationChannelId: input.communicationChannelId,
       from: input.from,
+      ...(input.to ? { to: input.to } : {}),
       message: input.message,
       contact: input.contact,
+      ...(input.group ? { group: input.group } : {}),
+      ...(input.referral ? { referral: input.referral } : {}),
+      ...(input.threadExternalId ? { threadExternalId: input.threadExternalId } : {}),
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
       ...(input.expectedAttachmentCount != null
         ? { expectedAttachmentCount: input.expectedAttachmentCount }
@@ -1249,6 +1291,20 @@ export const token = {
       appInstallationId,
     })
     return { token: data.token, appInstallationId }
+  },
+
+  /**
+   * Read install-scoped environment variables for an installation this app owns.
+   *
+   * **Requires sk_app_ or sk_prv_ token.** Shared provision webhooks (one URL
+   * for every workplace) use this after `communicationChannel.list` identifies
+   * the installation. Returns APP_INSTALL variables only, decrypted.
+   */
+  async installationEnv(appInstallationId: string): Promise<Record<string, string>> {
+    const { data } = await callCore<{ env: Record<string, string> }>('token.installationEnv', {
+      appInstallationId,
+    })
+    return data.env ?? {}
   },
 }
 

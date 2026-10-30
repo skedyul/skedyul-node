@@ -99,6 +99,7 @@ function inferCategory(code: ErrorCode): ErrorCategory {
       return 'validation'
     case 'AUTH_INVALID':
     case 'AUTH_EXPIRED':
+    case 'TOKEN_REFRESH_REQUIRED':
     case 'PERMISSION_DENIED':
       return 'auth'
     case 'TIMEOUT':
@@ -217,6 +218,28 @@ export function createAuthError(
     message,
     { category: 'auth', retry: options?.retry },
   )
+}
+
+/**
+ * Ask the platform to refresh the installation access token and retry once.
+ *
+ * Do not refresh inside the tool. The platform joins one refresh per
+ * installation, persists the hook's env, then retries this call.
+ *
+ * `tokenKey` is the install env key that holds the stale access token.
+ */
+export function createTokenRefreshRequired(
+  message = 'Access token expired',
+  options?: { tokenKey?: string; details?: Record<string, unknown> },
+): ToolFailure {
+  const details = {
+    ...options?.details,
+    ...(options?.tokenKey ? { tokenKey: options.tokenKey } : {}),
+  }
+  return createErrorResponse('TOKEN_REFRESH_REQUIRED', message, {
+    category: 'auth',
+    details: Object.keys(details).length > 0 ? details : undefined,
+  })
 }
 
 /**

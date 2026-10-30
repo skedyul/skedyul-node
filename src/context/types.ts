@@ -215,7 +215,11 @@ export type MockContext = AgentContext
  * Sandbox configuration in agent YAML
  */
 export const SandboxConfigSchema = z.object({
-  enabled: z.boolean().optional(),
+  /**
+   * @deprecated Not implemented. Sandbox mode is chosen by the caller
+   * (playground, scenario replay, CLI), never by the agent file.
+   */
+  enabled: z.boolean().optional().describe('Not implemented'),
   /** @deprecated Use 'context' instead of 'mockContext' */
   mockContext: AgentContextSchema.optional(),
   context: AgentContextSchema.optional(),

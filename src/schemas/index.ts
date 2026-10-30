@@ -52,6 +52,7 @@ export {
   MemoryConfigV3Schema,
   PoliciesConfigV3Schema,
   RuntimeConfigV3Schema,
+  RoutingConfigV3Schema,
   AgentYAMLV3Schema,
   // Time Window Schemas
   TimeWindowTimeStampSchema,
@@ -93,4 +94,9 @@ export {
   // Functions
   defineAgentV3,
   validateAgentYAMLV3,
+  validateAgentRouting,
+  type RoutingConfigV3,
+  type AgentRoutingIssue,
 } from './agent-schema-v3'
+
+export { PublicListingSchema, type PublicListing } from './public-listing'

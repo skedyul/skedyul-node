@@ -135,6 +135,7 @@ interface InstallError {
 | `InvalidConfigurationError` | `INVALID_CONFIGURATION` | Yes |
 | `ConnectionError` | `CONNECTION_ERROR` | No |
 | `AppAuthInvalidError` | `APP_AUTH_INVALID` | No |
+| `TokenRefreshRequiredError` | `TOKEN_REFRESH_REQUIRED` | No |
 
 ---
 
@@ -280,36 +281,50 @@ const handler: ToolHandler<Input, Output> = async (input, context) => {
 
 ### Token Refresh Pattern
 
-```ts
-import { AppAuthInvalidError, runWithConfig } from 'skedyul'
+Do not refresh an access token inside a tool, batch operation, or webhook. Return `TOKEN_REFRESH_REQUIRED`. The platform runs the `refresh_token` hook once for that installation, persists the returned env, and retries the original call. A second `TOKEN_REFRESH_REQUIRED` on that retry, or `AppAuthInvalidError` from the hook (`invalid_grant`), marks the installation auth invalid.
 
-async function callApiWithRefresh<T>(
-  context: ToolExecutionContext,
-  apiCall: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await apiCall()
-  } catch (error) {
-    if (error.status === 401 && context.env.REFRESH_TOKEN) {
-      // Try to refresh the token
-      try {
-        const newTokens = await refreshAccessToken(context.env.REFRESH_TOKEN)
-        
-        // Update tokens in Skedyul (requires separate API call)
-        // For now, retry with new token
-        return await runWithConfig(
-          { ...context, env: { ...context.env, ACCESS_TOKEN: newTokens.access_token } },
-          apiCall,
-        )
-      } catch (refreshError) {
-        // Refresh failed - need full re-auth
-        throw new AppAuthInvalidError('Session expired. Please reconnect the app.')
-      }
-    }
-    throw error
+```ts
+import {
+  TokenRefreshRequiredError,
+  createTokenRefreshRequired,
+  AppAuthInvalidError,
+} from 'skedyul'
+
+const ACCESS_TOKEN_KEY = 'ACCESS_TOKEN'
+
+function assertAccessTokenFresh(env: Record<string, string | undefined>) {
+  const expiry = env.TOKEN_EXPIRY ? Date.parse(env.TOKEN_EXPIRY) : NaN
+  const missing = !env.ACCESS_TOKEN
+  const expiring = Number.isFinite(expiry) && expiry - Date.now() < 60_000
+  if (missing || expiring) {
+    throw new TokenRefreshRequiredError('Access token expired', {
+      tokenKey: ACCESS_TOKEN_KEY,
+    })
+  }
+}
+
+// Or return the same code without throwing:
+return createTokenRefreshRequired('Access token expired', {
+  tokenKey: ACCESS_TOKEN_KEY,
+})
+```
+
+Tool result:
+
+```json
+{
+  "success": false,
+  "output": null,
+  "error": {
+    "code": "TOKEN_REFRESH_REQUIRED",
+    "message": "Access token expired",
+    "category": "auth",
+    "details": { "tokenKey": "ACCESS_TOKEN" }
   }
 }
 ```
+
+`tokenKey` is the install env key that holds the stale access token. The platform uses it to skip a refresh that another caller already finished. The `refresh_token` hook returns only the env to persist (see [Lifecycle hooks](./lifecycle-hooks.md)). Throw `AppAuthInvalidError` from that hook when the provider rejects the refresh token. Do not throw `AppAuthInvalidError` for an expired access token that can still be refreshed.
 
 ---
 

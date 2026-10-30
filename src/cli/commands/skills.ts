@@ -3,7 +3,12 @@ import * as path from 'path'
 import { parse as parseYaml } from 'yaml'
 import { parseArgs } from '../utils'
 import { getCredentials, getServerUrl, callCliApi } from '../utils/auth'
-import { SkillYAMLSchema, validateSkillYAML, type SkillYAML } from '../../skills/types'
+import {
+  SkillYAMLSchema,
+  skillTurnToolWarnings,
+  validateSkillYAML,
+  type SkillYAML,
+} from '../../skills/types'
 import {
   exportSkillYamlToFiles,
   parseYamlMapping,
@@ -99,9 +104,13 @@ Get Options:
 Deploy Options:
   --file, -f        Path to skill definition file (.skill.yml)
   --workplace, -w   Workplace subdomain (required)
+  --app, --app-id   App id. Required for an app-owned skill. Does not create a workplace copy.
   --draft           Deploy as draft (not published)
   --label           Version label (e.g., "experiment-shorter-prompts")
+  --upload          Force multipart upload (for large files >500KB)
   --json            Output as JSON
+
+  Note: Files larger than 500KB automatically use multipart upload.
 
 Export Options:
   --file, -f        Path to a skill YAML blob
@@ -111,6 +120,7 @@ Export Options:
 Publish Options:
   --workplace, -w   Workplace subdomain (required)
   --version, -v     Version number to publish (required)
+  --app, --app-id   App id. Required for an app-owned skill.
   --json            Output as JSON
 
 Versions Options:
@@ -126,8 +136,10 @@ Examples:
   skedyul skills get sales-qualification -w crux
   skedyul skills deploy -f ./skills/sales-qualification.skill.yml -w crux
   skedyul skills deploy -f ./skills/sales-v2.skill.yml -w crux --draft
+  skedyul skills deploy -f ./skills/closing.skill.yml -w crux --app app_123
   skedyul skills export -f ./sales.skill.yml --dir ./integrations/bft
   skedyul skills publish sales-qualification -w crux -v 2
+  skedyul skills publish sales-qualification -w crux -v 2 --app app_123
   skedyul skills versions sales-qualification -w crux
   skedyul skills delete sales-qualification -w crux
 `)
@@ -189,6 +201,10 @@ async function loadSkillFile(filePath: string): Promise<{ skill: SkillYAML; cont
       .map((e) => `  - ${String(e.path.join('.')) || '(root)'}: ${e.message}`)
       .join('\n')
     throw new Error(`Skill validation failed:\n${errorMessages}`)
+  }
+
+  for (const warning of skillTurnToolWarnings(validation.data)) {
+    console.warn(`Warning: ${warning}`)
   }
 
   return { skill: validation.data, content }
@@ -407,6 +423,9 @@ async function handleExport(args: string[]): Promise<void> {
   }
 }
 
+// Threshold for using multipart upload (500KB)
+const MULTIPART_THRESHOLD = 500 * 1024
+
 async function handleDeploy(args: string[]): Promise<void> {
   const { flags } = parseArgs(args)
 
@@ -415,6 +434,8 @@ async function handleDeploy(args: string[]): Promise<void> {
   const isDraft = Boolean(flags.draft)
   const versionLabel = flags.label as string | undefined
   const jsonOutput = Boolean(flags.json)
+  const forceUpload = Boolean(flags.upload)
+  const appId = (flags.app || flags['app-id']) as string | undefined
 
   if (!filePath) {
     console.error('Error: --file (-f) is required')
@@ -457,38 +478,43 @@ async function handleDeploy(args: string[]): Promise<void> {
     process.exit(1)
   }
 
+  const fileSize = Buffer.byteLength(content, 'utf8')
+  const useMultipart = forceUpload || fileSize > MULTIPART_THRESHOLD
+
   if (!jsonOutput) {
     console.log('')
     console.log(`Deploying skill "${skill.name}" to ${workplace}${isDraft ? ' (draft)' : ''}`)
+    if (useMultipart) {
+      console.log(`  Using multipart upload (${(fileSize / 1024).toFixed(1)} KB)`)
+    }
     console.log('')
   }
 
   try {
-    const response = await fetch(`${serverUrl}/api/cli/skills`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        action: 'deploy',
+    let result: DeployResponse
+
+    if (useMultipart) {
+      result = await deploySkillMultipart({
+        serverUrl,
+        token,
         workplaceId: workplaceToken.workplaceId,
-        yamlContent: content,
+        filePath,
+        content,
         publish: !isDraft,
         versionLabel,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string; details?: Array<{ path: string; message: string }> }
-      if (errorData.details) {
-        const detailsStr = errorData.details.map((d) => `  - ${d.path}: ${d.message}`).join('\n')
-        throw new Error(`${errorData.error}\n${detailsStr}`)
-      }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+        appId,
+      })
+    } else {
+      result = await deploySkillJson({
+        serverUrl,
+        token,
+        workplaceId: workplaceToken.workplaceId,
+        content,
+        publish: !isDraft,
+        versionLabel,
+        appId,
+      })
     }
-
-    const result = await response.json() as DeployResponse
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to deploy skill')
@@ -519,6 +545,86 @@ async function handleDeploy(args: string[]): Promise<void> {
   }
 }
 
+async function deploySkillJson(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  content: string
+  publish: boolean
+  versionLabel?: string
+  appId?: string
+}): Promise<DeployResponse> {
+  const response = await fetch(`${params.serverUrl}/api/cli/skills`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: JSON.stringify({
+      action: 'deploy',
+      workplaceId: params.workplaceId,
+      yamlContent: params.content,
+      publish: params.publish,
+      versionLabel: params.versionLabel,
+      appId: params.appId,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string; details?: Array<{ path: string; message: string }> }
+    if (errorData.details) {
+      const detailsStr = errorData.details.map((d) => `  - ${d.path}: ${d.message}`).join('\n')
+      throw new Error(`${errorData.error}\n${detailsStr}`)
+    }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json() as Promise<DeployResponse>
+}
+
+async function deploySkillMultipart(params: {
+  serverUrl: string
+  token: string
+  workplaceId: string
+  filePath: string
+  content: string
+  publish: boolean
+  versionLabel?: string
+  appId?: string
+}): Promise<DeployResponse> {
+  const formData = new FormData()
+
+  const blob = new Blob([params.content], { type: 'text/yaml' })
+  const fileName = path.basename(params.filePath)
+  formData.append('file', blob, fileName)
+
+  formData.append('metadata', JSON.stringify({
+    workplaceId: params.workplaceId,
+    publish: params.publish,
+    versionLabel: params.versionLabel,
+    appId: params.appId,
+  }))
+
+  const response = await fetch(`${params.serverUrl}/api/cli/skills/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string; details?: Array<{ path: string; message: string }> }
+    if (errorData.details) {
+      const detailsStr = errorData.details.map((d) => `  - ${d.path}: ${d.message}`).join('\n')
+      throw new Error(`${errorData.error}\n${detailsStr}`)
+    }
+    throw new Error(errorData.error || `Request failed: ${response.statusText}`)
+  }
+
+  return response.json() as Promise<DeployResponse>
+}
+
 async function handlePublish(args: string[]): Promise<void> {
   const { flags, positional } = parseArgs(args)
 
@@ -526,6 +632,7 @@ async function handlePublish(args: string[]): Promise<void> {
   const workplace = (flags.workplace || flags.w) as string | undefined
   const version = (flags.version || flags.v) as string | number | undefined
   const jsonOutput = Boolean(flags.json)
+  const appId = (flags.app || flags['app-id']) as string | undefined
 
   if (!handle) {
     console.error('Error: Skill handle is required')
@@ -575,6 +682,7 @@ async function handlePublish(args: string[]): Promise<void> {
         workplaceId: workplaceToken.workplaceId,
         handle,
         version: versionNum,
+        appId,
       }),
     })
 

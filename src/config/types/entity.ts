@@ -72,6 +72,22 @@ export interface EntityFieldDefinition {
   definition?: string
   /** Enum options when the source value is constrained */
   options?: FieldOption[] | string[]
+  /**
+   * AI agent metadata: description for agents and mutability constraints.
+   * Used by CRM install to set field metadata when creating/updating fields.
+   */
+  aiMeta?: {
+    /** Agent-facing description of what the field represents */
+    description?: string
+    /**
+     * Mutability constraint:
+     * - 'always': field can always be modified
+     * - 'restricted': field has some restrictions on modification
+     * - 'create_only': field can only be set at creation time
+     * - 'immutable': field cannot be modified after creation
+     */
+    mutability?: 'always' | 'restricted' | 'create_only' | 'immutable'
+  }
 }
 
 /**
@@ -118,6 +134,30 @@ export interface EntityDefinition extends BaseDefinition {
    * as channel `capabilities.messaging.send` + MessageSendInput.
    */
   tools?: EntityRuntimeTools
+  /**
+   * Generic pre-save dialogs. Core/web render configured fields; the app
+   * declares copy, options, and when to show. Answers go on the CRM event
+   * envelope under the app handle (not into CRM scalar fields).
+   */
+  saveInteractions?: EntitySaveInteractionDefinition[]
+}
+
+export interface EntitySaveInteractionDefinition {
+  handle: string
+  when: {
+    onCreate?: boolean
+    onUpdate?: boolean
+    fieldsChanged?: string[]
+    relationshipsChanged?: string[]
+  }
+  dialog: {
+    title: string
+    message: string
+    severity?: 'warning' | 'info'
+    /** Entity / contextField handles to render (type + options come from the entity). */
+    fields: string[]
+    defaults?: Record<string, string>
+  }
 }
 
 /**

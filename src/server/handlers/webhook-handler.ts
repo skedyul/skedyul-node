@@ -15,6 +15,7 @@ import { runWithLogContext } from '../context-logger'
 import { runWithRateLimitExecutionContext } from '../../ratelimit/context'
 import { isRuntimeWebhookContext } from '../../types/webhook'
 import { createContextLogger } from '../logger'
+import { AppAuthInvalidError, TokenRefreshRequiredError } from '../../errors'
 
 /**
  * Parsed webhook request data.
@@ -186,6 +187,35 @@ export async function executeWebhookHandler(
       })
     })
   } catch (err) {
+    if (err instanceof TokenRefreshRequiredError) {
+      return {
+        status: 200,
+        body: {
+          success: false,
+          error: {
+            code: err.code,
+            message: err.message,
+            category: 'auth',
+            ...(err.tokenKey ? { details: { tokenKey: err.tokenKey } } : {}),
+          },
+        },
+      }
+    }
+
+    if (err instanceof AppAuthInvalidError) {
+      return {
+        status: 200,
+        body: {
+          success: false,
+          error: {
+            code: err.code,
+            message: err.message,
+            category: 'auth',
+          },
+        },
+      }
+    }
+
     console.error(`Webhook handler '${handle}' error:`, err)
     return {
       status: 500,

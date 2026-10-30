@@ -20,6 +20,7 @@ export type ServerHookHandle =
   | 'install'
   | 'uninstall'
   | 'oauth_callback'
+  | 'refresh_token'
   | 'setup.revalidate'
 
 /**
@@ -45,7 +46,7 @@ export interface InvocationContext {
   batchOperationMethod?: 'setup' | 'iterate'
 
   // Server hook context
-  /** Hook type: "provision", "install", "uninstall", "oauth_callback", "setup.revalidate" */
+  /** Hook type: "provision", "install", "uninstall", "oauth_callback", "refresh_token", "setup.revalidate" */
   serverHookHandle?: ServerHookHandle
 
   // App installation context
