@@ -7,9 +7,22 @@ Skedyul supports two agent configuration models plus YAML-based skills and event
 | Model | Where defined | Deployed via | Use case |
 |-------|---------------|--------------|----------|
 | **Provision agents** | `skedyul.config.ts` → `defineAgent()` | App version deploy | Simple multi-tenant agents bound to app tools |
-| **Agent YAML v3** | `agents/*.yaml` | `skedyul agents deploy` | Skills-based autonomous agents per workplace |
-| **Skills** | `skills/*.yaml` | `skedyul skills deploy` | Reusable capability bundles that own tools. Pass `--app <appId>` for an app-owned skill. |
+| **App agent YAML v3** | `agents/<handle>/` + `skills/<handle>/` in the integration app repo | GitHub AppVersion provision (or Dev tarball) | Large app-owned agents; git diffs, no MCP YAML upload |
+| **Workplace agent YAML v3** | `agents/*.yaml` | `skedyul agents deploy` | Skills-based autonomous agents per workplace |
+| **Workplace skills** | `skills/*.yaml` | `skedyul skills deploy` | Reusable workplace capability bundles. Pass `--app <appId>` only while the platform still accepts app-scoped YAML. |
 | **Workflow YAML v2** | `workflows/*.yaml` | `skedyul workflows deploy` | Event-driven automation with steps |
+
+App-owned v3 agents and skills live under the app `projectDirectory`:
+
+```
+skills/<handle>/skill.yml
+skills/<handle>/instructions.md
+skills/<handle>/examples/<name>.yml
+agents/<handle>/agent.yml
+agents/<handle>/scenarios/<name>.yml
+```
+
+Skill refs on app agents stay `@app/skills/handle`. Invalid trees fail CHECK / RELEASE the same way a bad `skedyul.config.ts` does. `skills_deploy` / `agents_deploy` with app scope is rejected — use `skedyul skills export --file … --dir <app>` / `skedyul agents export --file … --dir <app>` to split a YAML blob into that layout, then commit and provision.
 
 ---
 
@@ -197,6 +210,7 @@ behavior:
 | `bullets` | `keep` | `dash` turns bullet leaders into "- ", `strip` removes them |
 | `dashes` | `keep` | `comma` turns em and en dashes into commas, `strip` removes them |
 | `plainPunctuation` | `false` | Straight quotes, three-dot ellipsis, no space before punctuation |
+| `spelling` | none | Locale tag stated to the model. The text is not rewritten. `en-AU` is Australian English; `en-GB`, `en-US`, `en-CA`, and `en-NZ` are named the same way. Any other tag, such as `fr-FR`, is "Write in fr-FR." |
 
 `behavior.timeGaps.acknowledge` (`false` by default) mentions a long gap since the last message. `threshold` is that gap, for example `"3 days"`.
 
@@ -286,6 +300,30 @@ instructions: |
 ```
 
 Skill settings render only for an agent that uses Liquid setting references.
+
+### Variables
+
+`variables` are prompts the skill forwards onto the agent that loads it. The skill does not store the answers. A workplace-owned skill is filled on that agent's Variables page in the developer console. An app-owned skill is filled on the app install, once for every agent in the workplace that loads it.
+
+`{{key}}` in `instructions` and `tools[].description` is replaced with the saved answer. A `bind` forces that answer onto the named tool argument when the tool runs. `inject: instructions` appends the answer when the instructions do not already contain `{{key}}`.
+
+```yaml
+variables:
+  - key: calendars
+    prompt: Which calendars should this clinic book into?
+    description: Exact calendar names, one per line.
+    required: true
+    bind:
+      tool: app:petbooqz:calendar_slots_availability_list
+      input: calendars
+  - key: reasonGuidance
+    prompt: How should the appointment reason be written?
+    description: For example, all capitals, or a code such as CHECKUP.
+    inject: instructions
+instructions: |
+  Search only these calendars: {{calendars}}
+  Write the reason like this: {{reasonGuidance}}
+```
 
 `guidance`, `emptyGuidance` and `role: persona_name` on a setting row are deprecated. An agent that still uses them and has no Liquid setting references keeps the older behavior, where every setting prints under "Workplace settings". Mixing them with Liquid references is a deploy error.
 

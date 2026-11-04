@@ -380,6 +380,8 @@ export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
   icon: z.string().optional(),
+  /** Product logo. An https URL or an SVG data URI. */
+  iconUrl: z.string().optional(),
   /** Array of field definitions for this channel. One field must have identifier: true. */
   fields: z.array(ChannelFieldDefinitionSchema),
   // Capabilities keyed by standard type (messaging, voice, video) - all optional
@@ -1126,6 +1128,27 @@ export const ProvisionSkillDefinitionSchema = z.object({
   }).optional(),
   /** Few-shot examples for the skill */
   examples: z.array(SkillExampleSchema).optional(),
+  /**
+   * Prompts forwarded onto the agent, or onto the app install when the skill
+   * is app-owned. Answers are not stored on the skill.
+   */
+  variables: z
+    .array(
+      z.object({
+        key: z.string(),
+        prompt: z.string(),
+        description: z.string().optional(),
+        required: z.boolean().optional(),
+        bind: z
+          .object({
+            tool: z.string(),
+            input: z.string(),
+          })
+          .optional(),
+        inject: z.enum(['instructions']).optional(),
+      }),
+    )
+    .optional(),
 })
 
 export const ProvisionConfigSchema = z.object({

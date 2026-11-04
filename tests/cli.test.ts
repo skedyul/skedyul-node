@@ -401,3 +401,39 @@ test('findRegistryPath finds src/registries.ts before src/registry.ts', () => {
   fs.rmSync(tmpDir, { recursive: true })
 })
 
+import {
+  exportSkillYamlToFiles,
+  exportAgentYamlToFiles,
+  writeDocumentFiles,
+} from '../src/cli/utils/exportDocumentTree'
+
+test('exportSkillYamlToFiles splits instructions and examples', () => {
+  const files = exportSkillYamlToFiles({
+    handle: 'booking',
+    name: 'Booking',
+    instructions: 'Ask for a day.\n',
+    examples: [{ name: 'Morning', input: 'hi', output: 'hello' }],
+  })
+  assert.ok(files['skills/booking/skill.yml']?.includes('name: Booking'))
+  assert.equal(files['skills/booking/instructions.md'], 'Ask for a day.\n')
+  assert.ok(files['skills/booking/examples/morning.yml']?.includes('input: hi'))
+})
+
+test('exportAgentYamlToFiles writes scenarios beside agent.yml', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-export-'))
+  const files = exportAgentYamlToFiles(
+    { handle: '@bft/bft-agent', name: 'BFT Agent' },
+    [{ name: 'Greeting', prompt: 'Hi' }],
+  )
+  const written = writeDocumentFiles(tmpDir, files)
+  assert.deepEqual(written.sort(), [
+    'agents/bft-agent/agent.yml',
+    'agents/bft-agent/scenarios/greeting.yml',
+  ])
+  assert.match(
+    fs.readFileSync(path.join(tmpDir, 'agents/bft-agent/agent.yml'), 'utf8'),
+    /name: BFT Agent/,
+  )
+  fs.rmSync(tmpDir, { recursive: true })
+})
+

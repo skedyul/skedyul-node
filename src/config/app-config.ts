@@ -81,6 +81,25 @@ export interface ProvisionConfig {
    * Seeded as AppInstallSetupStep rows; exposed via setup.* Core API.
    */
   setup?: SetupStepDefinition[]
+  /**
+   * Skills this app provides. Prompts in `variables` are filled on the install.
+   */
+  skills?: Array<{
+    handle: string
+    name: string
+    description?: string
+    instructions: string
+    tools?: unknown[]
+    examples?: unknown[]
+    variables?: Array<{
+      key: string
+      prompt: string
+      description?: string
+      required?: boolean
+      bind?: { tool: string; input: string }
+      inject?: 'instructions'
+    }>
+  }>
 }
 
 /**

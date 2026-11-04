@@ -661,6 +661,15 @@ export const MessageRulesV3Schema = z.object({
    * @default false
    */
   plainPunctuation: z.boolean().optional(),
+  /**
+   * Locale stated to the model (`en`, `en-AU`, `fr-FR`). Known English tags
+   * are named in the prompt; any other tag is "Write in {tag}." The outbound
+   * text is not rewritten. Unset leaves spelling to the model.
+   */
+  spelling: z
+    .string()
+    .regex(/^[a-z]{2,3}(?:-[A-Z]{2})?$/)
+    .optional(),
 })
 
 export type MessageRulesV3 = z.infer<typeof MessageRulesV3Schema>
