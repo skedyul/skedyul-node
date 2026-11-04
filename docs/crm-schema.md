@@ -273,6 +273,8 @@ The CLI prompts for migration approval interactively. In CI, use `--yes` only wh
 
 Pages and navigation in a schema file are accepted for compatibility but are **not** applied or exported (they are UI-managed).
 
+Workplace list pages support view types `spreadsheet`, `kanban`, `calendar`, and `map`. Map view plots pins from two NUMBER fields (`latitude` / `longitude`) chosen in layout options — it is not a new geo field type. Declaring `type: 'map'` on a page block requires this SDK version.
+
 ---
 
 ## Working with instances
