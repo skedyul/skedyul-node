@@ -281,6 +281,7 @@ skedyul agents list --workplace <subdomain>
 skedyul agents get <handle> --workplace <subdomain>
 skedyul agents deploy --file ./agents/booking.yaml --workplace <subdomain>
 skedyul agents deploy --file ./agents/booking.yaml --workplace <subdomain> --draft
+skedyul agents export --file ./booking.agent.yml --dir ./integrations/bft
 skedyul agents publish --version <versionId> --workplace <subdomain>
 skedyul agents versions <handle> --workplace <subdomain>
 skedyul agents ab --v1 90 --v2 10 --workplace <subdomain>
@@ -291,6 +292,7 @@ skedyul agents rollback --to <versionId> --workplace <subdomain>
 |------|-------------|
 | `--workplace, -w` | Workplace subdomain |
 | `--file, -f` | Agent YAML file |
+| `--dir` | App `projectDirectory` for `export` (writes `agents/<handle>/`) |
 | `--draft` | Create as draft version |
 | `--version, -v` | Version ID for publish/run |
 | `--weight` | Traffic weight for publish |
@@ -309,6 +311,8 @@ skedyul skills list --workplace <subdomain>
 skedyul skills get <handle> --workplace <subdomain>
 skedyul skills deploy --file ./skills/scheduling.yaml --workplace <subdomain>
 skedyul skills deploy --file ./skills/closing.yaml --workplace <subdomain> --app <appId>
+skedyul skills export --file ./scheduling.skill.yml --dir ./integrations/bft
+skedyul skills publish --version <versionId> --workplace <subdomain>
 skedyul skills publish <handle> --version <version> --workplace <subdomain> --app <appId>
 skedyul skills versions <handle> --workplace <subdomain>
 skedyul skills delete <handle> --workplace <subdomain>
@@ -318,7 +322,8 @@ skedyul skills delete <handle> --workplace <subdomain>
 |------|-------------|
 | `--workplace, -w` | Workplace subdomain |
 | `--file, -f` | Skill YAML file |
-| `--app`, `--app-id` | App id for an app-owned skill. Required when that handle already belongs to an app. Writes the app skill. Omitting it is rejected and does not create a workplace skill. |
+| `--dir` | App `projectDirectory` for `export` (writes `skills/<handle>/`) |
+| `--app`, `--app-id` | App id for an app-owned skill. Required when that handle already belongs to an app. Writes the app skill. Omitting it is rejected and does not create a workplace skill. Prefer `export --dir` and AppVersion provision once the platform rejects app-scoped YAML. |
 | `--draft` | Create as draft |
 | `--label` | Version label |
 | `--version, -v` | Version number (required for publish) |
