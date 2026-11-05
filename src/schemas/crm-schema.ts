@@ -49,6 +49,8 @@ export const CRMFieldOptionSchema = z.object({
   label: z.string(),
   value: z.string(),
   color: z.string().optional(),
+  /** Lucide icon name in PascalCase (e.g. Dumbbell) */
+  icon: z.string().optional(),
 })
 
 export type CRMFieldOption = z.infer<typeof CRMFieldOptionSchema>

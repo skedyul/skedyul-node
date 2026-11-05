@@ -135,6 +135,24 @@ Use `requirement` (not a boolean `required` flag):
 
 Downloaded schemas always include `requirement` on every field so upload can round-trip without guessing defaults.
 
+### Field options
+
+Each entry in `definition.options` accepts:
+
+| Property | Required | Meaning |
+|----------|----------|---------|
+| `label` | Yes | Display text |
+| `value` | Yes | Stored value |
+| `color` | No | Color for the option's indicator (e.g. `green`) |
+| `icon` | No | Lucide icon name in PascalCase (e.g. `Dumbbell`). UIs fall back to the color dot when unset. |
+
+```typescript
+options: [
+  { label: 'Basic', value: 'basic', color: 'blue' },
+  { label: 'Premium', value: 'premium', color: 'green', icon: 'Dumbbell' },
+]
+```
+
 ### Field sections (visualization)
 
 Optional `section` on a field is a workplace-scoped handle used only to organize fields in CRM UI lists (model node, list-page column chips, Add Field menu). It does not affect forms, validation, or queries.

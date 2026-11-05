@@ -103,4 +103,6 @@ export interface FieldOption {
   value: string
   /** Optional color for status indicators (e.g., 'yellow', 'green', 'red') */
   color?: string
+  /** Optional Lucide icon name in PascalCase (e.g., 'Dumbbell'). UIs fall back to the color dot when unset. */
+  icon?: string
 }

@@ -596,6 +596,8 @@ export default defineModel({
 
 Optional field `section` is a workplace-scoped handle that groups fields in CRM visualization UIs (model node, list chips, Add Field). See [CRM schema — Field sections](./crm-schema.md#field-sections-visualization).
 
+Field options take `label` and `value`, plus optional `color` and `icon`. `icon` is a Lucide icon name in PascalCase (e.g. `Dumbbell`), and UIs fall back to the color dot when it is unset. See [CRM schema — Field options](./crm-schema.md#field-options).
+
 ### Model Scopes
 
 | Scope | Description | Use Case |

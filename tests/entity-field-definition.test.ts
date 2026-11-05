@@ -2,9 +2,42 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   CalendarWindowPullInputSchema,
+  CRMFieldOptionSchema,
   EntityDefinitionSchema,
   EntityFieldDefinitionSchema,
+  FieldOptionSchema,
+  InlineFieldDefinitionSchema,
 } from '../src/schemas'
+import type { FieldOption } from '../src/config/types/base'
+
+// Typed so the test stops compiling if FieldOption loses icon.
+const optionWithIcon: FieldOption = {
+  label: 'Strength',
+  value: 'strength',
+  color: 'blue',
+  icon: 'Dumbbell',
+}
+
+test('FieldOptionSchema keeps icon after parse', () => {
+  assert.deepEqual(FieldOptionSchema.parse(optionWithIcon), optionWithIcon)
+})
+
+test('InlineFieldDefinitionSchema keeps icon on nested options', () => {
+  const parsed = InlineFieldDefinitionSchema.parse({ options: [optionWithIcon] })
+
+  assert.equal(parsed.options?.[0]?.icon, 'Dumbbell')
+})
+
+test('CRMFieldOptionSchema keeps icon after parse', () => {
+  assert.deepEqual(CRMFieldOptionSchema.parse(optionWithIcon), optionWithIcon)
+})
+
+test('option schemas leave icon undefined when it is not declared', () => {
+  const option = { label: 'Cardio', value: 'cardio' }
+
+  assert.equal(FieldOptionSchema.parse(option).icon, undefined)
+  assert.equal(CRMFieldOptionSchema.parse(option).icon, undefined)
+})
 
 test('EntityFieldDefinitionSchema keeps a global definition handle', () => {
   const parsed = EntityFieldDefinitionSchema.parse({
