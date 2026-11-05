@@ -830,6 +830,33 @@ export const AgentEventsConfigV3Schema = EventsConfigSchema.extend({
 export type AgentEventsConfigV3 = z.infer<typeof AgentEventsConfigV3Schema>
 
 /**
+ * One collaboration situation. `blocking` defaults to true when omitted.
+ * A scenario may set `threadId` when that situation uses a different staff chat.
+ */
+export const CollaborationSituationV3Schema = z.object({
+  prompt: z.string().min(1),
+  blocking: z.boolean().optional(),
+  threadId: z.string().min(1).optional(),
+})
+
+export type CollaborationSituationV3 = z.infer<typeof CollaborationSituationV3Schema>
+
+/**
+ * Staff collaboration. Every situation opens a case on one staff chat.
+ * `blocking: true` holds the member channel until a human reply.
+ * `blocking: false` lets that channel continue.
+ */
+export const CollaborationConfigV3Schema = z.object({
+  threadId: z.string().min(1),
+  fallback: CollaborationSituationV3Schema.omit({ threadId: true }),
+  scenarios: z
+    .record(z.string().min(1), CollaborationSituationV3Schema)
+    .optional(),
+})
+
+export type CollaborationConfigV3 = z.infer<typeof CollaborationConfigV3Schema>
+
+/**
  * Full Agent YAML v3 Schema
  *
  * This schema removes stages and uses skills instead.
@@ -913,6 +940,12 @@ export const AgentYAMLV3Schema = z.object({
 
   // Sandbox - Testing configuration
   sandbox: SandboxConfigSchema.optional(),
+
+  /**
+   * Staff collaboration. Fallback plus named scenarios. Each opens a case.
+   * `blocking` holds or releases the member channel.
+   */
+  collaboration: CollaborationConfigV3Schema.optional(),
 })
 
 export type AgentYAMLV3 = z.infer<typeof AgentYAMLV3Schema>
@@ -930,6 +963,23 @@ export function defineAgentV3(agent: AgentYAMLV3): AgentYAMLV3 {
 export function validateAgentYAMLV3(
   agent: unknown,
 ): { success: true; data: AgentYAMLV3 } | { success: false; error: z.ZodError } {
+  if (agent && typeof agent === 'object' && !Array.isArray(agent)) {
+    const record = agent as Record<string, unknown>
+    const retired = (['guidance', 'consultations'] as const).filter((key) => key in record)
+    if (retired.length > 0) {
+      return {
+        success: false,
+        error: new z.ZodError(
+          retired.map((key) => ({
+            code: 'custom' as const,
+            path: [key],
+            message: `\`${key}\` is not a collaboration block. Use \`collaboration\` with fallback, scenarios, and blocking.`,
+            input: record[key],
+          })),
+        ),
+      }
+    }
+  }
   const result = AgentYAMLV3Schema.safeParse(agent)
   if (!result.success) {
     return { success: false, error: result.error }
