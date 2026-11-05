@@ -14,6 +14,7 @@ import type {
   EntityDefinition,
   RelationshipDefinition,
   ChannelDefinition,
+  ConsentConfig,
   WorkflowDefinition,
   PageDefinition,
   NavigationConfig,
@@ -68,6 +69,11 @@ export interface ProvisionConfig {
   relationships?: RelationshipDefinition[]
   /** Communication channel definitions */
   channels?: ChannelDefinition[]
+  /**
+   * Consent dimensions this app can apply to installed channels.
+   * Workplaces choose the channel bindings. Unbound dimensions do nothing.
+   */
+  consent?: ConsentConfig
   /** Workflow definitions */
   workflows?: WorkflowDefinition[]
   /** Base navigation configuration for all pages (can be overridden per page) */

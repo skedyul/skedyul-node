@@ -820,6 +820,33 @@ List and retrieve report definitions and generated reports.
 
 ---
 
+## consent
+
+Apply an app consent report to the channels a workplace bound for that dimension. Requires a workplace token (`sk_wkp_`).
+
+### consent.apply()
+
+```ts
+import { consent } from 'skedyul'
+
+const { applied } = await consent.apply({
+  dimension: 'sms',
+  identifier: '+61400000000',
+  status: 'opt_out',
+})
+```
+
+| Name | Type | Description |
+|------|------|-------------|
+| `dimension` | `string` | Handle from `defineConsent` |
+| `identifier` | `string` | Email or phone stored on the subscription |
+| `status` | `'opt_in' \| 'opt_out' \| null` | `null` writes nothing |
+| `purpose` | `'marketing' \| 'communication'` | Optional. Defaults from the dimension, which defaults to `marketing` |
+
+`opt_out` on a marketing dimension denies marketing only. Service messages on that channel still send. Unbound dimensions return `{ applied: 0 }`.
+
+---
+
 ## setup
 
 Install-scoped setup checklist (requires a workplace token `sk_wkp_`). Steps are

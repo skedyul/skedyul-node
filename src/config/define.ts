@@ -19,6 +19,7 @@
 import type { ModelDefinition } from './types/model'
 import type { EntityDefinition } from './types/entity'
 import type { ChannelDefinition } from './types/channel'
+import type { ConsentConfig } from './types/consent'
 import type { PageDefinition } from './types/page'
 import type { WorkflowDefinition } from './types/workflow'
 import type { AgentDefinition } from './types/agent'
@@ -86,6 +87,24 @@ export function defineEntity(entity: EntityDefinition): EntityDefinition {
  */
 export function defineChannel(channel: ChannelDefinition): ChannelDefinition {
   return channel
+}
+
+/**
+ * Declare the consent dimensions an app can report.
+ *
+ * Each dimension is bound to installed channels by the workplace. Unbound
+ * dimensions do nothing. `purpose` defaults to `marketing`.
+ *
+ * @example
+ * export default defineConsent({
+ *   dimensions: [
+ *     { handle: 'sms', label: 'SMS', identifierKind: 'phone', purpose: 'marketing' },
+ *     { handle: 'email', label: 'Email', identifierKind: 'email', purpose: 'marketing' },
+ *   ],
+ * })
+ */
+export function defineConsent(consent: ConsentConfig): ConsentConfig {
+  return consent
 }
 
 /**

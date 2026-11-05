@@ -35,6 +35,7 @@ export {
   defineModel,
   defineEntity,
   defineChannel,
+  defineConsent,
   definePage,
   defineWorkflow,
   defineAgent,

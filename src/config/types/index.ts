@@ -22,6 +22,9 @@ export * from './entity'
 // Channels
 export * from './channel'
 
+// Consent dimensions
+export * from './consent'
+
 // Workflows
 export * from './workflow'
 

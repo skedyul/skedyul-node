@@ -14,7 +14,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 
 | Doc | What it covers |
 |-----|----------------|
-| [Configuration](./configuration.md) | `SkedyulConfig`, provision/install, models, channels, pages, env, queues, sequencers, signals |
+| [Configuration](./configuration.md) | `SkedyulConfig`, provision/install, models, channels, consent, pages, env, queues, sequencers, signals |
 | [Tools](./tools.md) | MCP tool handlers, schemas, execution context, billing |
 | [Webhooks](./webhooks.md) | Webhook definitions, CALLBACK vs WEBHOOK, lifecycle hooks on channels |
 | [Lifecycle hooks](./lifecycle-hooks.md) | Install, provision, uninstall, OAuth callback, token refresh |
@@ -27,7 +27,7 @@ Documentation for the `skedyul` npm package (source: [skedyul/skedyul-node](http
 | Doc | What it covers |
 |-----|----------------|
 | [Authentication](./authentication.md) | Token types (`sk_app_*`, `sk_wkp_*`, `sk_prv_*`), `configure`, `runWithConfig` |
-| [Core API](./core-api.md) | `workplace`, `communicationChannel`, `instance`, `token`, `file`, `webhook`, `cron`, `event`, `ai`, `call`, `report`, `setup` |
+| [Core API](./core-api.md) | `workplace`, `communicationChannel`, `instance`, `token`, `file`, `webhook`, `cron`, `event`, `ai`, `call`, `report`, `setup`, `consent` |
 | [Errors](./errors.md) | `InstallError` hierarchy, `AppAuthInvalidError`, `TOKEN_REFRESH_REQUIRED` |
 
 ### Agents & automation

@@ -691,6 +691,30 @@ export { default as relationships } from './relationships'
 
 ---
 
+## Consent
+
+Declare consent dimensions with `defineConsent` and pass them on `provision.consent`. A workplace binds each dimension to installed channels. Unbound dimensions do nothing. `purpose` defaults to `marketing`.
+
+```ts
+import { defineConfig, defineConsent } from 'skedyul'
+
+const consent = defineConsent({
+  dimensions: [
+    { handle: 'email', label: 'Email', identifierKind: 'email', purpose: 'marketing' },
+    { handle: 'sms', label: 'SMS', identifierKind: 'phone', purpose: 'marketing' },
+  ],
+})
+
+export default defineConfig({
+  name: 'Acme',
+  provision: { consent },
+})
+```
+
+Report a change with `consent.apply`. `status: null` does not write. `opt_out` on a marketing dimension denies marketing only, so service messages on that channel still send. See [Core API](./core-api.md#consent).
+
+Channel fields map the address used to find the subscription. Opt-in is not a channel field.
+
 ## Channels
 
 Define communication channels using `defineChannel`:
@@ -715,15 +739,6 @@ export default defineChannel({
         list: true,
         filters: true,
       },
-    },
-    {
-      handle: 'opt_in',
-      label: 'Opt In',
-      definitionHandle: 'system/opt_in',
-      required: false,
-      default: ['OPT_IN'],
-      visibility: { data: true, list: true, filters: true },
-      permissions: { read: true, write: true },
     },
   ],
 

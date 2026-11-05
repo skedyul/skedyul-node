@@ -14,7 +14,7 @@ The official Node.js SDK for building [Skedyul](https://skedyul.com) integration
 | **CRM models** | App-owned (internal) and user-mapped (shared) data models |
 | **Agents (v3)** | Workplace YAML via `skedyul agents deploy`, or app-owned `agents/` + `skills/` trees provisioned with the AppVersion |
 | **Skills & workflows** | YAML-defined capabilities and event-driven automation |
-| **Core API client** | Typed client for workplaces, channels, instances, files, cron, AI, calls, and more |
+| **Core API client** | Typed client for workplaces, channels, instances, files, cron, consent, AI, calls, and more |
 | **CLI** | Local dev server, tunneling, deploy, CRM schema sync, agent testing |
 
 ## Installation

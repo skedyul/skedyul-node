@@ -2498,3 +2498,46 @@ export const setup = {
     return data.capabilities
   },
 }
+
+export type ConsentApplyParams = {
+  /** Dimension handle declared with defineConsent. */
+  dimension: string
+  /** Channel address, such as an email or phone number. */
+  identifier: string
+  /**
+   * `opt_out` denies the dimension's purpose. `opt_in` allows it.
+   * `null` writes nothing.
+   */
+  status: 'opt_in' | 'opt_out' | null
+  /**
+   * Overrides the dimension purpose. Defaults to the dimension, which
+   * itself defaults to marketing.
+   */
+  purpose?: 'marketing' | 'communication'
+}
+
+export type ConsentApplyResult = {
+  /** Subscriptions updated. Zero when unbound, blank, or null. */
+  applied: number
+}
+
+/**
+ * Apply one app consent report to the channels bound for this installation.
+ *
+ * Requires a workplace token. A marketing opt-out does not deny
+ * communication. Null status and unbound dimensions do nothing.
+ */
+export const consent = {
+  async apply(params: ConsentApplyParams): Promise<ConsentApplyResult> {
+    if (params.status === null || params.identifier.trim() === '') {
+      return { applied: 0 }
+    }
+    const { data } = await callCore<ConsentApplyResult>('consent.apply', {
+      dimension: params.dimension,
+      identifier: params.identifier,
+      status: params.status,
+      ...(params.purpose ? { purpose: params.purpose } : {}),
+    })
+    return data
+  },
+}
