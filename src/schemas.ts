@@ -133,6 +133,8 @@ export const FieldOptionSchema = z.object({
   label: z.string(),
   value: z.string(),
   color: z.string().optional(),
+  /** Lucide icon name in PascalCase (e.g. Dumbbell) */
+  icon: z.string().optional(),
 })
 
 export const InlineFieldDefinitionSchema = z.object({
