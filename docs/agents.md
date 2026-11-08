@@ -466,7 +466,7 @@ examples:
 | `fields` | CRM list field handles to hydrate (for example `name`, `kind`). Omit to hydrate every field. |
 | `overrides` | Default input overrides. For `system:math:evaluate`: `expression` (mathjs formula), `assign` (full state path → `$value` or a mathjs expression using `value` and constants). Deprecated: `applyOn` plus short field names. |
 | `sandbox.mock` | Mock response for sandbox testing |
-| `requiresApproval` | Require human approval before execution |
+| `requiresApproval` | When true, a thread run halts before this tool executes until a person approves or rejects it. Playground and other sandbox runs do not halt: they run the tool and label the call Auto approved. |
 | `constraints` | `maxCallsPerRun`, `idempotent`, `restricted`, `tags` |
 | `needs` | Memory ids that must already be filled before this tool runs |
 | `requires` | `path` predicates on a state path (`state.crm…` / `state.memory…`), or legacy `crm` / `entities`, plus a `reason`. A failed condition rejects the call with `reason` |
@@ -590,6 +590,14 @@ reply:
 ```
 
 `reply.requires` uses the same predicate shape as tool `requires`, and its `entity` must be in `entityPolicies`. A rejected send is guidance: the model rewrites or does the missing work, and the run continues.
+
+### Tool approval
+
+Set `requiresApproval: true` on a skill tool to halt that call inside a thread. A stored agent tool reference with the same flag is honored when the flag is present. `policies.tools.externalRequiresApproval: true` does the same for every MCP tool on the agent, and `policies.tools.systemRequiresApproval: true` does it for system tools. Omitted flags do not halt existing agents.
+
+The run waits on the same agent execution until someone approves or rejects, or until the approval timeout. A timeout is a rejection. Approve runs the tool and continues that run. Reject does not run it; the model sees the denial and can reply or choose another tool. Several gated calls in one step wait together, then one continuation covers all of them. Message send and schedule stay on the message approval path and are not halted here.
+
+Sandbox runs, including the agent playground, auto-approve. The tool still runs, and the thread shows Auto approved with no buttons.
 
 ### Helpers
 
