@@ -302,6 +302,47 @@ skedyul agents rollback --to <versionId> --workplace <subdomain>
 
 See [Agents, skills & workflows](./agents.md).
 
+### Managed agent releases (`skedyul agents release`)
+
+Skedyul-owned bundles of workplace agents, skills, and optional CRM schema and
+seeds, shipped as one `.tar.gz` or `.zip` with a `manifest.yml`. Publishing
+records an immutable release and changes no workplace. Deploy applies one
+release to one named workplace.
+
+```bash
+skedyul agents release publish --archive ./utg.tar.gz
+skedyul agents release publish --dir ./packages/utg
+skedyul agents release deploy utg@1.0.0 --workplace united-training
+skedyul agents release deploy utg@1.0.0 --workplace united-training --with-crm
+skedyul agents release status --workplace united-training
+skedyul agents release list --handle utg
+```
+
+| Flag | Description |
+|------|-------------|
+| `--archive, -a` | `publish`: a `.tar.gz` or `.zip` bundle |
+| `--dir, -d` | `publish`: a bundle folder to pack with the system `tar` |
+| `--git-repo`, `--git-sha`, `--git-ref` | `publish`: provenance. Default to `GITHUB_REPOSITORY`, `GITHUB_SHA`, `GITHUB_REF_NAME` |
+| `--workplace, -w` | `deploy`, `status`: workplace subdomain (required) |
+| `--with-crm` | `deploy`: also apply `crm.schema` and `crm.seeds`. Off by default |
+| `--handle` | `list`, `status`: only this package |
+| `--json` | JSON output |
+
+- Publishing the same content again returns the existing release. A changed
+  bundle under an existing `handle@version` is refused: bump `version`.
+- Deploy reuses unchanged agent and skill versions by content hash. Rollback is
+  a deploy of an older release, and its agent versions become live again.
+- With `--with-crm`, CRM applies first. A schema change that needs approval
+  stops the deploy before skills and agents are written.
+- Only CLI users whose email domain is in the server's
+  `MANAGED_AGENT_PUBLISHER_DOMAINS` (default `skedyul.it`) can publish, list,
+  or deploy releases. Deploy also needs membership in the workplace.
+- In CI, set `SKEDYUL_CLI_TOKEN` (and optionally `SKEDYUL_SERVER_URL`) instead
+  of running `skedyul auth login`.
+
+See [Managed agent releases](./agents.md#managed-agent-releases) for the
+bundle format.
+
 ---
 
 ## Skills (`skedyul skills`)

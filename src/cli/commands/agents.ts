@@ -23,6 +23,7 @@ import {
   parseYamlMapping,
   writeDocumentFiles,
 } from '../utils/exportDocumentTree'
+import { agentReleasesCommand } from './agent-releases'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -137,6 +138,7 @@ Commands:
   ab                Set A/B testing traffic weights
   rollback          Rollback to a previous version
   test              Run a playground turn (same path as the web playground)
+  release           Publish and deploy managed agent bundles (see: agents release --help)
 
 List Options:
   --workplace, -w   Workplace subdomain (required)
@@ -1364,6 +1366,9 @@ export async function agentsCommand(args: string[]): Promise<void> {
       break
     case 'test':
       await handleTest(subArgs)
+      break
+    case 'release':
+      await agentReleasesCommand(subArgs)
       break
     default:
       console.error(`Error: Unknown subcommand: ${subcommand}`)

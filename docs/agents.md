@@ -373,6 +373,70 @@ skedyul chat --agent booking --workplace <subdomain>
 
 See [CLI reference](./cli.md#agents-skedyul-agents).
 
+### Managed agent releases
+
+A managed release ships a workplace's agents, skills, and optional CRM schema
+and seeds as one versioned unit, instead of one file per `agents deploy`. The
+bundle is a folder with a `manifest.yml`, packed as `.tar.gz` or `.zip`.
+Skills and agents use the app document-tree layout:
+
+```text
+manifest.yml
+agents/sales/agent.yml
+agents/sales/scenarios/*.yml
+skills/sales/skill.yml
+skills/sales/instructions.md
+skills/sales/examples/*.yml
+skills/sales/evaluators/*.yml
+crm/schema.json
+crm/packages.seed.json
+```
+
+```yaml
+# manifest.yml
+handle: utg                 # package handle: lowercase, digits, dashes
+name: United Training Grounds
+version: 1.0.0              # release semver. Not the YAML `version:` field.
+agents:
+  - agents/sales            # folder with agent.yml
+skills:
+  - skills/sales            # folder with skill.yml
+crm:
+  schema: crm/schema.json
+  seeds:
+    - file: crm/packages.seed.json
+      model: package        # CRM model handle
+      matchField: name      # upsert key
+```
+
+Rules:
+
+- Publish compiles each listed folder with the app document-tree compiler:
+  `instructions.md`, `examples/`, and `evaluators/` fold into the skill;
+  `scenarios/` belong to the agent. The folder name must match the `handle`.
+- Only `.yml`, `.yaml`, and `.md` files belong in a skill or agent folder.
+  Outside the listed folders and CRM files, the archive may hold only
+  `README.md` and `CHANGELOG.md`. Absolute paths, `..`, and links are
+  rejected. If every file sits under one folder (for example a GitHub zip),
+  that folder is treated as the root.
+- The release hash is SHA-256 over the sorted list of shipped paths and their
+  file hashes, so the same files zipped or tarred hash the same.
+- Publish runs the same validation as `agents deploy` and `skills deploy`, so
+  a published release does not fail validation on deploy. App agents and
+  skills (`@app/handle`) cannot ship in a bundle.
+- Deploy order: CRM (only with `--with-crm`), then skills, then agents. Agents
+  can still load installed app skills such as `@petbooqz/skills/booking`.
+  Scenarios ship with the release for review and are not deployed.
+- A deploy records a workplace pin: the release plus the agent and skill
+  version ids it produced or reused. The latest pin per package is live.
+
+```bash
+skedyul agents release publish --dir ./packages/utg
+skedyul agents release deploy utg@1.0.0 --workplace united-training
+```
+
+See [CLI reference](./cli.md#managed-agent-releases-skedyul-agents-release).
+
 ### Accepted but not implemented
 
 These keys still parse so existing YAML validates. Each is marked `Not implemented` on the schema: setting them changes nothing.
