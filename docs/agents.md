@@ -18,6 +18,7 @@ App-owned v3 agents and skills live under the app `projectDirectory`:
 skills/<handle>/skill.yml
 skills/<handle>/instructions.md
 skills/<handle>/examples/<name>.yml
+skills/<handle>/evaluators/<name>.yml
 agents/<handle>/agent.yml
 agents/<handle>/scenarios/<name>.yml
 ```
@@ -115,7 +116,7 @@ runtime:
 | `sandbox` | Sandbox testing context. `sandbox.enabled` parses and is marked not implemented — the caller chooses sandbox mode. |
 | `collaboration` | Staff chat for situations the agent cannot finish alone. See [Collaboration](#collaboration) |
 
-Skill `evaluators:` (on the skill YAML, not the agent) are quality rubrics for that skill's replies and writes. The agent owns only turn-level `target: skill` routing evaluators.
+Skill evaluators are quality rubrics for that skill's replies and writes. Put each one in `skills/<handle>/evaluators/<name>.yml`. An inline `evaluators:` list still works when that folder is empty. The agent owns only turn-level `target: skill` routing evaluators.
 
 ### Collaboration
 
