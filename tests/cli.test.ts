@@ -406,6 +406,7 @@ import {
   exportAgentYamlToFiles,
   writeDocumentFiles,
 } from '../src/cli/utils/exportDocumentTree'
+import { SkillEvaluatorSchema } from '../src/skills/types'
 
 test('exportSkillYamlToFiles splits instructions, examples, and evaluators', () => {
   const files = exportSkillYamlToFiles({
@@ -440,5 +441,32 @@ test('exportAgentYamlToFiles writes scenarios beside agent.yml', () => {
     /name: BFT Agent/,
   )
   fs.rmSync(tmpDir, { recursive: true })
+})
+
+test('SkillEvaluatorSchema keeps a score table, message rules, and goldens', () => {
+  const parsed = SkillEvaluatorSchema.parse({
+    name: 'Discovery first',
+    target: 'message',
+    criteria: 'A and B',
+    checks: {
+      scoreFrom: [
+        { when: { A: true, B: true }, score: 100 },
+        { when: { A: false, B: false }, score: 20 },
+      ],
+      message: { exactlyOneQuestion: true },
+    },
+    goldens: [
+      {
+        name: 'Approved',
+        prompt: 'Beginner sessions?',
+        reply: 'Yes, at your own pace. When do you want to start?',
+        pass: true,
+      },
+    ],
+  })
+
+  assert.equal(parsed.checks?.scoreFrom?.[0]?.score, 100)
+  assert.equal(parsed.checks?.message?.exactlyOneQuestion, true)
+  assert.equal(parsed.goldens?.[0]?.pass, true)
 })
 
