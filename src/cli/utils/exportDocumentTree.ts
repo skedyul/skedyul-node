@@ -46,6 +46,8 @@ export function exportSkillYamlToFiles(
   delete rest.instructions
   const examples = Array.isArray(rest.examples) ? rest.examples : []
   delete rest.examples
+  const evaluators = Array.isArray(rest.evaluators) ? rest.evaluators : []
+  delete rest.evaluators
 
   const files: DocumentFileMap = {
     [`skills/${local}/skill.yml`]: stringifyYaml(rest, {
@@ -59,6 +61,10 @@ export function exportSkillYamlToFiles(
   examples.forEach((example, index) => {
     files[`skills/${local}/examples/${exampleStem(example, index)}.yml`] =
       stringifyYaml(example, { lineWidth: 0, defaultKeyType: 'PLAIN' })
+  })
+  evaluators.forEach((evaluator, index) => {
+    files[`skills/${local}/evaluators/${exampleStem(evaluator, index)}.yml`] =
+      stringifyYaml(evaluator, { lineWidth: 0, defaultKeyType: 'PLAIN' })
   })
   return files
 }

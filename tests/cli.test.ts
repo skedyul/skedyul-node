@@ -407,16 +407,21 @@ import {
   writeDocumentFiles,
 } from '../src/cli/utils/exportDocumentTree'
 
-test('exportSkillYamlToFiles splits instructions and examples', () => {
+test('exportSkillYamlToFiles splits instructions, examples, and evaluators', () => {
   const files = exportSkillYamlToFiles({
     handle: 'booking',
     name: 'Booking',
     instructions: 'Ask for a day.\n',
     examples: [{ name: 'Morning', input: 'hi', output: 'hello' }],
+    evaluators: [{ name: 'Offers a slot', target: 'message', criteria: 'Offer a time' }],
   })
   assert.ok(files['skills/booking/skill.yml']?.includes('name: Booking'))
+  assert.equal(files['skills/booking/skill.yml']?.includes('evaluators:'), false)
   assert.equal(files['skills/booking/instructions.md'], 'Ask for a day.\n')
   assert.ok(files['skills/booking/examples/morning.yml']?.includes('input: hi'))
+  assert.ok(
+    files['skills/booking/evaluators/offers-a-slot.yml']?.includes('Offer a time'),
+  )
 })
 
 test('exportAgentYamlToFiles writes scenarios beside agent.yml', () => {
