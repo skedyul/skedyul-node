@@ -302,46 +302,41 @@ skedyul agents rollback --to <versionId> --workplace <subdomain>
 
 See [Agents, skills & workflows](./agents.md).
 
-### Managed agent releases (`skedyul agents release`)
+### Agent bundles (`skedyul agents bundle`)
 
-Skedyul-owned bundles of workplace agents, skills, and optional CRM schema and
-seeds, shipped as one `.tar.gz` or `.zip` with a `manifest.yml`. Publishing
-records an immutable release and changes no workplace. Deploy applies one
-release to one named workplace.
+Send a workplace-agents package (agents, skills, and optional CRM schema and
+seeds) to the one workplace its `manifest.yml` names. Each deploy is recorded
+as a `Deployment` on that workplace with mode `AGENT_BUNDLE`.
 
 ```bash
-skedyul agents release publish --archive ./utg.tar.gz
-skedyul agents release publish --dir ./packages/utg
-skedyul agents release deploy utg@1.0.0 --workplace united-training
-skedyul agents release deploy utg@1.0.0 --workplace united-training --with-crm
-skedyul agents release status --workplace united-training
-skedyul agents release list --handle utg
+skedyul agents bundle deploy --dir ./packages/utg --workplace united-training
+skedyul agents bundle deploy --dir ./packages/utg --workplace united-training --with-crm
+skedyul agents bundle deploy --archive ./aaps.zip --workplace aaps
+skedyul agents bundle history --workplace united-training
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--archive, -a` | `publish`: a `.tar.gz` or `.zip` bundle |
-| `--dir, -d` | `publish`: a bundle folder to pack with the system `tar` |
-| `--git-repo`, `--git-sha`, `--git-ref` | `publish`: provenance. Default to `GITHUB_REPOSITORY`, `GITHUB_SHA`, `GITHUB_REF_NAME` |
-| `--workplace, -w` | `deploy`, `status`: workplace subdomain (required) |
+| `--dir, -d` | `deploy`: bundle folder, packed with the system `tar`. Git commit, repo, ref, and folder come from the checkout |
+| `--archive, -a` | `deploy`: a `.tar.gz` or `.zip` of the bundle folder |
+| `--workplace, -w` | Workplace subdomain (required). `deploy` refuses one that does not match `workplace` in `manifest.yml` |
 | `--with-crm` | `deploy`: also apply `crm.schema` and `crm.seeds`. Off by default |
-| `--handle` | `list`, `status`: only this package |
+| `--git-repo`, `--git-sha`, `--git-ref` | `deploy`: override provenance. Fallbacks are the checkout, then `GITHUB_REPOSITORY`, `GITHUB_SHA`, `GITHUB_REF_NAME` |
+| `--handle` | `history`: only this package |
 | `--json` | JSON output |
 
-- Publishing the same content again returns the existing release. A changed
-  bundle under an existing `handle@version` is refused: bump `version`.
-- Deploy reuses unchanged agent and skill versions by content hash. Rollback is
-  a deploy of an older release, and its agent versions become live again.
+- Each file reuses its agent or skill version by content hash, so an
+  unchanged file creates nothing new. To roll back, check out the older
+  commit or tag and deploy again; a reused agent version becomes live.
 - With `--with-crm`, CRM applies first. A schema change that needs approval
-  stops the deploy before skills and agents are written.
+  stops the deploy (the Deployment is marked FAILED) before skills and agents.
 - Only CLI users whose email domain is in the server's
-  `MANAGED_AGENT_PUBLISHER_DOMAINS` (default `skedyul.it`) can publish, list,
-  or deploy releases. Deploy also needs membership in the workplace.
+  `MANAGED_AGENT_PUBLISHER_DOMAINS` (default `skedyul.it`) can deploy
+  bundles. Deploy also needs membership in the workplace.
 - In CI, set `SKEDYUL_CLI_TOKEN` (and optionally `SKEDYUL_SERVER_URL`) instead
   of running `skedyul auth login`.
 
-See [Managed agent releases](./agents.md#managed-agent-releases) for the
-bundle format.
+See [Agent bundles](./agents.md#agent-bundles) for the bundle format.
 
 ---
 
