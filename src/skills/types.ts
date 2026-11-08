@@ -544,7 +544,36 @@ export const SkillEvaluatorSchema = z.object({
     .object({
       requiredArgs: z.array(z.string()).optional(),
       forbiddenArgValues: z.record(z.string(), z.array(z.unknown())).optional(),
+      /** Named booleans. Code applies this table. The model does not pick the score. */
+      scoreFrom: z
+        .array(
+          z.object({
+            when: z.record(z.string(), z.boolean()),
+            score: z.number(),
+          }),
+        )
+        .optional(),
+      /** Countable message rules. A miss scores 0 before the judge. */
+      message: z
+        .object({
+          exactlyOneQuestion: z.boolean().optional(),
+          forbidPrice: z.boolean().optional(),
+        })
+        .optional(),
     })
+    .optional(),
+  /** Saved replies graded with this rubric and no agent call. */
+  goldens: z
+    .array(
+      z.object({
+        name: z.string().optional(),
+        prompt: z.string(),
+        reply: z.string(),
+        pass: z.boolean(),
+        crm: z.record(z.string(), z.unknown()).optional(),
+        skillsLoaded: z.array(z.string()).optional(),
+      }),
+    )
     .optional(),
   preconditions: EvaluatorPreconditionsSchema.optional(),
 })
