@@ -72,7 +72,9 @@ export type {
   ToolMetadata,
   ToolCallResponse,
   ExecutionScope,
+  ToolUiConfig,
 } from './tool'
+export { normalizeToolUi } from './tool'
 export type { MoneyMinorUnits, MoneyMinorRange, Estimation, EstimationSkippedBreakdown } from './estimation'
 export {
   MoneyMinorRangeSchema,

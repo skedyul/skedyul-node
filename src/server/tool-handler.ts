@@ -10,6 +10,7 @@ import type {
 } from '../types'
 import type { RequestState, ToolCallArgs } from './types'
 import { getJsonSchemaFromToolSchema, normalizeBilling } from './utils'
+import { normalizeToolUi } from '../types/tool'
 import { runWithConfig } from '../core/client'
 import { runWithRateLimitExecutionContext } from '../ratelimit/context'
 import { AppAuthInvalidError, TokenRefreshRequiredError } from '../errors'
@@ -91,10 +92,12 @@ export function buildToolMetadata(registry: ToolRegistry): ToolMetadata[] {
       tool.queueTouchPoints ?? toolConfig.queueTouchPoints
     const rateLimitHandoff = (tool.rateLimitHandoff ??
       toolConfig.rateLimitHandoff) as import('../types/tool').RateLimitHandoff | undefined
+    const ui = normalizeToolUi(tool.ui)
     return {
       name: tool.name,
       displayName: tool.label || tool.name,
       description: tool.description,
+      ...(ui ? { ui } : {}),
       inputSchema: getJsonSchemaFromToolSchema(tool.inputSchema),
       outputSchema: getJsonSchemaFromToolSchema(tool.outputSchema),
       // Include timeout/retries at top-level for tools/list response (used by syncExecutableTools)

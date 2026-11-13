@@ -54,6 +54,38 @@ export const greetTool: ToolDefinition<Input, Output> = {
 }
 ```
 
+### Timeline Display (`ui`)
+
+When an agent calls a tool, the Skedyul thread shows the call as a timeline
+step. By default the wording is derived from the tool name. Set `ui` to choose
+the wording yourself:
+
+```ts
+export const checkAvailabilityTool: ToolDefinition<Input, Output> = {
+  name: 'check_availability',
+  description: 'Check open spots in a class',
+  ui: {
+    title: 'Checked availability',        // past tense, shown once the call finishes
+    activeTitle: 'Checking availability', // shown while the call runs
+    targetArg: 'className',               // input argument shown as the target chip
+  },
+  inputSchema,
+  handler,
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | `string` | Past-tense title, e.g. "Checked availability". |
+| `activeTitle` | `string` | In-progress title, e.g. "Checking availability". |
+| `targetArg` | `string` | Name of the input argument whose value appears as the target chip. |
+| `opaque` | `boolean` | When `true`, the timeline shows only the title and the outcome. Inputs, outputs and the tool id are never shown. Use it for tools whose arguments are not useful or not safe to show. |
+
+Every field is optional. Unknown keys and blank strings are dropped when the
+SDK serialises the tool, and the platform caps titles at 80 characters. The
+`ui` block is sent in `tools/list`, the `/config` endpoint and the build-time
+config, so it syncs to the platform on the next deploy.
+
 ### Tool Registry
 
 Collect tools into a registry for the server:

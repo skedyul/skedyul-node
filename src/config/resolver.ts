@@ -9,6 +9,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { SkedyulConfig, SerializableSkedyulConfig, ProvisionConfig } from './app-config'
 import type { ToolRegistry, WebhookRegistry } from '../types'
+import { normalizeToolUi } from '../types/tool'
 
 /**
  * Resolved config with all promises awaited.
@@ -138,6 +139,7 @@ export function serializeResolvedConfig(config: ResolvedConfig): SerializableSke
       ? Object.entries(config.tools).map(([key, tool]) => ({
           name: tool.name || key,
           description: tool.description,
+          ui: normalizeToolUi(tool.ui),
           // Read timeout/retries from top-level first, then fallback to config
           timeout: (tool.timeout ?? tool.config?.timeout) as number | undefined,
           retries: (tool.retries ?? tool.config?.retries) as number | undefined,

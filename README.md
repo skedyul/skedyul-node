@@ -93,10 +93,14 @@ const handler: ToolHandler<Input, Output> = async (input) => ({
 export const helloTool: ToolDefinition<Input, Output> = {
   name: 'hello',
   description: 'Say hello to someone',
+  // Optional: how the call appears in the thread timeline
+  ui: { title: 'Said hello', activeTitle: 'Saying hello', targetArg: 'name' },
   inputSchema,
   handler,
 }
 ```
+
+See [Tools → Timeline Display](docs/tools.md#timeline-display-ui) for the `ui` fields.
 
 ### 4. Build and run locally
 
