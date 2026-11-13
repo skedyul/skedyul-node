@@ -19,6 +19,9 @@ export * from './model'
 // App entities (CRM map contracts)
 export * from './entity'
 
+// App reports
+export * from './report'
+
 // Channels
 export * from './channel'
 

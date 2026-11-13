@@ -34,6 +34,7 @@ export { defineConfig } from './app-config'
 export {
   defineModel,
   defineEntity,
+  defineReport,
   defineChannel,
   defineConsent,
   definePage,

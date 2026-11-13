@@ -12,6 +12,7 @@ import type {
   ComputeLayer,
   ModelDefinition,
   EntityDefinition,
+  AppReportDefinition,
   RelationshipDefinition,
   ChannelDefinition,
   ConsentConfig,
@@ -65,6 +66,11 @@ export interface ProvisionConfig {
    * Runtime `instance.*('<entity>')` resolves the mapped workplace model.
    */
   entities?: EntityDefinition[]
+  /**
+   * Reports shipped with the app. Each one names entities. Variants stay
+   * inside the report. Workplaces do not rebuild the layout.
+   */
+  reports?: AppReportDefinition[]
   /** Relationship definitions between INTERNAL models */
   relationships?: RelationshipDefinition[]
   /** Communication channel definitions */

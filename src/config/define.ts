@@ -27,6 +27,7 @@ import type { EnvSchema } from './types/env'
 import type { NavigationConfig } from './types/navigation'
 import type { SetupStepDefinition } from './types/setup'
 import type { BatchOperationDefinition } from './types/batch-operation'
+import type { AppReportDefinition } from './types/report'
 
 /**
  * Define a model with full type safety.
@@ -253,4 +254,24 @@ export function defineBatchOperation(
   operation: BatchOperationDefinition,
 ): BatchOperationDefinition {
   return operation
+}
+
+/**
+ * Define a report with full type safety.
+ *
+ * The report names entities and entity fields. A workplace CRM map resolves
+ * those to models and columns at runtime. Variants are layouts inside this
+ * one report. The UI lists the report, not the variants.
+ *
+ * @example
+ * export default defineReport({
+ *   handle: 'lab_results',
+ *   label: 'Lab results',
+ *   subject: { entity: 'test_report', variantField: 'code' },
+ *   sections: [],
+ *   variants: [{ key: '622', groups: [] }, { fallback: true, groups: [] }],
+ * })
+ */
+export function defineReport(report: AppReportDefinition): AppReportDefinition {
+  return report
 }
