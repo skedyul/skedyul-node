@@ -4,6 +4,7 @@
 
 import type { SkedyulConfig, SerializableSkedyulConfig, ProvisionConfig } from '../config/app-config'
 import type { ToolRegistry, WebhookRegistry } from '../types'
+import { normalizeToolUi } from '../types/tool'
 
 /**
  * Serializes a SkedyulConfig into a SerializableSkedyulConfig.
@@ -25,6 +26,7 @@ export function serializeConfig(config: SkedyulConfig): SerializableSkedyulConfi
       ? Object.entries(registry).map(([key, tool]) => ({
           name: tool.name || key,
           description: tool.description,
+          ui: normalizeToolUi(tool.ui),
           // Read timeout/retries from top-level first, then fallback to config
           timeout: (tool.timeout ?? tool.config?.timeout) as number | undefined,
           retries: (tool.retries ?? tool.config?.retries) as number | undefined,

@@ -304,6 +304,43 @@ export type ToolHandler<Input, Output> = (
  */
 export type ExecutionScope = 'installation' | 'app_version'
 
+/**
+ * How a tool presents itself in the Skedyul thread timeline.
+ *
+ * Every field is optional. When a field is missing the platform falls back to
+ * wording derived from the tool name.
+ */
+export interface ToolUiConfig {
+  /** Past-tense title once the call finishes, e.g. "Checked availability". */
+  title?: string
+  /** Title while the call is running, e.g. "Checking availability". */
+  activeTitle?: string
+  /** Name of the input argument whose value is shown as the target chip. */
+  targetArg?: string
+  /**
+   * Show only the title and outcome. Inputs, outputs and the tool id are
+   * never shown in the timeline.
+   */
+  opaque?: boolean
+}
+
+/**
+ * Keep only the known `ui` fields with valid values. Blank strings are
+ * dropped and `opaque` is kept only when it is `true`. Returns `undefined`
+ * when nothing is left, so the field is omitted from serialised metadata.
+ */
+export function normalizeToolUi(value: unknown): ToolUiConfig | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  const ui: ToolUiConfig = {}
+  for (const key of ['title', 'activeTitle', 'targetArg'] as const) {
+    const text = record[key]
+    if (typeof text === 'string' && text.trim()) ui[key] = text.trim()
+  }
+  if (record.opaque === true) ui.opaque = true
+  return Object.keys(ui).length > 0 ? ui : undefined
+}
+
 export interface ToolDefinition<
   Input = unknown,
   Output = unknown,
@@ -313,6 +350,8 @@ export interface ToolDefinition<
   name: string
   label?: string
   description: string
+  /** How this tool appears in the thread timeline (title, target chip, opaque mode) */
+  ui?: ToolUiConfig
   inputSchema: ToolSchema<InputSchema>
   handler: ToolHandler<Input, Output>
   outputSchema?: ToolSchema<OutputSchema>
@@ -336,6 +375,8 @@ export interface ToolRegistryEntry {
   name: string
   label?: string
   description: string
+  /** How this tool appears in the thread timeline (title, target chip, opaque mode) */
+  ui?: ToolUiConfig
   inputSchema: ToolSchema
   handler: unknown
   outputSchema?: ToolSchema
@@ -356,6 +397,8 @@ export interface ToolMetadata {
   name: string
   displayName?: string
   description: string
+  /** How this tool appears in the thread timeline (title, target chip, opaque mode) */
+  ui?: ToolUiConfig
   inputSchema?: Record<string, unknown>
   outputSchema?: Record<string, unknown>
   /** Timeout in milliseconds for this tool (top-level for sync) */
