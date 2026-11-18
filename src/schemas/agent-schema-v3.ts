@@ -755,6 +755,28 @@ export type BehaviorConfigV3 = z.infer<typeof BehaviorConfigV3Schema>
  * the model and renders `guidance` when the install supplied a value, so what
  * a setting means stays the app's business.
  */
+/** How the agent settings page edits a setting. */
+export const AgentSettingTypeSchema = z.enum(['text', 'long_text', 'timezone'])
+
+export type AgentSettingType = z.infer<typeof AgentSettingTypeSchema>
+
+/**
+ * A config path a workplace may change on the agent settings page, e.g.
+ * `behavior.message.emojis`. Paths not listed stay as the YAML sets them, so
+ * prompts and persona text are never exposed. A string is shorthand for
+ * `{ path }`. `min` / `max` bound a numeric value.
+ */
+export const AgentOptionV3Schema = z.union([
+  z.string().min(1),
+  z.object({
+    path: z.string().min(1),
+    min: z.number().optional(),
+    max: z.number().optional(),
+  }),
+])
+
+export type AgentOptionV3 = z.infer<typeof AgentOptionV3Schema>
+
 export const AgentSettingV3Schema = z.object({
   /**
    * Setting key, resolved against the install's AgentConfig and env. Liquid
@@ -765,6 +787,13 @@ export const AgentSettingV3Schema = z.object({
   label: z.string().optional(),
   /** Value used when the install leaves the setting blank. */
   default: z.string().optional(),
+  /** What the setting does, shown under its label on the agent settings page. */
+  description: z.string().optional(),
+  /**
+   * How the settings page edits it. `long_text` is a prompt-like value: the
+   * page offers Default or Custom prompt and never shows the default text.
+   */
+  type: AgentSettingTypeSchema.optional(),
   /**
    * Prompt guidance for this setting. `{{value}}` interpolates the install
    * value and `{{workplace}}` the workplace name.
@@ -896,6 +925,13 @@ export const AgentYAMLV3Schema = z.object({
    * no Liquid references keep the older auto-printed settings section.
    */
   settings: z.array(AgentSettingV3Schema).optional(),
+
+  /**
+   * Config paths a workplace may change on its agent settings page. Listing
+   * an approval path (`policies.messages.send.requiresApproval`) lets the
+   * workplace turn that approval off; anyone can always add approval.
+   */
+  options: z.array(AgentOptionV3Schema).optional(),
 
   /**
    * Events - When the agent activates. `subscribes` registers the agent's
