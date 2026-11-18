@@ -47,6 +47,7 @@ export function serializeConfig(config: SkedyulConfig): SerializableSkedyulConfi
     provision: isProvisionConfig(config.provision) ? config.provision : undefined,
     agents: config.agents,
     events: config.events,
+    signals: config.signals,
     queues: config.queues,
   }
 }

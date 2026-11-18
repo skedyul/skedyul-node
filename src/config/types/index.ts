@@ -39,6 +39,7 @@ export * from './setup'
 
 // App events
 export * from './app-event'
+export * from './app-signal'
 
 // Navigation
 export * from './navigation'

@@ -162,6 +162,7 @@ export function serializeResolvedConfig(config: ResolvedConfig): SerializableSke
     provision: config.provision,
     agents: config.agents,
     events: config.events,
+    signals: config.signals,
     queues: config.queues,
     sequencers: config.sequencers,
   }

@@ -57,6 +57,7 @@ interface SkedyulConfig {
   install?: InstallConfig | Promise<{ default: InstallConfig }>
   agents?: AgentDefinition[]
   events?: AppEventDefinition[]
+  signals?: AppSignalDefinition[]
 
   // Build & rate limits
   build?: { external?: string[] }
@@ -409,6 +410,42 @@ await event.create('customer.sync', { customers: [...] })
 ```
 
 Test via CLI: `skedyul event create customer.sync '{}' --workplace <subdomain>`
+
+---
+
+## App signals catalog
+
+Signals are the timeline entries your app's workflows post on a contact or
+thread. Declare every one. The platform rejects an undeclared signal when the
+app deploys and when the workflow runs, and an app can only emit its own
+signals.
+
+```ts
+export default defineConfig({
+  // ...
+  signals: [
+    { name: 'member.created', label: 'Member created', group: 'Members', icon: 'UserPlus' },
+    { name: 'booking.cancelled', label: 'Booking cancelled', group: 'Bookings', icon: 'CalendarX' },
+  ],
+})
+```
+
+Each signal has one global ID, `<appHandle>:<name>`. Name signals like your
+events (`<entity>.<past-tense verb>`). Emit one from a workflow the app ships:
+
+```yaml
+send-member-signal:
+  service:
+    name: skedyul/conversations
+    cmd: contact.signal.create
+  inputs:
+    contact-id: "{{ steps.resolve-contact.outputs.response.contact-id }}"
+    signal: acme:member.created
+    description: "Jane created an account"
+```
+
+Event subscriptions and scheduled-message `cancel-on` conditions refer to the
+same ID, e.g. `cancel-on: [{ signal: acme:member.created, scope: contact }]`.
 
 ---
 

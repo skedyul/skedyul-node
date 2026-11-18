@@ -22,6 +22,7 @@ import type {
   SetupStepDefinition,
 } from './types'
 import type { AppEventDefinition } from './types/app-event'
+import type { AppSignalDefinition } from './types/app-signal'
 import type { QueueRegistry, SerializableQueueConfig } from './queue-config'
 import type { SequencerRegistry, SerializableSequencerConfig } from './sequencer-config'
 export type {
@@ -180,6 +181,12 @@ export interface SkedyulConfig {
   /** App events emitted via event.create (catalog for UI + docs) */
   events?: AppEventDefinition[]
 
+  /**
+   * Timeline signals this app's workflows may emit, referenced as
+   * `<appHandle>:<name>`. Undeclared signals are rejected at deploy and run time.
+   */
+  signals?: AppSignalDefinition[]
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Build Configuration
   // ─────────────────────────────────────────────────────────────────────────────
@@ -212,6 +219,8 @@ export interface SerializableSkedyulConfig {
   agents?: AgentDefinition[]
   /** App event catalog */
   events?: AppEventDefinition[]
+  /** App signal catalog */
+  signals?: AppSignalDefinition[]
   /** Rate-limit queue definitions */
   queues?: Record<string, SerializableQueueConfig>
   /** Sequencer definitions */
