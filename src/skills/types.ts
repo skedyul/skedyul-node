@@ -595,6 +595,10 @@ export const SkillSettingSchema = z.object({
   label: z.string().optional(),
   /** Value used when the install leaves the setting blank. */
   default: z.string().optional(),
+  /** What the setting does, shown under its label on the agent settings page. */
+  description: z.string().optional(),
+  /** `long_text` is prompt-like: the page offers Default or Custom prompt and never shows the default. */
+  type: z.enum(['text', 'long_text', 'timezone']).optional(),
 })
 
 export type SkillSetting = z.infer<typeof SkillSettingSchema>
