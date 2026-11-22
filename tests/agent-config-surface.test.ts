@@ -81,6 +81,7 @@ const IMPLEMENTED = [
   'policies.messages.schedule.requiresApproval',
   'policies.messages.send.requiresApproval',
   'policies.tools.externalRequiresApproval',
+  'policies.tools.requireApproval[]',
   'policies.tools.systemRequiresApproval',
   'prompts.system',
   'prompts.titleEnrichment.system',
