@@ -223,6 +223,13 @@ export const SandboxConfigSchema = z.object({
   /** @deprecated Use 'context' instead of 'mockContext' */
   mockContext: AgentContextSchema.optional(),
   context: AgentContextSchema.optional(),
+  /**
+   * Responses for app tools when a run mocks API calls, keyed by tool name
+   * (e.g. `app:petbooqz:calendar_slots_reserve`). Each value is the tool's
+   * output and must match the tool's outputSchema. Strings may use
+   * `{{args.<path>}}` to copy the call's arguments.
+   */
+  toolMocks: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type SandboxConfig = z.infer<typeof SandboxConfigSchema>

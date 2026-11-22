@@ -119,6 +119,7 @@ const IMPLEMENTED = [
   'sandbox.mockContext.sender.kind',
   'sandbox.mockContext.sender.permissions[]',
   'sandbox.mockContext.sender.role',
+  'sandbox.toolMocks',
   'settings[].default',
   'settings[].emptyGuidance',
   'settings[].guidance',
