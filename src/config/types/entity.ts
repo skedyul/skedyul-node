@@ -56,11 +56,6 @@ export interface EntityFieldDefinition {
    * upsert match key (e.g. external id, email, phone).
    */
   isUnique?: boolean
-  /**
-   * @deprecated Prefer `isUnique`. Kept for backward compatibility —
-   * treated the same as `isUnique` by the CRM map editor.
-   */
-  matchCandidate?: boolean
   /** Whether this field should be mapped for a complete configuration */
   required?: boolean
   /**

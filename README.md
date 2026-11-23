@@ -11,7 +11,7 @@ The official Node.js SDK for building [Skedyul](https://skedyul.com) integration
 | **MCP tools** | Functions AI agents invoke via the Model Context Protocol |
 | **Webhooks** | HTTP handlers for SMS, email, OAuth callbacks, and third-party events |
 | **Lifecycle hooks** | Install, provision, uninstall, OAuth, and token refresh |
-| **CRM models** | App-owned (internal) and user-mapped (shared) data models |
+| **CRM models & entities** | App-owned models, plus entities the workplace maps onto its own CRM in Settings → CRM → Sources |
 | **Agents (v3)** | Workplace YAML via `skedyul agents deploy`, or app-owned `agents/` + `skills/` trees provisioned with the AppVersion |
 | **Skills & workflows** | YAML-defined capabilities and event-driven automation |
 | **Core API client** | Typed client for workplaces, channels, instances, files, cron, consent, AI, calls, and more |
@@ -201,7 +201,6 @@ Recommended layout for a modular integration app:
 my-app/
 ├── skedyul.config.ts       # App metadata, registries, build, queues
 ├── provision.ts            # Aggregates version-level config
-├── install.ts              # Optional per-installation config (shared models)
 ├── env.ts                  # Environment variable definitions
 ├── crm/
 │   ├── index.ts

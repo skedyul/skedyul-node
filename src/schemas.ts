@@ -209,8 +209,6 @@ export const EntityFieldDefinitionSchema = z.object({
     ])
     .optional(),
   isUnique: z.boolean().optional(),
-  /** @deprecated Prefer isUnique */
-  matchCandidate: z.boolean().optional(),
   required: z.boolean().optional(),
   /** Global FieldDefinition handle (e.g. calendar/recurrence, calendar/series_id) */
   definition: z.string().optional(),
@@ -1035,12 +1033,9 @@ export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>
 // Install Config Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Install-scoped env the CLI emits into the executable config (`install.env`) */
 export const InstallConfigSchema = z.object({
   env: EnvSchemaSchema.optional(),
-  /** SHARED model definitions (mapped to user's existing data during installation) */
-  models: z.array(ModelDefinitionSchema).optional(),
-  /** Relationship definitions between SHARED models */
-  relationships: z.array(RelationshipDefinitionSchema).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1063,7 +1058,6 @@ export const SetupStepDefinitionSchema = z.object({
   capabilities: z.array(z.string()).optional(),
   actionTool: z.string().optional(),
   actionLabel: z.string().optional(),
-  href: z.string().optional(),
 })
 
 export const BatchPaginationSchema = z.object({

@@ -115,11 +115,6 @@ import { communicationChannel } from 'skedyul'
 const channel = await communicationChannel.create('phone', {
   name: 'Sales Line',
   identifierValue: '+61400000000',
-  // Optional: link a SHARED model
-  link: {
-    handle: 'contact',        // SHARED model from provision config
-    targetModelId: modelId,   // User's selected model
-  },
 })
 
 console.log(`Created channel: ${channel.id}`)
@@ -131,7 +126,6 @@ console.log(`Created channel: ${channel.id}`)
 | `handle` | `string` | Channel handle from provision config |
 | `params.name` | `string` | Friendly name |
 | `params.identifierValue` | `string` | Unique identifier (phone, email) |
-| `params.link` | `object` | Optional model linking |
 
 **Returns:** `Promise<ChannelCreateResult>`
 
@@ -639,40 +633,6 @@ const { count } = await webhook.deleteByName('receive_sms', {
 ```
 
 **Returns:** `Promise<{ count: number }>`
-
----
-
-## resource
-
-Link app resources to user resources.
-
-### resource.link()
-
-Link a SHARED app model to a user's model.
-
-```ts
-import { resource } from 'skedyul'
-
-const { instanceId } = await resource.link({
-  handle: 'contact',           // SHARED model from provision config
-  targetModelId: modelId,      // User's selected model
-  channelId: channel.id,       // Optional: scope to channel
-  fieldMappings: {             // Optional: field mappings
-    phone: phoneFieldId,
-    name: nameFieldId,
-  },
-})
-```
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| `handle` | `string` | SHARED model handle |
-| `targetModelId` | `string` | User's model ID |
-| `channelId` | `string` | Optional channel scope |
-| `fieldMappings` | `Record<string, string>` | Optional field mappings |
-
-**Returns:** `Promise<ResourceLinkResult>`
 
 ---
 

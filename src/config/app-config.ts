@@ -39,19 +39,6 @@ export type {
 } from './sequencer-config'
 
 /**
- * Install configuration - defines per-install env vars and SHARED models.
- * This is configured by users during app installation.
- */
-export interface InstallConfig {
-  /** Per-install environment variables (collected from user during install) */
-  env?: EnvSchema
-  /** SHARED model definitions (mapped to user's existing data during installation) */
-  models?: ModelDefinition[]
-  /** Relationship definitions between SHARED models */
-  relationships?: RelationshipDefinition[]
-}
-
-/**
  * Provision configuration - auto-synced when app version is deployed.
  * This is configured by developers and shared across all installations.
  */
@@ -184,8 +171,6 @@ export interface SkedyulConfig {
   // ─────────────────────────────────────────────────────────────────────────────
   /** Provision configuration - direct object or dynamic import */
   provision?: ProvisionConfig | Promise<{ default: ProvisionConfig }>
-  /** Install configuration - direct object or dynamic import */
-  install?: InstallConfig | Promise<{ default: InstallConfig }>
   /** Agent definitions - multi-tenant agents with tool bindings */
   agents?: AgentDefinition[]
 

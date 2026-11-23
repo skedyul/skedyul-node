@@ -14,7 +14,6 @@ export * from './types'
 
 // Re-export app config types
 export type {
-  InstallConfig,
   ProvisionConfig,
   BuildConfig,
   CorsOptions,
