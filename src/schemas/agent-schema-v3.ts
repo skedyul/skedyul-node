@@ -197,6 +197,11 @@ export const PoliciesConfigV3Schema = z.object({
     .object({
       externalRequiresApproval: z.boolean().optional(),
       systemRequiresApproval: z.boolean().optional(),
+      /**
+       * Exact tool names that pause the run until a person approves the call,
+       * e.g. `app:petbooqz:calendar_slots_confirm`. Other tools are not gated.
+       */
+      requireApproval: z.array(z.string().min(1)).optional(),
     })
     .optional(),
 })
