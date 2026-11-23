@@ -550,6 +550,7 @@ export type {
   AskSkedyulConversation,
   AskSkedyulAddressing,
   AskSkedyulMemberMatch,
+  AskSkedyulGroupReplies,
   ChannelFieldPermissions,
   ChannelField,
   ChannelDefinition,

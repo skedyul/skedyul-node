@@ -802,6 +802,7 @@ capabilities: {
     conversations: ['direct'],      // 'direct' (no group) and/or 'group'
     addressing: 'installation',     // or 'shared'
     matchMemberBy: ['email'],       // 'email' and/or 'phone', in order
+    groupReplies: 'mentioned',      // groups: reply only when mentioned (default)
     send: 'send_slack',
   },
 }
@@ -812,10 +813,12 @@ capabilities: {
 | `conversations` | Which inbound messages go to Ask Skedyul. `direct` = `receiveMessage` without `group`; `group` = with `group`. Others keep the `messaging` path. |
 | `addressing` | `installation`: the channel belongs to one workplace. `shared`: the same channel identifier is installed in many workplaces; the platform picks the workplace per conversation (saved link, then the sender's identity, then a link code). |
 | `matchMemberBy` | Identity hints the platform matches to a workplace member. Each must arrive on `receiveMessage({ identity })`. |
+| `groupReplies` | Group conversations only. `mentioned` (default): reply only when `receiveMessage({ mentioned: true })`. `all`: reply to every member message. Every message is stored either way. |
 | `send` | Tool for Ask Skedyul's replies. Same input as `messaging.send` (`MessageSendInput`). |
 
 The webhook keeps calling `communicationChannel.receiveMessage`, adding
-`identity: { email?, phone? }`. See [Core API](./core-api.md#communicationchannelreceivemessage).
+`identity: { email?, phone? }`, and `mentioned: true` when a group message
+mentions the app. See [Core API](./core-api.md#communicationchannelreceivemessage).
 
 ### Channels Index
 

@@ -50,6 +50,22 @@ describe('askSkedyul channel capability', () => {
     assert.equal(parsed.capabilities.askSkedyul?.addressing, 'shared')
   })
 
+  it('keeps groupReplies and rejects unknown values', () => {
+    const askSkedyul = {
+      ...slack.capabilities.askSkedyul!,
+      conversations: ['direct', 'group'],
+      groupReplies: 'mentioned',
+    }
+    const parsed = ChannelDefinitionSchema.parse({ ...slack, capabilities: { askSkedyul } })
+    assert.equal(parsed.capabilities.askSkedyul?.groupReplies, 'mentioned')
+
+    const bad = ChannelDefinitionSchema.safeParse({
+      ...slack,
+      capabilities: { askSkedyul: { ...askSkedyul, groupReplies: 'sometimes' } },
+    })
+    assert.equal(bad.success, false)
+  })
+
   it('rejects an unknown addressing or an empty conversations list', () => {
     const base = slack.capabilities.askSkedyul!
     for (const askSkedyul of [

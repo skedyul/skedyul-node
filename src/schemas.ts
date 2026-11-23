@@ -356,6 +356,7 @@ export const AskSkedyulCapabilitySchema = z.object({
   conversations: z.array(z.enum(['direct', 'group'])).min(1),
   addressing: z.enum(['installation', 'shared']),
   matchMemberBy: z.array(z.enum(['email', 'phone'])).min(1),
+  groupReplies: z.enum(['mentioned', 'all']).optional(),
   send: z.string(),
 })
 

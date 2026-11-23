@@ -374,6 +374,12 @@ export interface ReceiveMessageInput {
    * (`matchMemberBy`). Phone numbers in E.164.
    */
   identity?: ReceiveMessageIdentity
+  /**
+   * The message mentions the app (a Slack @mention). Channels with
+   * `capabilities.askSkedyul.groupReplies: 'mentioned'` reply in a group only
+   * when this is true.
+   */
+  mentioned?: boolean
   /** Optional remote/external message ID (provider message id) */
   remoteId?: string
   /**
@@ -512,6 +518,7 @@ export const communicationChannel = {
       ...(input.referral ? { referral: input.referral } : {}),
       ...(input.threadExternalId ? { threadExternalId: input.threadExternalId } : {}),
       ...(input.identity ? { identity: input.identity } : {}),
+      ...(input.mentioned ? { mentioned: true } : {}),
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
       ...(input.expectedAttachmentCount != null
         ? { expectedAttachmentCount: input.expectedAttachmentCount }

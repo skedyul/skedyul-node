@@ -63,6 +63,14 @@ export type AskSkedyulAddressing = 'installation' | 'shared'
 export type AskSkedyulMemberMatch = 'email' | 'phone'
 
 /**
+ * When Ask Skedyul replies in a group conversation.
+ * - 'mentioned': only to messages that mention it (`receiveMessage({ mentioned: true })`).
+ * - 'all': to every message from a member.
+ * Every message is still stored, so Ask Skedyul has the context.
+ */
+export type AskSkedyulGroupReplies = 'mentioned' | 'all'
+
+/**
  * Opts a channel in to Ask Skedyul: team members message Skedyul's assistant
  * through it instead of the channel carrying customer conversations.
  *
@@ -81,6 +89,8 @@ export interface AskSkedyulCapability {
   addressing: AskSkedyulAddressing
   /** Identity hints to match, in order. Each must arrive on `identity`. */
   matchMemberBy: AskSkedyulMemberMatch[]
+  /** Group conversations only. Defaults to 'mentioned'. */
+  groupReplies?: AskSkedyulGroupReplies
   /** Outbound tool for Ask Skedyul's replies (same input as messaging.send) */
   send: string
 }
