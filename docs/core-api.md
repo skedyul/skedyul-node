@@ -237,6 +237,7 @@ console.log(`Message ID: ${result.messageId}`)
 | `group` | `object` | Optional group route. `identifierValue` opens or continues that group thread. `name` sets the title. `internal: true` marks a staff room. |
 | `referral` | `object` | Optional click-to-message ad (`sourceId`, `adId`, `url`) stored on the message. |
 | `threadExternalId` | `string` | Optional provider thread id (Slack `thread_ts`). |
+| `identity` | `object` | Optional sender identity hints (`email`, `phone` in E.164). Used by channels with `capabilities.askSkedyul` to match the sender to a workplace member. |
 | `remoteId` | `string` | Optional external message ID |
 | `expectedAttachmentCount` | `number` | Optional. Number of files that will be linked via `attachFilesToMessage` after this call. When set, `thread.message.received` is held until that many attachments land (or a 15s timeout) so workflows see the files. |
 

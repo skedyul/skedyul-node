@@ -349,6 +349,16 @@ export const ChannelCapabilitySchema = z.object({
     .optional(), // Batch outbound tool handle, or { send, get_status }
 })
 
+/** Ask Skedyul opt-in on a channel (see AskSkedyulCapability). */
+export const AskSkedyulCapabilitySchema = z.object({
+  label: z.string(),
+  icon: z.string().optional(),
+  conversations: z.array(z.enum(['direct', 'group'])).min(1),
+  addressing: z.enum(['installation', 'shared']),
+  matchMemberBy: z.array(z.enum(['email', 'phone'])).min(1),
+  send: z.string(),
+})
+
 /**
  * Field definition for channel field mappings.
  * Defines fields that can be mapped when linking a channel to a model.
@@ -391,6 +401,7 @@ export const ChannelDefinitionSchema = z.object({
     messaging: ChannelCapabilitySchema.optional(),
     voice: ChannelCapabilitySchema.optional(),
     video: ChannelCapabilitySchema.optional(),
+    askSkedyul: AskSkedyulCapabilitySchema.optional(),
   }),
 })
 

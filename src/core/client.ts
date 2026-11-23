@@ -342,6 +342,12 @@ export interface ReceiveMessageReferral {
   url?: string
 }
 
+/** Sender identity hints for Ask Skedyul member matching. */
+export interface ReceiveMessageIdentity {
+  email?: string
+  phone?: string
+}
+
 export interface ReceiveMessageInput {
   /** Communication channel ID */
   communicationChannelId: string
@@ -362,6 +368,12 @@ export interface ReceiveMessageInput {
   referral?: ReceiveMessageReferral
   /** Provider thread id, such as a Slack thread_ts. */
   threadExternalId?: string
+  /**
+   * Sender identity hints. Used by channels that declare
+   * `capabilities.askSkedyul` to match the sender to a workplace member
+   * (`matchMemberBy`). Phone numbers in E.164.
+   */
+  identity?: ReceiveMessageIdentity
   /** Optional remote/external message ID (provider message id) */
   remoteId?: string
   /**
@@ -499,6 +511,7 @@ export const communicationChannel = {
       ...(input.group ? { group: input.group } : {}),
       ...(input.referral ? { referral: input.referral } : {}),
       ...(input.threadExternalId ? { threadExternalId: input.threadExternalId } : {}),
+      ...(input.identity ? { identity: input.identity } : {}),
       ...(input.remoteId ? { remoteId: input.remoteId } : {}),
       ...(input.expectedAttachmentCount != null
         ? { expectedAttachmentCount: input.expectedAttachmentCount }
