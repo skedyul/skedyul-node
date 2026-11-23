@@ -788,6 +788,38 @@ Skedyul uses **`externalChunkId`** as the universal async batch identifier betwe
 
 Do not expose provider-specific field names (like `operationId`) in tool output — always normalize to `externalChunkId`.
 
+### Ask Skedyul
+
+A channel can opt in to **Ask Skedyul**: team members message Skedyul's
+assistant through it (a Slack DM to the app, a WhatsApp chat with Skedyul's
+number) instead of the channel carrying customer conversations.
+
+```ts
+capabilities: {
+  messaging: { label: 'Slack', receive: 'receive_slack', send: 'send_slack' },
+  askSkedyul: {
+    label: 'Slack',
+    conversations: ['direct'],      // 'direct' (no group) and/or 'group'
+    addressing: 'installation',     // or 'shared'
+    matchMemberBy: ['email'],       // 'email' and/or 'phone', in order
+    groupReplies: 'mentioned',      // groups: reply only when mentioned (default)
+    send: 'send_slack',
+  },
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `conversations` | Which inbound messages go to Ask Skedyul. `direct` = `receiveMessage` without `group`; `group` = with `group`. Others keep the `messaging` path. |
+| `addressing` | `installation`: the channel belongs to one workplace. `shared`: the same channel identifier is installed in many workplaces; the platform picks the workplace per conversation (saved link, then the sender's identity, then a link code). |
+| `matchMemberBy` | Identity hints the platform matches to a workplace member. Each must arrive on `receiveMessage({ identity })`. |
+| `groupReplies` | Group conversations only. `mentioned` (default): reply only when `receiveMessage({ mentioned: true })`. `all`: reply to every member message. Every message is stored either way. |
+| `send` | Tool for Ask Skedyul's replies. Same input as `messaging.send` (`MessageSendInput`). |
+
+The webhook keeps calling `communicationChannel.receiveMessage`, adding
+`identity: { email?, phone? }`, and `mentioned: true` when a group message
+mentions the app. See [Core API](./core-api.md#communicationchannelreceivemessage).
+
 ### Channels Index
 
 ```ts

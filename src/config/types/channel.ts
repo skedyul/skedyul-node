@@ -47,6 +47,54 @@ export interface ChannelCapability {
   send_batch?: string | ChannelBatchCapability
 }
 
+/** Which inbound conversations go to Ask Skedyul. */
+export type AskSkedyulConversation = 'direct' | 'group'
+
+/**
+ * How the platform finds the workplace for a message.
+ * - 'installation': the channel belongs to one workplace (a Slack team).
+ * - 'shared': the same channel identifier is installed in many workplaces
+ *   (one phone number for every workplace). The platform picks the workplace
+ *   per conversation: saved link, then the sender's identity, then a link code.
+ */
+export type AskSkedyulAddressing = 'installation' | 'shared'
+
+/** Sender identity hints the platform matches to a workplace member. */
+export type AskSkedyulMemberMatch = 'email' | 'phone'
+
+/**
+ * When Ask Skedyul replies in a group conversation.
+ * - 'mentioned': only to messages that mention it (`receiveMessage({ mentioned: true })`).
+ * - 'all': to every message from a member.
+ * Every message is still stored, so Ask Skedyul has the context.
+ */
+export type AskSkedyulGroupReplies = 'mentioned' | 'all'
+
+/**
+ * Opts a channel in to Ask Skedyul: team members message Skedyul's assistant
+ * through it instead of the channel carrying customer conversations.
+ *
+ * The app's webhook keeps calling `communicationChannel.receiveMessage`, with
+ * an `identity` hint for `matchMemberBy`. Messages whose conversation kind is
+ * listed in `conversations` go to Ask Skedyul; others keep the `messaging`
+ * path.
+ */
+export interface AskSkedyulCapability {
+  /** Display name on the Ask Skedyul card (e.g., 'WhatsApp', 'Slack') */
+  label: string
+  /** Lucide icon name */
+  icon?: string
+  /** 'direct' = 1:1 (no `group` on receiveMessage); 'group' = group chats */
+  conversations: AskSkedyulConversation[]
+  addressing: AskSkedyulAddressing
+  /** Identity hints to match, in order. Each must arrive on `identity`. */
+  matchMemberBy: AskSkedyulMemberMatch[]
+  /** Group conversations only. Defaults to 'mentioned'. */
+  groupReplies?: AskSkedyulGroupReplies
+  /** Outbound tool for Ask Skedyul's replies (same input as messaging.send) */
+  send: string
+}
+
 /**
  * Field permissions for channel fields.
  */
@@ -96,6 +144,8 @@ export interface ChannelDefinition extends BaseDefinition {
   iconUrl?: string
   /** Field definitions for channel. One field must have identifier: true. */
   fields: ChannelField[]
-  /** Capabilities keyed by type (messaging, voice, video) */
-  capabilities: Partial<Record<CapabilityType, ChannelCapability>>
+  /** Capabilities keyed by type (messaging, voice, video), plus Ask Skedyul */
+  capabilities: Partial<Record<CapabilityType, ChannelCapability>> & {
+    askSkedyul?: AskSkedyulCapability
+  }
 }
