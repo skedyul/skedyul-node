@@ -35,13 +35,11 @@
  * - `context.ts` - Page context definitions
  * - `env.ts` - Environment variable definitions
  *
- * ## SCOPE SYSTEM
+ * ## MODELS AND ENTITIES
  *
- * Resources can have two scopes:
- * - `'internal'`: App-owned, created once per app version during provisioning
- * - `'shared'`: User-mapped, configured during installation to link to existing data
- *
- * The scope is declared as a property on the resource, not by file location.
+ * Models are app-owned (`scope: 'internal'`), created once per app version
+ * during provisioning. Records the workplace maps onto its own CRM are
+ * entities (`defineEntity`), mapped in Settings → CRM → Sources.
  */
 
 /**
@@ -58,11 +56,11 @@ export interface BaseDefinition {
 }
 
 /**
- * Scope determines when and how a resource is created.
- * - 'internal': App-owned, created once per app version during provisioning
- * - 'shared': User-mapped, configured during installation to link to existing data
+ * Scope of a model. Models are app-owned ('internal'), created once per app
+ * version during provisioning. Records the workplace maps onto its own CRM
+ * are entities (see `defineEntity`), mapped in Settings → CRM → Sources.
  */
-export type Scope = 'internal' | 'shared'
+export type Scope = 'internal'
 
 /**
  * Field owner determines who controls the field definition.

@@ -402,13 +402,6 @@ export interface ChannelCreateParams {
   name: string
   /** Unique identifier for the channel (e.g., phone number, email address) */
   identifierValue: string
-  /** Optional: Link a SHARED model to user's model when creating the channel */
-  link?: {
-    /** SHARED model handle from provision config (e.g., 'contact') */
-    handle: string
-    /** User's model ID to link to */
-    targetModelId: string
-  }
 }
 
 /**
@@ -423,8 +416,6 @@ export interface ChannelCreateResult {
   handle: string
   /** Channel identifier value */
   identifierValue: string
-  /** AppResourceInstance ID if link was provided */
-  resourceInstanceId?: string
 }
 
 export const communicationChannel = {
@@ -432,7 +423,6 @@ export const communicationChannel = {
    * Create a communication channel for an app installation.
    *
    * Creates a channel with the given handle from provision.config.ts.
-   * Optionally links a SHARED model to the user's model in a single operation.
    *
    * **Requires sk_wkp_ token** - channels are scoped to app installations.
    *
@@ -441,14 +431,9 @@ export const communicationChannel = {
    *
    * @example
    * ```ts
-   * // Create a phone channel and link the contact model
    * const channel = await communicationChannel.create("phone", {
    *   name: "Sales Line",
    *   identifierValue: "+61400000000",
-   *   link: {
-   *     handle: "contact",        // SHARED model from provision config
-   *     targetModelId: modelId,   // User's selected model
-   *   },
    * });
    * ```
    */
@@ -1815,64 +1800,6 @@ export const event = {
       payload,
       ...(Object.keys(context).length > 0 ? { context } : {}),
       ...(app ? { app } : {}),
-    })
-    return data
-  },
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resource Client
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Parameters for resource.link
- */
-export interface ResourceLinkParams {
-  /** SHARED model handle from provision config */
-  handle: string
-  /** User's model ID to link to */
-  targetModelId: string
-  /** Optional: scope to a communication channel */
-  channelId?: string
-  /** Optional: field mappings (provision field handle -> workspace field ID) */
-  fieldMappings?: Record<string, string>
-}
-
-/**
- * Result from resource.link
- */
-export interface ResourceLinkResult {
-  /** Created AppResourceInstance ID */
-  instanceId: string
-}
-
-export const resource = {
-  /**
-   * Link a SHARED app resource (model) to a user's resource.
-   *
-   * Creates an AppResourceInstance hierarchy for MODEL types.
-   * This establishes the connection between an app's SHARED model
-   * (e.g., 'contact') and a user's actual workplace model (e.g., 'Clients').
-   *
-   * The API token determines the context (app installation is embedded in sk_wkp_ tokens).
-   *
-   * @param params - Link parameters
-   *
-   * @example
-   * ```ts
-   * // Link the SHARED 'contact' model to user's 'Clients' model
-   * const { instanceId } = await resource.link({
-   *   handle: 'contact',           // SHARED model handle from provision config
-   *   targetModelId: modelId,      // User's selected model ID
-   *   channelId: channel.id,       // Optional: scope to communication channel
-   * })
-   * ```
-   */
-  async link(
-    params: ResourceLinkParams,
-  ): Promise<ResourceLinkResult> {
-    const { data } = await callCore<ResourceLinkResult>('resource.link', {
-      ...params,
     })
     return data
   },

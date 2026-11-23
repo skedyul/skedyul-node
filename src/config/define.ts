@@ -59,7 +59,7 @@ export function defineModel(model: ModelDefinition): ModelDefinition {
  *   handle: 'member',
  *   label: 'Member',
  *   fields: [
- *     { handle: 'external_id', label: 'External ID', matchCandidate: true, required: true },
+ *     { handle: 'external_id', label: 'External ID', isUnique: true, required: true },
  *     { handle: 'first_name', label: 'First Name' },
  *   ],
  *   contextFields: [

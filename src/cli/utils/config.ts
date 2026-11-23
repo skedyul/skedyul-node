@@ -1,7 +1,5 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type { ModelDefinition, RelationshipDefinition } from '../../config/types'
-import type { EnvScope } from '../../config/types/env'
 import type { ProvisionConfig } from '../../config/app-config'
 import type { ToolRegistry, WebhookRegistry } from '../../types'
 
@@ -181,13 +179,6 @@ export async function loadAppConfig(
 // Install Config Loading
 // ─────────────────────────────────────────────────────────────────────────────
 
-const INSTALL_CONFIG_PATHS = [
-  'config/install.config.ts',
-  'config/install.config.js',
-  'install.config.ts',
-  'install.config.js',
-]
-
 /** Modern integrations define env via skedyul.config provision (src/provision/env.ts) */
 const PROVISION_ENV_PATHS = [
   'src/provision/env.ts',
@@ -213,32 +204,14 @@ export interface InstallEnvField {
 
 export interface InstallConfigData {
   env?: Record<string, InstallEnvField>
-  /** SHARED model definitions (mapped to user's existing data during installation) */
-  models?: ModelDefinition[]
-  /** Relationship definitions between SHARED models */
-  relationships?: RelationshipDefinition[]
 }
 
+/** Install env from the app's provision env (src/provision/env.ts). */
 export async function loadInstallConfig(
   projectDir?: string,
   debug = false,
 ): Promise<InstallConfigData | null> {
-  const legacy = await loadLegacyInstallConfig(projectDir, debug)
-  if (legacy) {
-    return legacy
-  }
-
   return loadProvisionEnvAsInstallConfig(projectDir, debug)
-}
-
-/**
- * Load env from legacy install.config files only (not provision/env.ts).
- */
-export async function loadLegacyInstallConfig(
-  projectDir?: string,
-  debug = false,
-): Promise<InstallConfigData | null> {
-  return loadInstallConfigFromPaths(INSTALL_CONFIG_PATHS, projectDir, debug)
 }
 
 async function loadProvisionEnvAsInstallConfig(
@@ -265,71 +238,6 @@ async function loadProvisionEnvAsInstallConfig(
         const env = module.default ?? module
         if (env && typeof env === 'object') {
           return { env: env as Record<string, InstallEnvField> }
-        }
-      }
-    } catch (error) {
-      console.warn(`Failed to load ${configPath}:`, error)
-      continue
-    }
-  }
-
-  return null
-}
-
-async function loadInstallConfigFromPaths(
-  configPaths: string[],
-  projectDir?: string,
-  debug = false,
-): Promise<InstallConfigData | null> {
-  const dir = projectDir ?? process.cwd()
-
-  if (debug) console.log(`[loadInstallConfig] Looking in: ${dir}`)
-
-  for (const configPath of configPaths) {
-    const fullPath = path.join(dir, configPath)
-    if (debug) console.log(`[loadInstallConfig] Checking: ${fullPath}`)
-    
-    if (!fs.existsSync(fullPath)) {
-      if (debug) console.log(`[loadInstallConfig] Not found: ${fullPath}`)
-      continue
-    }
-
-    if (debug) console.log(`[loadInstallConfig] Found: ${fullPath}`)
-
-    try {
-      if (fullPath.endsWith('.ts')) {
-        // For TypeScript files, try to load from compiled dist first
-        const distPath = fullPath.replace(/\.ts$/, '.js').replace('/config/', '/dist/config/')
-        if (debug) console.log(`[loadInstallConfig] Checking dist: ${distPath}`)
-        
-        if (fs.existsSync(distPath)) {
-          try {
-            const module = await import(distPath)
-            const config = module.default ?? module
-            if (debug) console.log(`[loadInstallConfig] Loaded from dist:`, Object.keys(config))
-            if (config && typeof config === 'object') {
-              return config as InstallConfigData
-            }
-          } catch (distError) {
-            if (debug) console.log(`[loadInstallConfig] Dist import failed:`, distError)
-            // Fall through to source parsing
-          }
-        }
-        
-        // Parse source directly as fallback
-        if (debug) console.log(`[loadInstallConfig] Parsing source file...`)
-        const content = fs.readFileSync(fullPath, 'utf-8')
-        const parsed = parseInstallConfigFromSource(content)
-        if (debug) console.log(`[loadInstallConfig] Parsed result:`, parsed ? Object.keys(parsed.env || {}) : 'null')
-        if (parsed) {
-          return parsed
-        }
-      } else {
-        // JS files can be imported directly
-        const module = await import(fullPath)
-        const config = module.default ?? module
-        if (config && typeof config === 'object') {
-          return config as InstallConfigData
         }
       }
     } catch (error) {
@@ -447,10 +355,6 @@ function parseEnvConfigFromSource(content: string): InstallConfigData | null {
   }
 }
 
-/** @deprecated Use parseEnvConfigFromSource */
-function parseInstallConfigFromSource(content: string): InstallConfigData | null {
-  return parseEnvConfigFromSource(content)
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Install Handler Loading
@@ -510,17 +414,6 @@ export async function loadInstallHandler(
   return null
 }
 
-function buildProvisionEnvFromInstallConfig(
-  installEnv: Record<string, InstallEnvField>,
-): Record<string, InstallEnvField & { scope?: EnvScope }> {
-  return Object.fromEntries(
-    Object.entries(installEnv).map(([key, def]) => [
-      key,
-      { ...def, scope: 'provision' as const },
-    ]),
-  )
-}
-
 /** Exclude provision-scoped vars mistakenly stored in install.env (legacy sync bug). */
 export function filterInstallScopedEnv(
   env: Record<string, InstallEnvField & { scope?: string }>,
@@ -531,17 +424,11 @@ export function filterInstallScopedEnv(
 }
 
 function buildInstallEnvForSync(
-  legacyInstall: InstallConfigData | null,
   provisionConfig: ProvisionConfig | null,
 ): { pre: Record<string, InstallEnvField>; post: Record<string, InstallEnvField> } | undefined {
   const installEnv: Record<string, InstallEnvField> = {}
 
-  // Legacy install.config.ts — all vars are install-scoped (pre_install)
-  if (legacyInstall?.env) {
-    Object.assign(installEnv, legacyInstall.env)
-  }
-
-  // Modern provision.env — only scope: 'install'
+  // provision.env — only scope: 'install'
   if (provisionConfig?.env) {
     for (const [key, def] of Object.entries(provisionConfig.env)) {
       if (def.scope === 'install') {
@@ -657,19 +544,10 @@ export async function buildExecutableSyncConfig(
     : []
 
   const appConfig = await loadAppConfig(projectDir)
-  const legacyInstallConfig = await loadLegacyInstallConfig(projectDir)
-  const installConfig = await loadInstallConfig(projectDir)
   const provisionConfig = await loadProvisionConfig(projectDir)
+  const provision: ProvisionConfig | undefined = provisionConfig ?? undefined
 
-  let provision: ProvisionConfig | undefined = provisionConfig ?? undefined
-  if (!provision?.env && legacyInstallConfig?.env) {
-    provision = {
-      ...provision,
-      env: buildProvisionEnvFromInstallConfig(legacyInstallConfig.env),
-    }
-  }
-
-  const installEnvSplit = buildInstallEnvForSync(legacyInstallConfig, provisionConfig ?? null)
+  const installEnvSplit = buildInstallEnvForSync(provisionConfig ?? null)
 
   return {
     name: appConfig?.name,

@@ -38,7 +38,6 @@ export {
   webhook,
   cron,
   event,
-  resource,
   ai,
   call,
   report,
@@ -83,8 +82,6 @@ export type {
   CronListOptions,
   EventCreateResult,
   EventCreateOptions,
-  ResourceLinkParams,
-  ResourceLinkResult,
   // AI types
   AITextContent,
   AIFileContent,
@@ -511,7 +508,6 @@ export type {
   // App config
   SkedyulConfig,
   SerializableSkedyulConfig,
-  InstallConfig,
   ProvisionConfig,
   AppReportDefinition,
   AppReportSection,

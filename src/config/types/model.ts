@@ -176,7 +176,7 @@ export interface ModelDefinition extends BaseDefinition {
   labelPlural?: string
   /** Liquid template for generating record labels (e.g., '{{ business_name }}') */
   labelTemplate?: string
-  /** Model scope: 'internal' (app-owned) or 'shared' (user-mapped) */
+  /** Models are app-owned ('internal'); use entities for CRM-mapped records */
   scope?: Scope
   /** Field definitions */
   fields: FieldDefinition[]

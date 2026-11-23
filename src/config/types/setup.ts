@@ -43,9 +43,4 @@ export interface SetupStepDefinition {
   actionTool?: string
   /** Optional label for the APP-step CTA button */
   actionLabel?: string
-  /**
-   * Optional install-relative path for post-setup navigation
-   * (e.g. `/leads`). Prefer entity pages over industry-specific defaults.
-   */
-  href?: string
 }

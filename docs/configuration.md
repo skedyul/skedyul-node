@@ -54,7 +54,6 @@ interface SkedyulConfig {
 
   // Declarative config
   provision?: ProvisionConfig | Promise<{ default: ProvisionConfig }>
-  install?: InstallConfig | Promise<{ default: InstallConfig }>
   agents?: AgentDefinition[]
   events?: AppEventDefinition[]
 
@@ -99,40 +98,6 @@ my-app/
 │       └── page.ts
 └── src/
     └── registries.ts          # Tools and webhooks
-```
-
----
-
-## Install config
-
-Per-installation configuration — collected when a user installs your app:
-
-```ts
-// install.ts
-import type { InstallConfig } from 'skedyul'
-import installEnv from './install-env'
-import { sharedModels, sharedRelationships } from './crm/shared'
-
-export default {
-  env: installEnv,
-  models: Object.values(sharedModels),      // SHARED scope models
-  relationships: sharedRelationships,
-} satisfies InstallConfig
-```
-
-| Field | Description |
-|-------|-------------|
-| `env` | Per-install env vars (`scope: 'install'`) |
-| `models` | SHARED models mapped to user's existing data |
-| `relationships` | Relationships between SHARED models |
-
-Reference from config:
-
-```ts
-export default defineConfig({
-  // ...
-  install: import('./install'),
-})
 ```
 
 ---
@@ -238,7 +203,7 @@ export default defineEntity({
   handle: 'member',
   label: 'Member',
   fields: [
-    { handle: 'external_id', label: 'External ID', matchCandidate: true, required: true },
+    { handle: 'external_id', label: 'External ID', isUnique: true, required: true },
     { handle: 'first_name', label: 'First Name' },
     { handle: 'email', label: 'Email', definition: 'email' },
   ],
@@ -283,7 +248,13 @@ entities: [member, membership, booking, event],
 
 Optional install checklist. When declared, the platform seeds `AppInstallSetupStep`
 rows on each installation and exposes them via the `setup.*` Core API and the
-`InstallSetupPanel` UI.
+app's Setup page (an `InstallSetupPanel` block).
+
+`kind: 'crm'` steps are completed in **Settings → CRM → Sources**, not on app
+pages: the checklist links there, the workplace maps the step's `entities` and
+turns on its live updates (`workflowHandles`), and the step reads its status
+back (READY once every entity is mapped and its workflow triggers are wired).
+Apps don't declare CRM mapping cards on their own pages.
 
 ```ts
 // provision/setup.ts
@@ -297,21 +268,15 @@ export default [
     capabilities: ['access.requested'],
   }),
   defineSetupStep({
-    handle: 'crm_members',
-    label: 'Setup Members',
+    handle: 'setup_members',
+    label: 'Set up Members',
     kind: 'crm',
     requires: ['request_access'],
     entities: ['member'],
-    listenToCrm: true,
-    capabilities: ['crm.member'],
-  }),
-  defineSetupStep({
-    handle: 'realtime_events',
-    label: 'Setup Live updates',
-    kind: 'realtime',
-    requires: ['crm_members'],
+    // Live updates for this step, turned on in CRM Sources
     workflowHandles: ['sync-member-from-webhook'],
-    capabilities: ['realtime.member'],
+    listenToCrm: true,
+    capabilities: ['crm.member', 'realtime.member'],
   }),
 ]
 ```
@@ -322,8 +287,8 @@ export default [
 | `label` / `description?` | UI copy |
 | `kind` | `app` \| `crm` \| `realtime` \| `env` |
 | `requires?` | Prerequisite step handles |
-| `entities?` | CRM entity handles (CRM steps) |
-| `workflowHandles?` | Bundled workflows (realtime steps) |
+| `entities?` | CRM entity handles (CRM steps), mapped in CRM Sources |
+| `workflowHandles?` | Bundled workflows the step's live updates use |
 | `envKeys?` | Env keys this step depends on |
 | `listenToCrm?` | Receive `install.setup.crm_changed` + `hooks.setup.revalidate` |
 | `listenToEnv?` | Receive `install.setup.env_changed` + `hooks.setup.revalidate` |
@@ -557,7 +522,7 @@ export default defineModel({
   labelPlural: 'Compliance Records',
   labelTemplate: '{{ status }} - {{ created_at }}',
   description: 'Tracks compliance status',
-  scope: 'internal',           // 'internal' or 'shared'
+  scope: 'internal',           // models are app-owned
 
   fields: [
     {
@@ -603,9 +568,8 @@ Field options take `label` and `value`, plus optional `color` and `icon`. `icon`
 | Scope | Description | Use Case |
 |-------|-------------|----------|
 | `internal` | App-owned data **shared across installs** of this app version. Rows live in the app-owner workplace. | Phone numbers, email domains, provider app credentials |
-| `shared` | Linked to the user's existing workplace models at install time | Contacts, appointments |
 
-Per-install records that belong to the workplace (for example a connected calendar and its sync token) are **not** internal models. Declare them as entities and map them with install CRM maps. `instance.list/create/update('<entity>')` resolves the mapped workplace model.
+Records that belong to the workplace's own CRM (contacts, appointments, a connected calendar and its sync token) are **not** models. Declare them as entities; the workplace maps them in Settings → CRM → Sources. `instance.list/create/update('<entity>')` resolves the mapped workplace model.
 
 ### Field Types
 
@@ -1154,16 +1118,11 @@ defineEnv({
 })
 ```
 
-### 4. Use scope: 'shared' for User Data
+### 4. Use entities for the workplace's CRM data
 
-```ts
-defineModel({
-  handle: 'contact',
-  label: 'Contact',
-  scope: 'shared',  // User selects which model to link
-  // ...
-})
-```
+Declare contacts, appointments and the like with `defineEntity` (plus
+`crmMapDefaults`), not as models. The workplace maps them in Settings → CRM →
+Sources.
 
 ### 5. Organize Files by Domain
 
