@@ -640,7 +640,8 @@ const { count } = await webhook.deleteByName('receive_sms', {
 
 ## cron
 
-Subscribe to scheduled events.
+Run one of your app's tools on a schedule. Needs a workplace token
+(`sk_wkp_*`), so call it from install, setup or a runtime tool.
 
 ### cron.subscribe()
 
@@ -648,11 +649,27 @@ Subscribe to scheduled events.
 import { cron } from 'skedyul'
 
 const { id } = await cron.subscribe({
-  name: 'daily_sync',
-  schedule: '0 9 * * *',  // Cron expression
-  timezone: 'Australia/Sydney',
+  toolName: 'calendar_sync',     // a tool your app declares
+  schedule: '*/15 * * * *',      // cron expression
+  timezone: 'Australia/Sydney',  // defaults to UTC
+  inputs: { mode: 'incremental' },
+  cursorKey: 'calendar_sync',    // optional; subscriptions with the same key share a cursor
+  label: 'Catch-up sync',
 })
 ```
+
+- **Idempotent.** There is one subscription per installation, `toolName` and
+  `cursorKey`. Calling it again updates the schedule, time zone, inputs and
+  label and re-enables it, so it is safe to call from hooks that run more than
+  once.
+- **Runs.** A platform scheduler starts each run. If the previous run is still
+  going, the new one is skipped. The tool gets `context.trigger === 'cron'`
+  and `context.cron` (subscription id, scheduled time, last cursor). See
+  [tools.md](./tools.md#trigger-specific-context).
+- **Cursor.** Return `{ cursor, hasMore }` from the tool. The platform saves
+  `cursor` and calls again while `hasMore` is true (up to 20 calls per run).
+- **Lifecycle.** The schedule stops when you unsubscribe, when the
+  subscription is disabled, or when the installation is removed.
 
 ### cron.unsubscribe()
 
@@ -663,7 +680,7 @@ await cron.unsubscribe(subscriptionId)
 ### cron.list()
 
 ```ts
-const { subscriptions } = await cron.list({ name: 'daily_sync' })
+const { subscriptions } = await cron.list({ toolName: 'calendar_sync' })
 ```
 
 ---
