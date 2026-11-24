@@ -17,6 +17,7 @@ import {
   handleSetupRevalidateRoute,
   handleOAuthCallbackRoute,
   handleRefreshTokenRoute,
+  handleWebhookRenewRoute,
   handleWebhookRoute,
   handleMcpRoute,
   handleMcpBatchRoute,
@@ -81,6 +82,10 @@ export async function routeRequest(
 
     if (req.path === '/refresh_token' && req.method === 'POST') {
       return handleRefreshTokenRoute(req, ctx)
+    }
+
+    if (req.path === '/webhook_renew' && req.method === 'POST') {
+      return handleWebhookRenewRoute(req, ctx)
     }
 
     if (req.path === '/health' && req.method === 'GET') {

@@ -12,6 +12,7 @@ Lifecycle hooks allow your app to execute code at key moments: when users instal
 | `provision` | App version deployed | Setup version-level resources |
 | `uninstall` | User uninstalls app | Cleanup external resources |
 | `setup.revalidate` | CRM migration applied or install env key removed | Re-evaluate listening setup steps (`setup.complete` / `setup.invalidate`) |
+| `renew` (on a webhook) | Shortly before a registration created with `autoRenew` expires | Renew the provider subscription that points at it. See [Webhooks: Expiring subscriptions](./webhooks.md#expiring-subscriptions) |
 
 ## Defining Hooks
 

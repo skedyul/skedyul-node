@@ -586,16 +586,31 @@ await twilioClient.incomingPhoneNumbers(sid).update({
 | `name` | `string` | Handler name from webhook registry |
 | `context` | `Record<string, unknown>` | Custom data for handler |
 | `options.expiresIn` | `number` | Expiration in seconds |
+| `options.expiresAt` | `string` | Expiration time (ISO), e.g. a provider subscription's expiry |
+| `options.autoRenew` | `boolean` | Renew before expiry through the webhook's `renew` handler ([Expiring subscriptions](./webhooks.md#expiring-subscriptions)) |
 
 **Returns:** `Promise<WebhookCreateResult>`
 
 ```ts
 interface WebhookCreateResult {
-  id: string           // Registration ID (whkr_xxx)
+  id: string           // Registration ID (whreg_xxx)
   url: string          // Full public URL
   expiresAt: string | null
 }
 ```
+
+### webhook.update()
+
+Change a registration's expiry, renewal or context. The URL stays the same.
+
+```ts
+await webhook.update('whreg_abc123', {
+  expiresAt: channel.expiration, // null removes the expiry
+  autoRenew: true,
+})
+```
+
+**Returns:** `Promise<{ id: string; url: string; expiresAt: string | null; autoRenew: boolean }>`
 
 ### webhook.list()
 

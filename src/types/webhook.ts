@@ -137,6 +137,50 @@ export type WebhookInvocationMode = 'WEBHOOK' | 'CALLBACK'
  */
 export type WebhookType = WebhookInvocationMode
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Expiring registrations (leases)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The registration the platform asks the app to renew. */
+export interface WebhookRenewRegistration {
+  /** Registration id (the token in the URL) */
+  id: string
+  /** Handler name, the key in the webhook registry */
+  name: string
+  /** Public URL the provider calls. It stays the same across renewals. */
+  url: string
+  /** Context passed to webhook.create / webhook.update */
+  context: Record<string, unknown> | null
+  /** Current expiry (ISO) */
+  expiresAt: string | null
+}
+
+export interface WebhookRenewContext {
+  registration: WebhookRenewRegistration
+  env: Record<string, string | undefined>
+  app: AppInfo
+  appInstallationId: string
+  workplace: WorkplaceInfo
+  invocation?: InvocationContext
+  log: ContextLogger
+}
+
+/**
+ * What a renew handler returns:
+ * - `{ expiresAt }`: the provider subscription was renewed; the platform stores
+ *   the new expiry (and `context`, when given) and renews again before it.
+ *   `expiresAt: null` means it no longer expires, so renewal stops.
+ * - `{ delete: true }`: the subscription is no longer needed; the platform
+ *   deletes the registration.
+ */
+export type WebhookRenewResult =
+  | { expiresAt: string | null; context?: Record<string, unknown> }
+  | { delete: true }
+
+export type WebhookRenewHandler = (
+  context: WebhookRenewContext,
+) => Promise<WebhookRenewResult>
+
 export interface WebhookDefinition {
   name: string
   description: string
@@ -148,6 +192,12 @@ export interface WebhookDefinition {
    */
   type?: WebhookInvocationMode
   handler: WebhookHandler
+  /**
+   * Renews an expiring provider subscription that points at a registration of
+   * this webhook. The platform calls it shortly before a registration created
+   * with `autoRenew: true` expires (see webhook.create / webhook.update).
+   */
+  renew?: WebhookRenewHandler
 
   // App lifecycle
   onAppInstalled?: WebhookLifecycleHook
