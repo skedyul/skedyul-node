@@ -216,7 +216,25 @@ interface AgentToolContext extends RuntimeToolContext {
 interface WorkflowToolContext extends RuntimeToolContext {
   trigger: 'workflow'
 }
+
+// Cron trigger (a `cron.subscribe` schedule fired)
+interface CronToolContext extends RuntimeToolContext {
+  trigger: 'cron'
+  cron: {
+    subscriptionId: string
+    /** When the run was scheduled (an ISO string over the wire). */
+    scheduledTime: Date
+    /** The cursor the previous call returned; null on the first run. */
+    cursor: Record<string, unknown> | null
+  }
+}
 ```
+
+A cron tool returns `cursor` (saved for the next call, shared by
+subscriptions with the same `cursorKey`) and `hasMore`. While `hasMore` is
+true the platform calls the tool again in the same run, up to 20 calls. The
+cursor is also merged into the tool's input, on top of the subscription's
+`inputs`. See [`cron`](./core-api.md#cron).
 
 ### Type Guards
 
@@ -482,14 +500,8 @@ const inputSchema: ToolSchema = {
 ### Platform calendar window pull
 
 For entity tools wired via `defineEntity({ tools: { calendarWindowPull } })`,
-reuse the shared schemas from `skedyul` — same pattern as
-`MessageSendInput` for `capabilities.messaging.send`:
-
-- **Input:** `MessageSendInputSchema` / `MessageSendInput`
-- **Output:** `MessageSendOutputSchema` / `MessageSendOutput`
-- **Group sends:** `group.identifierValue` and optional `group.name`. 1:1 sends use `subscription.identifierValue`.
-
-The platform calls the tool named by `capabilities.messaging.send`. Handlers should read that payload and not expect a guessed tool name.
+reuse the shared schemas from `skedyul` (the same pattern as
+`MessageSendInput` for `capabilities.messaging.send`):
 
 - **Input:** `CalendarWindowPullInputSchema` / `CalendarWindowPullInput`
 - **Output:** `CalendarWindowPullOutputSchema` / `CalendarWindowPullOutput`
@@ -537,6 +549,43 @@ export const pullMeetingsWindow: ToolDefinition<
   },
 }
 ```
+
+The platform calls this tool when someone opens a calendar window. It throttles
+calls per installation and window (about once every 2 minutes, unless the
+person presses **Sync now**), and records each run so the calendar can show
+its sync status. Keep the tool fast: page through the provider, upsert, and
+return `truncated: true` when you stop early.
+
+### Calendar edits on CRM events
+
+When someone edits a calendar event in Skedyul, the platform writes every row
+in one transaction and then emits the usual `instance.created`,
+`instance.updated` and `instance.deleted` events. Each of those events also
+carries a top-level `calendarEdit` object, so an app that syncs a provider
+calendar can tell a single change from a change to a recurring series:
+
+| Field | Description |
+|-------|-------------|
+| `calendarEdit.action` | `update` or `delete` |
+| `calendarEdit.scope` | `single` (not recurring), `this` (one occurrence), `following` (this and later occurrences) or `all` (the whole series) |
+| `calendarEdit.masterId` | CRM instance id of the series master, for `this` / `following` / `all` |
+| `calendarEdit.originalStart` | The occurrence's original start (ISO), for `this` / `following` |
+
+How the rows change for each scope:
+
+- **this** creates or updates an exception row (`series_id` set to the master,
+  `original_start` set to the occurrence). Deleting one occurrence adds an
+  `EXDATE` line to the master, and cancels or deletes its exception row if it
+  has one. An `EXDATE` always means a deletion, never a move.
+- **following** ends the master with `UNTIL` (or a smaller `COUNT`) and
+  creates a new series from the occurrence onwards. Later exceptions move to
+  the new series.
+- **all** updates the master; weekly `BYDAY` values shift with the event.
+
+Map these to the provider's own calls (for Google: patch the instance, trim
+the master and insert the new series, or patch the master). Events caused by
+your own app's writes carry your app's handle in `origin`, so filter those out
+to avoid loops.
 
 ### Platform bulk messaging schemas
 

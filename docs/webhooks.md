@@ -217,15 +217,29 @@ await twilioClient.incomingPhoneNumbers(phoneNumberSid).update({
 async function create(
   name: string,                           // Handler name from registry
   context?: Record<string, unknown>,      // Custom data for handler
-  options?: { expiresIn?: number },       // Expiration in seconds
+  options?: {
+    expiresIn?: number                    // Expire after this many seconds
+    expiresAt?: string                    // ...or at this time (ISO)
+    autoRenew?: boolean                   // Platform calls the webhook's `renew` before it expires
+  },
 ): Promise<WebhookCreateResult>
 
 interface WebhookCreateResult {
-  id: string        // Registration ID (whkr_xxx)
+  id: string        // Registration ID (whreg_xxx)
   url: string       // Full public URL
   expiresAt: string | null
 }
 ```
+
+### webhook.update()
+
+```ts
+// Store a provider subscription's expiry and have the platform renew it
+await webhook.update(id, { expiresAt: channel.expiration, autoRenew: true })
+```
+
+Changes `expiresAt` (`null` removes it), `autoRenew` or `context`. The URL never
+changes. Only registrations of the calling installation can be updated.
 
 ### webhook.list()
 
@@ -251,6 +265,60 @@ const { count } = await webhook.deleteByName('receive_sms', {
   filter: { channelId: 'ch_xxx' },
 })
 ```
+
+## Expiring subscriptions
+
+Some providers deliver events through a subscription that expires: Google
+Calendar and Gmail watch channels last about a week, Microsoft Graph
+subscriptions a few days. The platform keeps these alive for you, the same way
+it refreshes OAuth tokens. Your app doesn't schedule anything.
+
+1. Give each provider subscription its own registration, so its URL and context
+   identify it.
+2. After the provider confirms the subscription, store its expiry with
+   `autoRenew: true`.
+3. Add a `renew` handler to the webhook definition. Shortly before the expiry
+   (up to a day before, or a quarter of the remaining time for short leases) the
+   platform calls it. It renews the subscription and returns the new expiry.
+
+```ts
+import { webhook, type WebhookDefinition } from 'skedyul'
+
+// Opening the subscription
+const { id, url } = await webhook.create('calendar_push', { calendar_id: calendarId })
+const channel = await google.events.watch({ calendarId, requestBody: { address: url, ... } })
+await webhook.update(id, { expiresAt: channel.expiration, autoRenew: true })
+
+// The webhook definition
+export const calendarPush: WebhookDefinition = {
+  name: 'calendar_push',
+  description: 'Google Calendar push notifications',
+  handler,
+  async renew({ registration, env }) {
+    const calendarId = registration.context?.calendar_id as string
+    if (!(await stillWanted(calendarId))) return { delete: true }
+    const channel = await openChannel(calendarId, registration.url, env)
+    return { expiresAt: channel.expiration }
+  },
+}
+```
+
+What `renew` returns:
+
+| Result | Platform action |
+|--------|-----------------|
+| `{ expiresAt, context? }` | Stores the new expiry (and context) and renews again before it |
+| `{ expiresAt: null }` | The subscription no longer expires; renewal stops |
+| `{ delete: true }` | Deletes the registration |
+
+- Throw `TokenRefreshRequiredError` when the access token has expired: the
+  platform runs your `refresh_token` hook and calls `renew` again once.
+- Throw `AppAuthInvalidError` when the user must reconnect: the installation's
+  auth is marked invalid and renewal backs off.
+- Any other failure is retried with backoff (5 min, 15 min, 1 h, 3 h, then
+  6 h). Failures show in the installation's sync status.
+- If the webhook has no `renew` handler, the platform turns `autoRenew` off for
+  that registration.
 
 ## Lifecycle Hooks
 

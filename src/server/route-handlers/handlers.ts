@@ -49,6 +49,7 @@ import {
   handleSetupRevalidate,
   handleOAuthCallback,
   handleRefreshToken,
+  handleWebhookRenew,
   parseWebhookRequest,
   executeWebhookHandler,
   isMethodAllowed,
@@ -362,6 +363,22 @@ export async function handleRefreshTokenRoute(
   }
 
   const result = await handleRefreshToken(parseResult.data, ctx.config.hooks)
+  return { status: result.status, body: result.body }
+}
+
+/**
+ * Handle POST /webhook_renew
+ */
+export async function handleWebhookRenewRoute(
+  req: UnifiedRequest,
+  ctx: RouteContext,
+): Promise<UnifiedResponse> {
+  const parseResult = parseJsonBody(req)
+  if (!parseResult.success) {
+    return parseResult.error
+  }
+
+  const result = await handleWebhookRenew(parseResult.data, ctx.webhookRegistry)
   return { status: result.status, body: result.body }
 }
 

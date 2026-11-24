@@ -69,6 +69,9 @@ export type {
   WebhookListItem,
   WebhookDeleteByNameOptions,
   WebhookListOptions,
+  WebhookCreateOptions,
+  WebhookUpdateParams,
+  WebhookUpdateResult,
   // Call types
   CallStartParams,
   CallStartResult,

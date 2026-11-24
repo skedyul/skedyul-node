@@ -1479,6 +1479,45 @@ export interface WebhookListItem {
   createdAt: string
   /** ISO timestamp when the registration expires (null if no expiration) */
   expiresAt: string | null
+  /** True when the platform renews this registration through the webhook's `renew` handler */
+  autoRenew: boolean
+}
+
+/**
+ * Options for webhook.create
+ */
+export interface WebhookCreateOptions {
+  /** Expire after this many seconds */
+  expiresIn?: number
+  /** Expire at this time (ISO). Use for a provider subscription's own expiry. */
+  expiresAt?: string
+  /**
+   * Renew before it expires by calling the webhook definition's `renew`
+   * handler (needs `expiresIn` or `expiresAt`).
+   */
+  autoRenew?: boolean
+}
+
+/**
+ * Changes for webhook.update. Omitted fields stay as they are.
+ */
+export interface WebhookUpdateParams {
+  /** New expiry (ISO); null removes it */
+  expiresAt?: string | null
+  /** Turn platform renewal on or off */
+  autoRenew?: boolean
+  /** Replace the registration's context */
+  context?: Record<string, unknown>
+}
+
+/**
+ * Response from webhook.update
+ */
+export interface WebhookUpdateResult {
+  id: string
+  url: string
+  expiresAt: string | null
+  autoRenew: boolean
 }
 
 /**
@@ -1527,12 +1566,38 @@ export const webhook = {
   async create(
     name: string,
     context?: Record<string, unknown>,
-    options?: { expiresIn?: number },
+    options?: WebhookCreateOptions,
   ): Promise<WebhookCreateResult> {
     const { data } = await callCore<WebhookCreateResult>('webhook.create', {
       name,
       ...(context ? { context } : {}),
       ...(options?.expiresIn ? { expiresIn: options.expiresIn } : {}),
+      ...(options?.expiresAt ? { expiresAt: options.expiresAt } : {}),
+      ...(options?.autoRenew !== undefined ? { autoRenew: options.autoRenew } : {}),
+    })
+    return data
+  },
+
+  /**
+   * Update a registration's expiry, renewal or context. The URL never changes.
+   *
+   * Use it after (re)opening a provider subscription that points at the
+   * registration, to store the provider's expiry so the platform renews it.
+   *
+   * **Requires sk_wkp_ token** - only this installation's registrations.
+   *
+   * @example
+   * ```ts
+   * const channel = await provider.watch({ address: url })
+   * await webhook.update(id, { expiresAt: channel.expiration, autoRenew: true })
+   * ```
+   */
+  async update(id: string, params: WebhookUpdateParams): Promise<WebhookUpdateResult> {
+    const { data } = await callCore<WebhookUpdateResult>('webhook.update', {
+      id,
+      ...(params.expiresAt !== undefined ? { expiresAt: params.expiresAt } : {}),
+      ...(params.autoRenew !== undefined ? { autoRenew: params.autoRenew } : {}),
+      ...(params.context !== undefined ? { context: params.context } : {}),
     })
     return data
   },

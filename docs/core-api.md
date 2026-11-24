@@ -586,16 +586,31 @@ await twilioClient.incomingPhoneNumbers(sid).update({
 | `name` | `string` | Handler name from webhook registry |
 | `context` | `Record<string, unknown>` | Custom data for handler |
 | `options.expiresIn` | `number` | Expiration in seconds |
+| `options.expiresAt` | `string` | Expiration time (ISO), e.g. a provider subscription's expiry |
+| `options.autoRenew` | `boolean` | Renew before expiry through the webhook's `renew` handler ([Expiring subscriptions](./webhooks.md#expiring-subscriptions)) |
 
 **Returns:** `Promise<WebhookCreateResult>`
 
 ```ts
 interface WebhookCreateResult {
-  id: string           // Registration ID (whkr_xxx)
+  id: string           // Registration ID (whreg_xxx)
   url: string          // Full public URL
   expiresAt: string | null
 }
 ```
+
+### webhook.update()
+
+Change a registration's expiry, renewal or context. The URL stays the same.
+
+```ts
+await webhook.update('whreg_abc123', {
+  expiresAt: channel.expiration, // null removes the expiry
+  autoRenew: true,
+})
+```
+
+**Returns:** `Promise<{ id: string; url: string; expiresAt: string | null; autoRenew: boolean }>`
 
 ### webhook.list()
 
@@ -640,7 +655,8 @@ const { count } = await webhook.deleteByName('receive_sms', {
 
 ## cron
 
-Subscribe to scheduled events.
+Run one of your app's tools on a schedule. Needs a workplace token
+(`sk_wkp_*`), so call it from install, setup or a runtime tool.
 
 ### cron.subscribe()
 
@@ -648,11 +664,27 @@ Subscribe to scheduled events.
 import { cron } from 'skedyul'
 
 const { id } = await cron.subscribe({
-  name: 'daily_sync',
-  schedule: '0 9 * * *',  // Cron expression
-  timezone: 'Australia/Sydney',
+  toolName: 'calendar_sync',     // a tool your app declares
+  schedule: '*/15 * * * *',      // cron expression
+  timezone: 'Australia/Sydney',  // defaults to UTC
+  inputs: { mode: 'incremental' },
+  cursorKey: 'calendar_sync',    // optional; subscriptions with the same key share a cursor
+  label: 'Catch-up sync',
 })
 ```
+
+- **Idempotent.** There is one subscription per installation, `toolName` and
+  `cursorKey`. Calling it again updates the schedule, time zone, inputs and
+  label and re-enables it, so it is safe to call from hooks that run more than
+  once.
+- **Runs.** A platform scheduler starts each run. If the previous run is still
+  going, the new one is skipped. The tool gets `context.trigger === 'cron'`
+  and `context.cron` (subscription id, scheduled time, last cursor). See
+  [tools.md](./tools.md#trigger-specific-context).
+- **Cursor.** Return `{ cursor, hasMore }` from the tool. The platform saves
+  `cursor` and calls again while `hasMore` is true (up to 20 calls per run).
+- **Lifecycle.** The schedule stops when you unsubscribe, when the
+  subscription is disabled, or when the installation is removed.
 
 ### cron.unsubscribe()
 
@@ -663,7 +695,7 @@ await cron.unsubscribe(subscriptionId)
 ### cron.list()
 
 ```ts
-const { subscriptions } = await cron.list({ name: 'daily_sync' })
+const { subscriptions } = await cron.list({ toolName: 'calendar_sync' })
 ```
 
 ---

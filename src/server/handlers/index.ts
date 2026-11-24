@@ -12,6 +12,7 @@ export { handleProvision } from './provision-handler'
 export { handleSetupRevalidate } from './setup-revalidate-handler'
 export { handleOAuthCallback } from './oauth-callback-handler'
 export { handleRefreshToken } from './refresh-token-handler'
+export { handleWebhookRenew } from './webhook-renew-handler'
 export {
   parseWebhookRequest,
   executeWebhookHandler,

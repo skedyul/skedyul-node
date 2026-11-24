@@ -174,6 +174,10 @@ export type {
   WebhookRegistry,
   WebhookName,
   WebhookMetadata,
+  WebhookRenewRegistration,
+  WebhookRenewContext,
+  WebhookRenewResult,
+  WebhookRenewHandler,
 } from './webhook'
 export { isRuntimeWebhookContext } from './webhook'
 
