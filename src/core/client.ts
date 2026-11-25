@@ -513,6 +513,38 @@ export const communicationChannel = {
   },
 
   /**
+   * Report a provider template's review result (see
+   * `capabilities.messaging.templates`). Call it from the provider's
+   * template-status webhook. The platform sends, fails or cleans up the
+   * messages waiting on that template.
+   *
+   * @example
+   * ```ts
+   * await communicationChannel.updateTemplateStatus({
+   *   templateId: '1234567890',
+   *   status: 'approved',
+   * })
+   * ```
+   */
+  async updateTemplateStatus(input: {
+    templateId: string
+    status: 'pending' | 'approved' | 'rejected' | 'paused' | 'disabled'
+    reason?: string
+    category?: 'utility' | 'marketing'
+  }): Promise<{ updated: number }> {
+    const { data } = await callCore<{ updated: number }>(
+      'communicationChannel.updateTemplateStatus',
+      {
+        templateId: input.templateId,
+        status: input.status,
+        ...(input.reason ? { reason: input.reason } : {}),
+        ...(input.category ? { category: input.category } : {}),
+      },
+    )
+    return data
+  },
+
+  /**
    * Attach uploaded files to a message created via {@link receiveMessage}.
    *
    * Safe to call before or after the inbox processor creates the ThreadMessage:

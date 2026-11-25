@@ -756,6 +756,28 @@ capabilities: {
 },
 ```
 
+#### Messaging windows and provider templates
+
+Some providers only allow free-form messages for a while after the contact last wrote (WhatsApp, Messenger and Instagram allow 24 hours). Declare it with `capabilities.messaging.window`:
+
+```ts
+messaging: {
+  label: 'WhatsApp',
+  send: 'send_whatsapp',
+  window: { hours: 24 },
+  templates: { create: 'create_whatsapp_template', delete: 'delete_whatsapp_template' },
+},
+```
+
+When the window is closed:
+
+| Channel declares | Platform behaviour |
+|------------------|--------------------|
+| `window` only | The message is not sent. Its status is "window closed". |
+| `window` + `templates` | The platform calls `templates.create` (`MessageTemplateCreateInput`) with the message text, waits for approval, then calls `send` with `message.template` set (`MessageSendTemplate`). Templates the platform created are deleted with `templates.delete` once no unsent message uses them. |
+
+Report review results from the provider's webhook with `communicationChannel.updateTemplateStatus({ templateId, status, reason? })`. A send tool that hits the window can return `{ status: 'failed', failureCode: 'window_closed' }`.
+
 The platform invokes exactly `capabilities.messaging.send`. It does not derive a tool name from the channel handle. 1:1 sends include `subscription.identifierValue`. Group sends include `group.identifierValue` (optional `name`) on `MessageSendInput`. A channel with no `capabilities.messaging.send` is not delivered externally.
 
 When `get_status` returns `{ complete: true, mock: true, messages: [] }`, the platform treats all recipients as sent (provider skipped real delivery).

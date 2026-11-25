@@ -546,6 +546,8 @@ export type {
   ChannelCapability,
   ChannelBatchCapability,
   ChannelInitiation,
+  ChannelMessagingWindow,
+  ChannelTemplatesCapability,
   AskSkedyulCapability,
   AskSkedyulConversation,
   AskSkedyulAddressing,
