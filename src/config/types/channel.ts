@@ -28,6 +28,17 @@ export interface ChannelBatchCapability {
 }
 
 /**
+ * Who may start a conversation on a channel.
+ * - `business`: the workplace can message anyone it has an identifier for
+ *   (phone number, email address). This is the default.
+ * - `contact`: the person must message the channel first. The workplace can
+ *   only reply to people who already have a subscription on this channel
+ *   (for example Page- or account-scoped IDs on social messaging channels).
+ *   New threads only offer those people, and bulk sends are not allowed.
+ */
+export type ChannelInitiation = 'business' | 'contact'
+
+/**
  * Capability definition with display info and handler references.
  */
 export interface ChannelCapability {
@@ -43,8 +54,15 @@ export interface ChannelCapability {
    * Batch outbound capability.
    * - string: send tool only (legacy)
    * - object: send tool + get_status tool for operation tracking
+   *
+   * Ignored when `initiation` is `contact`.
    */
   send_batch?: string | ChannelBatchCapability
+  /**
+   * Who may start a conversation. Defaults to `business`.
+   * See {@link ChannelInitiation}.
+   */
+  initiation?: ChannelInitiation
 }
 
 /** Which inbound conversations go to Ask Skedyul. */

@@ -345,6 +345,8 @@ export const ChannelCapabilitySchema = z.object({
   send_batch: z
     .union([z.string(), ChannelBatchCapabilitySchema])
     .optional(), // Batch outbound tool handle, or { send, get_status }
+  // Who may start a conversation: 'business' (default) or 'contact' (reply-only)
+  initiation: z.enum(['business', 'contact']).optional(),
 })
 
 /** Ask Skedyul opt-in on a channel (see AskSkedyulCapability). */

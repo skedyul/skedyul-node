@@ -545,6 +545,7 @@ export type {
   CapabilityType,
   ChannelCapability,
   ChannelBatchCapability,
+  ChannelInitiation,
   AskSkedyulCapability,
   AskSkedyulConversation,
   AskSkedyulAddressing,
