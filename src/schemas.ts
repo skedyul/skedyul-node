@@ -345,6 +345,14 @@ export const ChannelCapabilitySchema = z.object({
   send_batch: z
     .union([z.string(), ChannelBatchCapabilitySchema])
     .optional(), // Batch outbound tool handle, or { send, get_status }
+  // Who may start a conversation: 'business' (default) or 'contact' (reply-only)
+  initiation: z.enum(['business', 'contact']).optional(),
+  // Free-form messages only within `hours` of the contact's last inbound message
+  window: z.object({ hours: z.number().positive() }).optional(),
+  // Provider template tools used outside the window
+  templates: z
+    .object({ create: z.string(), delete: z.string().optional() })
+    .optional(),
 })
 
 /** Ask Skedyul opt-in on a channel (see AskSkedyulCapability). */
@@ -1321,12 +1329,25 @@ export const MessageSendAttachmentSchema = z.object({
   size: z.number(),
 })
 
+/**
+ * An approved provider template to send instead of `content` (set when the
+ * channel's messaging window is closed). `parameters` are named values.
+ */
+export const MessageSendTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  language: z.string(),
+  parameters: z.record(z.string(), z.string()).optional(),
+})
+
 export const MessageSendMessageSchema = z.object({
   id: z.string(),
   content: z.string(),
   contentRaw: z.string().optional(),
   title: z.string().optional(),
   attachments: z.array(MessageSendAttachmentSchema).optional(),
+  /** When set, send this template instead of `content`. */
+  template: MessageSendTemplateSchema.optional(),
 })
 
 export const MessageSendGroupSchema = z.object({
@@ -1346,7 +1367,72 @@ export const MessageSendInputSchema = z.object({
 export const MessageSendOutputSchema = z.object({
   status: z.enum(['sent', 'queued', 'failed']),
   remoteId: z.string().optional(),
+  /** Why a `failed` send failed. `window_closed`: outside the messaging window. */
+  failureCode: z.enum(['window_closed', 'rejected', 'unknown']).optional(),
+  failureReason: z.string().optional(),
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider message templates (capabilities.messaging.templates)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MessageTemplateCategorySchema = z.enum(['utility', 'marketing'])
+
+export const MessageTemplateStatusSchema = z.enum([
+  'pending',
+  'approved',
+  'rejected',
+  'paused',
+  'disabled',
+])
+
+export const MessageTemplateCreateInputSchema = z.object({
+  channel: MessageSendChannelSchema,
+  /** Unique, lowercase, [a-z0-9_]. */
+  name: z.string(),
+  language: z.string(),
+  category: MessageTemplateCategorySchema,
+  /** Body text. Named variables are written `{{name}}`. */
+  body: z.string(),
+  parameters: z
+    .array(z.object({ name: z.string(), example: z.string() }))
+    .optional(),
+  footer: z.string().optional(),
+})
+
+export const MessageTemplateCreateOutputSchema = z.object({
+  templateId: z.string(),
+  status: MessageTemplateStatusSchema,
+  reason: z.string().optional(),
+  category: MessageTemplateCategorySchema.optional(),
+})
+
+export const MessageTemplateDeleteInputSchema = z.object({
+  channel: MessageSendChannelSchema,
+  templateId: z.string(),
+  name: z.string(),
+})
+
+export const MessageTemplateDeleteOutputSchema = z.object({
+  deleted: z.boolean(),
+})
+
+/** Payload for `communicationChannel.updateTemplateStatus`. */
+export const MessageTemplateStatusUpdateSchema = z.object({
+  templateId: z.string(),
+  status: MessageTemplateStatusSchema,
+  reason: z.string().optional(),
+  category: MessageTemplateCategorySchema.optional(),
+})
+
+export type MessageSendTemplate = z.infer<typeof MessageSendTemplateSchema>
+export type MessageTemplateCategory = z.infer<typeof MessageTemplateCategorySchema>
+export type MessageTemplateStatus = z.infer<typeof MessageTemplateStatusSchema>
+export type MessageTemplateCreateInput = z.infer<typeof MessageTemplateCreateInputSchema>
+export type MessageTemplateCreateOutput = z.infer<typeof MessageTemplateCreateOutputSchema>
+export type MessageTemplateDeleteInput = z.infer<typeof MessageTemplateDeleteInputSchema>
+export type MessageTemplateDeleteOutput = z.infer<typeof MessageTemplateDeleteOutputSchema>
+export type MessageTemplateStatusUpdate = z.infer<typeof MessageTemplateStatusUpdateSchema>
 
 export type MessageSendChannel = z.infer<typeof MessageSendChannelSchema>
 export type MessageSendSubscription = z.infer<typeof MessageSendSubscriptionSchema>
