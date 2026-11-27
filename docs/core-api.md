@@ -288,6 +288,65 @@ Emits `thread.attachment.received` per new attachment once the ThreadMessage exi
 
 ---
 
+## channelSetup
+
+Writes the state **Settings → Communication** shows for the sections a
+channel declares in `management` (see
+[Configuration](./configuration.md#communication-settings-management)).
+Every call is scoped to one installation: a workplace token already names
+it; with an app token (e.g. in a webhook) pass `appInstallationId`.
+
+```ts
+import { channelSetup } from 'skedyul'
+
+// A `requirements` item, e.g. after the provider reviews a document
+await channelSetup.setRequirement({
+  section: 'compliance',
+  item: 'business',
+  state: 'rejected',            // not_started | in_review | approved | rejected
+  reason: 'The ABN does not match the business name.',
+})
+
+// A `connection` section's account
+await channelSetup.setConnection({
+  connection: 'meta',
+  state: 'connected',           // not_connected | connected | expiring | expired
+  accountName: 'Acme Pty Ltd',
+  grantedPermissions: ['pages_show_list', 'pages_messaging'],
+})
+
+// What a `resources` section lists. `replace: true` removes anything not in `items`.
+await channelSetup.syncResources({
+  resource: 'number',
+  replace: true,
+  items: numbers.map((n) => ({
+    id: n.sid,
+    title: n.phoneNumber,
+    status: n.active ? 'active' : 'pending',   // keys of the section's `statuses`
+    communicationChannelId: n.channelId,       // for `scope: 'channel'` sections
+    data: { region: n.region },                // values for `columns`
+  })),
+})
+await channelSetup.removeResource({ resource: 'number', id: 'PN123' })
+
+// One of your channels: problems, the line under its identifier, and
+// attributes (merged) that `details` sections, badges and features read
+await channelSetup.setChannelStatus({
+  communicationChannelId,
+  status: 'needs_attention',    // active | needs_setup | needs_attention
+  statusReason: 'Compliance was rejected.',
+  attributes: { voiceEnabled: true },
+})
+```
+
+| Method | Writes |
+|--------|--------|
+| `setRequirement` | One item of a `requirements` section (upsert by `section` + `item`). |
+| `setConnection` | A `connection` section's account (upsert by `connection`). |
+| `syncResources` | The rows of a `resources` section (upsert by `resource` + `id`). |
+| `removeResource` | Removes one row. |
+| `setChannelStatus` | Health, status reason, identifier hint and attributes of one of the installation's channels. |
+
 ## instance
 
 CRUD operations for app-defined model instances.
