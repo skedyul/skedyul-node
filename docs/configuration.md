@@ -902,7 +902,32 @@ management: {
 | `domains` | The status of workplace domains for one `provision.domains` purpose | Platform domains |
 
 **Actions** run an app `tool` (or follow an `href`) with the context they were
-clicked in, then the page re-reads its state. `confirm` asks first; `when` /
+clicked in, then the page re-reads its state. An action with a `form` first
+opens a dialog and passes its values to the tool by field key; on a
+`requirements` item the fields start from the item's saved `data`, so a
+rejected submission can be fixed and resubmitted:
+
+```ts
+{
+  handle: 'submit',
+  label: 'Submit documents',
+  tool: 'submit_compliance_document',
+  form: {
+    title: 'Business registration',
+    fields: [
+      { kind: 'text', key: 'business_name', label: 'Business name', required: true },
+      { kind: 'text', key: 'business_email', label: 'Email', inputType: 'email' },
+      { kind: 'file', key: 'file', label: 'Register excerpt', accept: 'application/pdf', required: true },
+    ],
+  },
+}
+```
+
+Form fields (in `form` sections, add-flow steps and action forms) are
+`text` (with `inputType` `email` / `tel` / `url`, or `multiline`), `toggle`,
+`select`, `radio` and `file`. A `file` field uploads the file and gives the
+tool its file id, which it reads with `file.get`. `required` blocks
+submitting while the field is empty. `confirm` asks first; `when` /
 `disabledWhen` show or disable them by the row's status. A purchase
 section's `select` may have no tool, in which case it only selects the
 result and the step's `next` runs the tool.

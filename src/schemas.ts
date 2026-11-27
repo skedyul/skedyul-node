@@ -406,6 +406,42 @@ export const ChannelStatusMapSchema = z.record(
   z.object({ label: z.string(), tone: ChannelManagementToneSchema }),
 )
 
+const formFieldBase = {
+  key: z.string(),
+  label: z.string(),
+  help: z.string().optional(),
+  required: z.boolean().optional(),
+}
+
+export const ChannelFormFieldDefinitionSchema = z.discriminatedUnion('kind', [
+  z.object({
+    ...formFieldBase,
+    kind: z.literal('text'),
+    default: z.string().optional(),
+    placeholder: z.string().optional(),
+    prefix: z.string().optional(),
+    inputType: z.enum(['text', 'email', 'tel', 'url']).optional(),
+    multiline: z.boolean().optional(),
+  }),
+  z.object({ ...formFieldBase, kind: z.literal('toggle'), default: z.boolean().optional() }),
+  z.object({
+    ...formFieldBase,
+    kind: z.enum(['select', 'radio']),
+    default: z.string().optional(),
+    options: z.array(
+      z.object({ value: z.string(), label: z.string(), description: z.string().optional() }),
+    ),
+  }),
+  z.object({ ...formFieldBase, kind: z.literal('file'), accept: z.string().optional() }),
+])
+
+export const ChannelActionFormDefinitionSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  fields: z.array(ChannelFormFieldDefinitionSchema).min(1),
+  submitLabel: z.string().optional(),
+})
+
 const ChannelActionFieldsSchema = z.object({
   handle: z.string(),
   label: z.string(),
@@ -416,6 +452,7 @@ const ChannelActionFieldsSchema = z.object({
   confirm: z
     .object({ title: z.string(), body: z.string(), confirmLabel: z.string().optional() })
     .optional(),
+  form: ChannelActionFormDefinitionSchema.optional(),
   when: z
     .object({ status: z.array(z.string()).optional(), notStatus: z.array(z.string()).optional() })
     .optional(),
@@ -520,27 +557,6 @@ const ChannelDetailsSectionSchema = z.object({
   ),
   action: ChannelActionDefinitionSchema.optional(),
 })
-
-const formFieldBase = { key: z.string(), label: z.string(), help: z.string().optional() }
-
-export const ChannelFormFieldDefinitionSchema = z.discriminatedUnion('kind', [
-  z.object({
-    ...formFieldBase,
-    kind: z.literal('text'),
-    default: z.string().optional(),
-    placeholder: z.string().optional(),
-    prefix: z.string().optional(),
-  }),
-  z.object({ ...formFieldBase, kind: z.literal('toggle'), default: z.boolean().optional() }),
-  z.object({
-    ...formFieldBase,
-    kind: z.enum(['select', 'radio']),
-    default: z.string().optional(),
-    options: z.array(
-      z.object({ value: z.string(), label: z.string(), description: z.string().optional() }),
-    ),
-  }),
-])
 
 const ChannelFormSectionSchema = z.object({
   ...sectionBase,

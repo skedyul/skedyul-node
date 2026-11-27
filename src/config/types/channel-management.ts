@@ -48,10 +48,25 @@ export interface ChannelActionDefinition {
   href?: string
   /** Ask before running. */
   confirm?: { title: string; body: string; confirmLabel?: string }
+  /**
+   * Collect input first, in a dialog. The values reach `tool` by field key,
+   * beside where it was clicked. On a `requirements` item, fields start from
+   * the values its requirement row's `data` holds (to fix and resubmit).
+   */
+  form?: ChannelActionFormDefinition
   /** Only show for rows in these statuses. */
   when?: ChannelStatusCondition
   /** Show disabled, with a reason, for rows in these statuses. */
   disabledWhen?: { status: string[]; reason: string }
+}
+
+/** The dialog an action opens to collect its tool's input. */
+export interface ChannelActionFormDefinition {
+  title: string
+  description?: string
+  fields: ChannelFormFieldDefinition[]
+  /** Default: the action's label. */
+  submitLabel?: string
 }
 
 interface ChannelSectionBase {
@@ -149,15 +164,38 @@ export interface ChannelDetailsSectionDefinition extends ChannelSectionBase {
   action?: ChannelActionDefinition
 }
 
-/** A field in a form section or add-flow step. */
+/**
+ * A field in a form section, an add-flow step or an action's form. Its
+ * value reaches the tool under `key`.
+ */
 export type ChannelFormFieldDefinition = {
-  /** Key in the channel's `settings` (or the flow's values). */
+  /** Key in the channel's `settings`, the flow's values, or the tool's input. */
   key: string
   label: string
   help?: string
+  /** The form can't be submitted while it is empty. */
+  required?: boolean
 } & (
-  | { kind: 'text'; default?: string; placeholder?: string; prefix?: string }
+  | {
+      kind: 'text'
+      default?: string
+      placeholder?: string
+      prefix?: string
+      /** Input type, for validation and the right keyboard. Default `text`. */
+      inputType?: 'text' | 'email' | 'tel' | 'url'
+      /** Several lines. */
+      multiline?: boolean
+    }
   | { kind: 'toggle'; default?: boolean }
+  | {
+      /**
+       * A file the person uploads. The tool receives its file id, which it
+       * reads with `file.get` / `file.getUrl`.
+       */
+      kind: 'file'
+      /** Accepted types, as for an input's `accept`, e.g. `application/pdf,image/*`. */
+      accept?: string
+    }
   | {
       kind: 'select' | 'radio'
       default?: string
