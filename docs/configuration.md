@@ -824,6 +824,97 @@ The webhook keeps calling `communicationChannel.receiveMessage`, adding
 `identity: { email?, phone? }`, and `mentioned: true` when a group message
 mentions the app. See [Core API](./core-api.md#communicationchannelreceivemessage).
 
+### Communication settings (`management`)
+
+Every channel appears in the workplace's **Settings → Communication** with
+the platform's own pages: messaging rules (from `capabilities`), rename,
+routing and archive. `management` adds what is specific to the app's
+channel: account setup, compliance, the channel's own tabs and the flow for
+adding one. It is plain data. Your tools do the work; the platform renders
+the state they write and calls them from the buttons you declare.
+
+```ts
+management: {
+  noun: { one: 'number', many: 'numbers' },
+  features: [{ key: 'voice', label: 'Voice', icon: 'Phone', attribute: 'voiceEnabled' }],
+  setup: {
+    sections: [
+      {
+        kind: 'requirements',
+        handle: 'compliance',
+        title: 'Regulatory compliance',
+        items: [
+          {
+            handle: 'business',
+            title: 'Business details',
+            actions: { not_started: { handle: 'add', label: 'Add details', tool: 'submit_business' } },
+          },
+        ],
+      },
+    ],
+  },
+  tabs: [
+    {
+      handle: 'forwarding',
+      label: 'Call forwarding',
+      icon: 'PhoneForwarded',
+      sections: [
+        {
+          kind: 'form',
+          handle: 'forwarding',
+          title: 'Forward calls',
+          fields: [{ kind: 'text', key: 'to', label: 'Forward to' }],
+          submit: { handle: 'save', label: 'Save', tool: 'save_forwarding' },
+        },
+      ],
+    },
+  ],
+  add: {
+    title: 'Add a number',
+    requires: { sections: ['compliance'], message: 'Finish compliance first.' },
+    steps: [/* purchase, form, … sections, each with a `next` action */],
+    done: { title: 'Number added', body: 'Messages to it now arrive in Threads.' },
+  },
+}
+```
+
+| Key | Meaning |
+|-----|---------|
+| `noun` | What one channel is called (number, Page, workspace). |
+| `order` | Sort order among channel kinds. Lower comes first. |
+| `archiveNote` | Extra line in the archive confirmation. |
+| `features` | Chips on the channel. `attribute` names a channel attribute; a falsy value strikes the chip through. |
+| `badges` | Badges on the channel row, from a channel attribute's value. |
+| `setup` | Sections for the kind of channel: account connection, compliance, domains. |
+| `tabs` | Extra tabs on a channel's page, after the platform's own. |
+| `add` | The add flow: optional `requires` (setup sections that must be complete), `steps`, and a `done` message. Leave `steps` empty when channels appear on their own once setup is done. |
+
+**Section kinds** (`kind`):
+
+| Kind | Shows | State comes from |
+|------|-------|------------------|
+| `requirements` | An ordered checklist (e.g. compliance) with an action per state (`not_started`, `in_review`, `approved`, `rejected`) | One requirement row per item |
+| `connection` | An account connection with `connect` / `disconnect` and the permissions it needs | One connection row per `connection` handle |
+| `resources` | A list of synced things (numbers, Pages, Slack channels) with status badges and row actions | Resource rows for the `resource` handle; `scope: 'channel'` limits them to the viewed channel |
+| `details` | Key facts, badges and meters | The channel's (or a `source` connection's) attributes |
+| `form` | A form over the channel's settings; `submit.tool` saves it | The channel's settings |
+| `purchase` | Search (`searchTool`) and pick something priced | The search tool's result |
+| `domains` | The status of workplace domains for one `provision.domains` purpose | Platform domains |
+
+**Actions** run an app `tool` (or follow an `href`) with the context they were
+clicked in, then the page re-reads its state. `confirm` asks first; `when` /
+`disabledWhen` show or disable them by the row's status. A purchase
+section's `select` may have no tool, in which case it only selects the
+result and the step's `next` runs the tool.
+
+Apps that send from a workplace domain declare why under `provision.domains`:
+
+```ts
+provision: {
+  domains: [{ handle: 'sending', label: 'Sending email', description: 'Email is sent from this domain.' }],
+}
+```
+
 ### Channels Index
 
 ```ts

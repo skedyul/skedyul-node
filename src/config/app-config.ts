@@ -15,6 +15,7 @@ import type {
   AppReportDefinition,
   RelationshipDefinition,
   ChannelDefinition,
+  DomainPurposeDefinition,
   ConsentConfig,
   WorkflowDefinition,
   PageDefinition,
@@ -62,6 +63,11 @@ export interface ProvisionConfig {
   relationships?: RelationshipDefinition[]
   /** Communication channel definitions */
   channels?: ChannelDefinition[]
+  /**
+   * Why the app needs workplace domains (e.g. to send email from one).
+   * Channel `domains` sections refer to these handles.
+   */
+  domains?: DomainPurposeDefinition[]
   /**
    * Consent dimensions this app can apply to installed channels.
    * Workplaces choose the channel bindings. Unbound dimensions do nothing.

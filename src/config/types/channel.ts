@@ -1,3 +1,4 @@
+import type { ChannelManagementDefinition } from './channel-management'
 /**
  * Channel definition types.
  *
@@ -193,4 +194,10 @@ export interface ChannelDefinition extends BaseDefinition {
   capabilities: Partial<Record<CapabilityType, ChannelCapability>> & {
     askSkedyul?: AskSkedyulCapability
   }
+  /**
+   * What Communication settings show for this channel: setup sections,
+   * extra tabs and the add flow. Optional; without it the channel gets the
+   * platform's own pages only.
+   */
+  management?: ChannelManagementDefinition
 }
