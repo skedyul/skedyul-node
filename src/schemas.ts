@@ -625,6 +625,7 @@ export const ChannelSectionDefinitionSchema = z.discriminatedUnion('kind', [
 export const ChannelManagementDefinitionSchema = z.object({
   noun: z.object({ one: z.string(), many: z.string() }),
   order: z.number().optional(),
+  sync: z.object({ tool: z.string() }).optional(),
   archiveNote: z.string().optional(),
   features: z
     .array(

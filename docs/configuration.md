@@ -882,6 +882,7 @@ management: {
 |-----|---------|
 | `noun` | What one channel is called (number, Page, workspace). |
 | `order` | Sort order among channel kinds. Lower comes first. |
+| `sync` | `{ tool }` the platform runs when Communication settings opens, so state you keep in your own models or at the provider is reported (through `channelSetup.*`) before it is shown. Report everything; it gets no input. |
 | `archiveNote` | Extra line in the archive confirmation. |
 | `features` | Chips on the channel. `attribute` names a channel attribute; a falsy value strikes the chip through. |
 | `badges` | Badges on the channel row, from a channel attribute's value. |
