@@ -109,6 +109,14 @@ describe('channel management', () => {
     assert.deepEqual(parsed.management, phone.management)
   })
 
+  it('keeps the sync tool', () => {
+    const parsed = ChannelDefinitionSchema.parse({
+      ...phone,
+      management: { noun: { one: 'number', many: 'numbers' }, sync: { tool: 'sync_channel_setup' } },
+    })
+    assert.deepEqual(parsed.management?.sync, { tool: 'sync_channel_setup' })
+  })
+
   it('accepts a channel without management', () => {
     const { management: _omit, ...plain } = phone
     assert.equal(ChannelDefinitionSchema.safeParse(plain).success, true)

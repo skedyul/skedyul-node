@@ -280,6 +280,13 @@ export interface ChannelManagementDefinition {
   noun: { one: string; many: string }
   /** Sort order among channel kinds. Lower comes first. */
   order?: number
+  /**
+   * A tool the platform runs when Communication settings opens for this
+   * app, so state the app keeps elsewhere (its own models, the provider) is
+   * reported through `channelSetup.*` before it's shown. It should report
+   * everything it knows; it receives no input.
+   */
+  sync?: { tool: string }
   /** Extra line in the archive confirmation. */
   archiveNote?: string
   /** Feature chips. `attribute` names a channel attribute; a falsy value strikes the chip through. */
