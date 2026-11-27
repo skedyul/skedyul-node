@@ -146,6 +146,67 @@ describe('channel management', () => {
     assert.equal(result.success, false)
   })
 
+  it('keeps an action form with file, email and required fields', () => {
+    const management = {
+      noun: { one: 'number', many: 'numbers' },
+      setup: {
+        sections: [
+          {
+            kind: 'requirements' as const,
+            handle: 'compliance',
+            title: 'Compliance',
+            items: [
+              {
+                handle: 'business',
+                title: 'Business registration',
+                actions: {
+                  not_started: {
+                    handle: 'submit',
+                    label: 'Submit documents',
+                    tool: 'submit_compliance_document',
+                    form: {
+                      title: 'Business registration',
+                      submitLabel: 'Submit',
+                      fields: [
+                        { kind: 'text' as const, key: 'business_name', label: 'Business name', required: true },
+                        { kind: 'text' as const, key: 'business_email', label: 'Email', inputType: 'email' as const },
+                        { kind: 'text' as const, key: 'address', label: 'Address', multiline: true },
+                        { kind: 'file' as const, key: 'file', label: 'Register excerpt', accept: 'application/pdf', required: true },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    }
+    const parsed = ChannelDefinitionSchema.parse({ ...phone, management })
+    assert.deepEqual(parsed.management, management)
+  })
+
+  it('rejects an action form without fields', () => {
+    const result = ChannelDefinitionSchema.safeParse({
+      ...phone,
+      management: {
+        noun: { one: 'number', many: 'numbers' },
+        setup: {
+          sections: [
+            {
+              kind: 'details',
+              handle: 'd',
+              title: 'D',
+              items: [],
+              action: { handle: 'a', label: 'A', tool: 't', form: { title: 'T', fields: [] } },
+            },
+          ],
+        },
+      },
+    })
+    assert.equal(result.success, false)
+  })
+
   it('accepts domain purposes in provision', () => {
     const parsed = ProvisionConfigSchema.parse({
       channels: [phone],
