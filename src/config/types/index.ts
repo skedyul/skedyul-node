@@ -24,6 +24,7 @@ export * from './report'
 
 // Channels
 export * from './channel'
+export * from './channel-management'
 
 // Consent dimensions
 export * from './consent'

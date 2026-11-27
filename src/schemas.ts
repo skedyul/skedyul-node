@@ -395,9 +395,278 @@ export const ChannelFieldDefinitionSchema = z.object({
   }).passthrough().optional(),
 }).passthrough()
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel management (Communication settings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ChannelManagementToneSchema = z.enum(['success', 'pending', 'warning', 'danger', 'neutral'])
+
+export const ChannelStatusMapSchema = z.record(
+  z.string(),
+  z.object({ label: z.string(), tone: ChannelManagementToneSchema }),
+)
+
+const ChannelActionFieldsSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  icon: z.string().optional(),
+  variant: z.enum(['default', 'outline', 'ghost', 'destructive']).optional(),
+  tool: z.string().optional(),
+  href: z.string().optional(),
+  confirm: z
+    .object({ title: z.string(), body: z.string(), confirmLabel: z.string().optional() })
+    .optional(),
+  when: z
+    .object({ status: z.array(z.string()).optional(), notStatus: z.array(z.string()).optional() })
+    .optional(),
+  disabledWhen: z.object({ status: z.array(z.string()), reason: z.string() }).optional(),
+})
+
+/** A button that does something: it runs an app `tool` or follows an `href`. */
+export const ChannelActionDefinitionSchema = ChannelActionFieldsSchema.refine(
+  (a) => Boolean(a.tool || a.href),
+  { message: 'An action needs a `tool` or an `href`' },
+)
+
+const sectionBase = {
+  handle: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
+}
+
+const ChannelRequirementsSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('requirements'),
+  scope: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+  unlocks: z.string().optional(),
+  items: z.array(
+    z.object({
+      handle: z.string(),
+      title: z.string(),
+      description: z.string().optional(),
+      fields: z
+        .array(z.object({ key: z.string(), label: z.string(), copy: z.boolean().optional() }))
+        .optional(),
+      actions: z
+        .object({
+          not_started: ChannelActionDefinitionSchema.optional(),
+          in_review: ChannelActionDefinitionSchema.optional(),
+          approved: ChannelActionDefinitionSchema.optional(),
+          rejected: ChannelActionDefinitionSchema.optional(),
+        })
+        .optional(),
+    }),
+  ),
+})
+
+const ChannelConnectionSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('connection'),
+  connection: z.string(),
+  permissions: z
+    .array(
+      z.object({
+        key: z.string(),
+        description: z.string().optional(),
+        requiredFor: z.string().optional(),
+      }),
+    )
+    .optional(),
+  emptyNote: z.string().optional(),
+  connect: ChannelActionDefinitionSchema,
+  reconnectLabel: z.string().optional(),
+  disconnect: ChannelActionDefinitionSchema.optional(),
+})
+
+const ChannelResourcesSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('resources'),
+  resource: z.string(),
+  scope: z.enum(['installation', 'channel']).optional(),
+  noun: z.string(),
+  itemIcon: z.string().optional(),
+  columns: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        align: z.enum(['left', 'right']).optional(),
+      }),
+    )
+    .optional(),
+  statuses: ChannelStatusMapSchema,
+  filterByStatus: z.boolean().optional(),
+  add: ChannelActionDefinitionSchema.optional(),
+  actions: z.array(ChannelActionDefinitionSchema).optional(),
+  empty: z.object({ title: z.string(), description: z.string().optional() }).optional(),
+  footnote: z.string().optional(),
+})
+
+const ChannelDetailsSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('details'),
+  source: z.object({ connection: z.string() }).optional(),
+  items: z.array(
+    z.object({
+      label: z.string(),
+      key: z.string(),
+      badgeKey: z.string().optional(),
+      badges: ChannelStatusMapSchema.optional(),
+      help: z.string().optional(),
+      helpKey: z.string().optional(),
+      meter: z.object({ valueKey: z.string(), labelKey: z.string() }).optional(),
+    }),
+  ),
+  action: ChannelActionDefinitionSchema.optional(),
+})
+
+const formFieldBase = { key: z.string(), label: z.string(), help: z.string().optional() }
+
+export const ChannelFormFieldDefinitionSchema = z.discriminatedUnion('kind', [
+  z.object({
+    ...formFieldBase,
+    kind: z.literal('text'),
+    default: z.string().optional(),
+    placeholder: z.string().optional(),
+    prefix: z.string().optional(),
+  }),
+  z.object({ ...formFieldBase, kind: z.literal('toggle'), default: z.boolean().optional() }),
+  z.object({
+    ...formFieldBase,
+    kind: z.enum(['select', 'radio']),
+    default: z.string().optional(),
+    options: z.array(
+      z.object({ value: z.string(), label: z.string(), description: z.string().optional() }),
+    ),
+  }),
+])
+
+const ChannelFormSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('form'),
+  fields: z.array(ChannelFormFieldDefinitionSchema),
+  showWhen: z
+    .record(z.string(), z.object({ field: z.string(), equals: z.union([z.string(), z.boolean()]) }))
+    .optional(),
+  submit: ChannelActionDefinitionSchema.optional(),
+})
+
+const ChannelPurchaseSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('purchase'),
+  filters: z.array(
+    z.discriminatedUnion('kind', [
+      z.object({
+        kind: z.literal('select'),
+        key: z.string(),
+        label: z.string(),
+        default: z.string(),
+        options: z.array(z.object({ value: z.string(), label: z.string() })),
+      }),
+      z.object({
+        kind: z.literal('text'),
+        key: z.string(),
+        label: z.string(),
+        default: z.string().optional(),
+        placeholder: z.string().optional(),
+      }),
+      z.object({
+        kind: z.literal('multi'),
+        key: z.string(),
+        label: z.string(),
+        options: z.array(
+          z.object({ value: z.string(), label: z.string(), default: z.boolean().optional() }),
+        ),
+      }),
+    ]),
+  ),
+  searchTool: z.string(),
+  // Picking a result may only select it for the step; the step's `next` runs the tool.
+  select: ChannelActionFieldsSchema,
+  footnote: z.string().optional(),
+})
+
+const ChannelDomainsSectionSchema = z.object({
+  ...sectionBase,
+  kind: z.literal('domains'),
+  purpose: z.string(),
+  domain: z
+    .object({ fromAttribute: z.string().optional(), fromValue: z.string().optional() })
+    .optional(),
+})
+
+export const ChannelSectionDefinitionSchema = z.discriminatedUnion('kind', [
+  ChannelDomainsSectionSchema,
+  ChannelRequirementsSectionSchema,
+  ChannelConnectionSectionSchema,
+  ChannelResourcesSectionSchema,
+  ChannelDetailsSectionSchema,
+  ChannelFormSectionSchema,
+  ChannelPurchaseSectionSchema,
+])
+
+export const ChannelManagementDefinitionSchema = z.object({
+  noun: z.object({ one: z.string(), many: z.string() }),
+  order: z.number().optional(),
+  archiveNote: z.string().optional(),
+  features: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        icon: z.string().optional(),
+        attribute: z.string().optional(),
+      }),
+    )
+    .optional(),
+  badges: z.array(z.object({ attribute: z.string(), statuses: ChannelStatusMapSchema })).optional(),
+  setup: z
+    .object({
+      description: z.string().optional(),
+      sections: z.array(ChannelSectionDefinitionSchema),
+    })
+    .optional(),
+  tabs: z
+    .array(
+      z.object({
+        handle: z.string(),
+        label: z.string(),
+        icon: z.string(),
+        sections: z.array(ChannelSectionDefinitionSchema),
+      }),
+    )
+    .optional(),
+  add: z
+    .object({
+      title: z.string(),
+      requires: z.object({ sections: z.array(z.string()), message: z.string() }).optional(),
+      steps: z
+        .array(
+          z.object({
+            handle: z.string(),
+            title: z.string(),
+            description: z.string().optional(),
+            sections: z.array(ChannelSectionDefinitionSchema),
+            next: ChannelActionDefinitionSchema,
+            waiting: z.object({ title: z.string(), body: z.string() }).optional(),
+          }),
+        ),
+      done: z.object({ title: z.string(), body: z.string() }),
+    })
+    .optional(),
+})
+
+export const DomainPurposeDefinitionSchema = z.object({
+  handle: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+})
+
 export const ChannelDefinitionSchema = z.object({
   handle: z.string(),
   label: z.string(),
+  description: z.string().optional(),
   icon: z.string().optional(),
   /** Product logo. An https URL or an SVG data URI. */
   iconUrl: z.string().optional(),
@@ -410,6 +679,8 @@ export const ChannelDefinitionSchema = z.object({
     video: ChannelCapabilitySchema.optional(),
     askSkedyul: AskSkedyulCapabilitySchema.optional(),
   }),
+  /** Communication settings: setup sections, extra tabs and the add flow. */
+  management: ChannelManagementDefinitionSchema.optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1176,6 +1447,8 @@ export const ProvisionConfigSchema = z.object({
   /** Relationship definitions between INTERNAL models */
   relationships: z.array(RelationshipDefinitionSchema).optional(),
   channels: z.array(ChannelDefinitionSchema).optional(),
+  /** Why the app needs workplace domains; channel `domains` sections refer to these */
+  domains: z.array(DomainPurposeDefinitionSchema).optional(),
   workflows: z.array(WorkflowDefinitionSchema).optional(),
   /** Base navigation configuration for all pages (can be overridden per page) */
   navigation: NavigationConfigSchema.optional(),
