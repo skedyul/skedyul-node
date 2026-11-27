@@ -43,12 +43,16 @@ export {
   report,
   setup,
   consent,
+  channelSetup,
   configure,
   getConfig,
   runWithConfig,
   createInstanceClient,
 } from './core/client'
 export type {
+  ChannelResourceItem,
+  ChannelRequirementStateValue,
+  ChannelConnectionStateValue,
   InstanceClient,
   InstanceContext,
   InstanceData,

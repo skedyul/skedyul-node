@@ -2478,6 +2478,154 @@ export type SetupReconcileResult = {
 /**
  * Install setup checklist API (requires sk_wkp_ token).
  */
+/** State of a `requirements` item. */
+export type ChannelRequirementStateValue = 'not_started' | 'in_review' | 'approved' | 'rejected'
+
+/** State of a `connection`. */
+export type ChannelConnectionStateValue = 'not_connected' | 'connected' | 'expiring' | 'expired'
+
+/** One thing a `resources` section lists (a number, a Page, a Slack channel). */
+export interface ChannelResourceItem {
+  /** Your id for it, e.g. a number SID or Page id. */
+  id: string
+  title: string
+  subtitle?: string | null
+  /** A key of the section's `statuses`. */
+  status: string
+  statusReason?: string | null
+  preview?: string | null
+  managedBy?: string | null
+  /** Lucide icon name */
+  icon?: string | null
+  /** Link to one of this installation's channels, for `scope: 'channel'` sections. */
+  communicationChannelId?: string | null
+  /** Values for the section's `columns`, by key. */
+  data?: Record<string, unknown>
+}
+
+/** Scope for a call made with an app token (e.g. from a webhook). */
+type InstallationScope = {
+  /**
+   * Required with an app token; omitted with a workplace token, which
+   * already names its installation.
+   */
+  appInstallationId?: string
+}
+
+/**
+ * Writes the state Communication settings show for the sections a channel
+ * declares in `management`. Every call is scoped to one installation.
+ *
+ * @example
+ * ```ts
+ * await channelSetup.setRequirement({
+ *   section: 'compliance',
+ *   item: 'business',
+ *   state: 'in_review',
+ * })
+ * await channelSetup.syncResources({
+ *   resource: 'number',
+ *   replace: true,
+ *   items: numbers.map((n) => ({ id: n.sid, title: n.phoneNumber, status: 'active' })),
+ * })
+ * ```
+ */
+export const channelSetup = {
+  /** Set one item of a `requirements` section. */
+  async setRequirement(
+    input: InstallationScope & {
+      /** The section's `handle`. */
+      section: string
+      /** The item's `handle`. */
+      item: string
+      state: ChannelRequirementStateValue
+      /** Why it was rejected, or a review note. */
+      reason?: string | null
+      note?: string | null
+      /** Values for the item's `fields`, by key. */
+      data?: Record<string, string>
+      documents?: Array<{ name: string; state: 'uploaded' | 'missing' | 'rejected' }>
+    },
+  ): Promise<{ section: string; item: string; state: ChannelRequirementStateValue }> {
+    const { data } = await callCore<{
+      section: string
+      item: string
+      state: ChannelRequirementStateValue
+    }>('channelSetup.setRequirement', input)
+    return data
+  },
+
+  /** Set the state of a `connection` section's account connection. */
+  async setConnection(
+    input: InstallationScope & {
+      /** The section's `connection` handle. */
+      connection: string
+      state: ChannelConnectionStateValue
+      accountName?: string | null
+      accountDetail?: string | null
+      note?: string | null
+      grantedPermissions?: string[]
+      /** Read by `details` sections with `source: { connection }`. */
+      attributes?: Record<string, unknown>
+    },
+  ): Promise<{ connection: string; state: ChannelConnectionStateValue }> {
+    const { data } = await callCore<{
+      connection: string
+      state: ChannelConnectionStateValue
+    }>('channelSetup.setConnection', input)
+    return data
+  },
+
+  /**
+   * Upsert the things a `resources` section lists. With `replace: true`,
+   * `items` is the complete list and anything else is removed.
+   */
+  async syncResources(
+    input: InstallationScope & {
+      /** The section's `resource` handle. */
+      resource: string
+      items: ChannelResourceItem[]
+      replace?: boolean
+    },
+  ): Promise<{ resource: string; synced: number; removed: number }> {
+    const { data } = await callCore<{ resource: string; synced: number; removed: number }>(
+      'channelSetup.syncResources',
+      input,
+    )
+    return data
+  },
+
+  /** Remove one listed thing. */
+  async removeResource(
+    input: InstallationScope & { resource: string; id: string },
+  ): Promise<{ removed: number }> {
+    const { data } = await callCore<{ removed: number }>('channelSetup.removeResource', input)
+    return data
+  },
+
+  /**
+   * Report one of your channels' state: whether it needs setup or attention
+   * (and why), the line under its identifier, and attributes (merged) that
+   * `details` sections, badges and features read.
+   */
+  async setChannelStatus(
+    input: InstallationScope & {
+      communicationChannelId: string
+      /** `active` clears a previous problem. */
+      status?: 'active' | 'needs_setup' | 'needs_attention'
+      statusReason?: string | null
+      identifierHint?: string | null
+      attributes?: Record<string, unknown>
+    },
+  ): Promise<{ communicationChannelId: string }> {
+    const { data } = await callCore<{ communicationChannelId: string }>(
+      'channelSetup.setChannelStatus',
+      input,
+    )
+    return data
+  },
+}
+
 export const setup = {
   async list(): Promise<SetupListResult> {
     const { data } = await callCore<SetupListResult>('setup.list', {})
